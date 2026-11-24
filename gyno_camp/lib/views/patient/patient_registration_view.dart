@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -71,7 +72,8 @@ class _PatientRegistrationViewState
     if (activeLookups.isNotEmpty) {
       return {
         for (final item in activeLookups)
-          item.code: '${item.labelEn}${item.labelNe.isNotEmpty ? " (${item.labelNe})" : ""}'
+          item.code:
+              '${item.labelEn}${item.labelNe.isNotEmpty ? " (${item.labelNe})" : ""}',
       };
     }
     return ClinicalConstants.visitReasonOptions;
@@ -84,7 +86,9 @@ class _PatientRegistrationViewState
       _populateControllers(widget.patientToEdit!);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ref.read(patientRegistrationProvider.notifier).loadPatientForEditing(widget.patientToEdit!);
+        ref
+            .read(patientRegistrationProvider.notifier)
+            .loadPatientForEditing(widget.patientToEdit!);
       });
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -97,11 +101,14 @@ class _PatientRegistrationViewState
   @override
   void didUpdateWidget(covariant PatientRegistrationView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.patientToEdit != null && widget.patientToEdit != oldWidget.patientToEdit) {
+    if (widget.patientToEdit != null &&
+        widget.patientToEdit != oldWidget.patientToEdit) {
       _populateControllers(widget.patientToEdit!);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ref.read(patientRegistrationProvider.notifier).loadPatientForEditing(widget.patientToEdit!);
+        ref
+            .read(patientRegistrationProvider.notifier)
+            .loadPatientForEditing(widget.patientToEdit!);
       });
     }
   }
@@ -117,7 +124,11 @@ class _PatientRegistrationViewState
     final rel = (patient.spouseOrFatherName ?? '').trim();
     if (rel.contains(' ')) {
       _relativeNameController.text = rel.split(' ').first.toUpperCase();
-      _relativeSurnameController.text = rel.split(' ').skip(1).join(' ').toUpperCase();
+      _relativeSurnameController.text = rel
+          .split(' ')
+          .skip(1)
+          .join(' ')
+          .toUpperCase();
     } else {
       _relativeNameController.text = rel.toUpperCase();
       _relativeSurnameController.text = '';
@@ -131,7 +142,9 @@ class _PatientRegistrationViewState
 
   void _applyPatientToEdit(PatientModel patient) {
     _populateControllers(patient);
-    ref.read(patientRegistrationProvider.notifier).loadPatientForEditing(patient);
+    ref
+        .read(patientRegistrationProvider.notifier)
+        .loadPatientForEditing(patient);
     if (mounted) setState(() {});
   }
 
@@ -149,7 +162,9 @@ class _PatientRegistrationViewState
     _contactMobileController.clear();
 
     final camp = ref.read(userActiveCampProvider);
-    final province = (camp?.province.isNotEmpty == true) ? camp!.province : 'Bagmati';
+    final province = (camp?.province.isNotEmpty == true)
+        ? camp!.province
+        : 'Bagmati';
     final district = camp?.district ?? '';
     final municipality = camp?.municipality ?? '';
     final ward = camp?.ward ?? '';
@@ -158,13 +173,15 @@ class _PatientRegistrationViewState
     _districtController.text = district.toUpperCase();
     _municipalityController.text = municipality.toUpperCase();
 
-    ref.read(patientRegistrationProvider.notifier).reset(
-      province: province,
-      ward: ward,
-      district: district,
-      municipality: municipality,
-      intakeDate: camp?.startDate ?? DateTime.now(),
-    );
+    ref
+        .read(patientRegistrationProvider.notifier)
+        .reset(
+          province: province,
+          ward: ward,
+          district: district,
+          municipality: municipality,
+          intakeDate: camp?.startDate ?? DateTime.now(),
+        );
     setState(() {});
   }
 
@@ -211,7 +228,8 @@ class _PatientRegistrationViewState
   }
 
   Future<void> _pickIntakeDate() async {
-    final current = ref.read(patientRegistrationProvider).intakeDate ?? DateTime.now();
+    final current =
+        ref.read(patientRegistrationProvider).intakeDate ?? DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: current,
@@ -270,7 +288,8 @@ class _PatientRegistrationViewState
   ) async {
     if (!mounted) return;
     final effectiveOrg = ref.read(effectiveOrganizationProvider);
-    final orgName = (camp.organizationName.isNotEmpty &&
+    final orgName =
+        (camp.organizationName.isNotEmpty &&
             !AppConstants.isLegacyDefaultOrganization(camp.organizationName))
         ? camp.organizationName
         : effectiveOrg;
@@ -300,8 +319,6 @@ class _PatientRegistrationViewState
     if (!mounted) return;
     await BlankFormDownloadDialog.show(context, camp: camp);
   }
-
-
 
   /// Interactive block-grid input widget.
   /// When [controller] is provided, tapping the grid focuses the hidden TextField
@@ -357,7 +374,8 @@ class _PatientRegistrationViewState
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  currentState.validationError ?? 'Please complete all required fields properly.',
+                  currentState.validationError ??
+                      'Please complete all required fields properly.',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -409,14 +427,17 @@ class _PatientRegistrationViewState
 
         scaffoldMessenger.showSnackBar(
           SnackBar(
-            content: Text('Patient updated: ${updated.fullName} (ID: ${updated.patientId})'),
+            content: Text(
+              'Patient updated: ${updated.fullName} (ID: ${updated.patientId})',
+            ),
             backgroundColor: AppTheme.successGreen,
           ),
         );
 
         navigator.pop(updated);
       } else {
-        final err = ref.read(patientRegistrationProvider).errorMessage ??
+        final err =
+            ref.read(patientRegistrationProvider).errorMessage ??
             'Failed to update patient details.';
         scaffoldMessenger.showSnackBar(
           SnackBar(
@@ -436,7 +457,9 @@ class _PatientRegistrationViewState
       staffUserName: user?.name ?? 'Field Nurse',
       staffUserRole: user?.role.toDbString() ?? AppConstants.roleDataTaker,
       deviceId: device?.deviceId ?? 'dev-field',
-      tenantId: camp.tenantId.isNotEmpty ? camp.tenantId : (user?.tenantId ?? 'default_tenant'),
+      tenantId: camp.tenantId.isNotEmpty
+          ? camp.tenantId
+          : (user?.tenantId ?? 'default_tenant'),
     );
 
     if (!mounted) return;
@@ -450,7 +473,9 @@ class _PatientRegistrationViewState
 
       scaffoldMessenger.showSnackBar(
         SnackBar(
-          content: Text('Registered: ${registered.fullName} (ID: ${registered.patientId})'),
+          content: Text(
+            'Registered: ${registered.fullName} (ID: ${registered.patientId})',
+          ),
           backgroundColor: AppTheme.successGreen,
         ),
       );
@@ -467,9 +492,7 @@ class _PatientRegistrationViewState
           children: [
             Icon(Icons.auto_fix_high_rounded, color: AppTheme.primaryTeal),
             SizedBox(width: 8),
-            Expanded(
-              child: Text('Populate Demo Sample?'),
-            ),
+            Expanded(child: Text('Populate Demo Sample?')),
           ],
         ),
         content: const Text(
@@ -499,7 +522,9 @@ class _PatientRegistrationViewState
 
   void _fillSamplePatient() {
     final camp = ref.read(userActiveCampProvider);
-    final province = (camp?.province.isNotEmpty == true) ? camp!.province : 'Bagmati';
+    final province = (camp?.province.isNotEmpty == true)
+        ? camp!.province
+        : 'Bagmati';
     final ward = (camp?.ward.isNotEmpty == true) ? camp!.ward : '03';
     final district = (camp?.district.isNotEmpty == true)
         ? camp!.district
@@ -566,11 +591,14 @@ class _PatientRegistrationViewState
     CampModel? patientCamp;
     if (widget.patientToEdit != null) {
       try {
-        patientCamp = campState.camps.firstWhere((c) => c.id == widget.patientToEdit!.campId);
+        patientCamp = campState.camps.firstWhere(
+          (c) => c.id == widget.patientToEdit!.campId,
+        );
       } catch (_) {}
     }
     final isSuperAdmin = user?.role == UserRole.superAdmin;
-    final isLockedCamp = patientCamp != null && patientCamp.status.isLocked && !isSuperAdmin;
+    final isLockedCamp =
+        patientCamp != null && patientCamp.status.isLocked && !isSuperAdmin;
 
     return Scaffold(
       appBar: AppBar(
@@ -633,7 +661,10 @@ class _PatientRegistrationViewState
           final isMobile = constraints.maxWidth < 640;
 
           return SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 12.0 : 16.0, vertical: 16.0),
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 12.0 : 16.0,
+              vertical: 16.0,
+            ),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 880),
@@ -650,18 +681,26 @@ class _PatientRegistrationViewState
                         margin: const EdgeInsets.only(bottom: 14),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: isSuperAdmin ? const Color(0xFFFFFBEB) : const Color(0xFFFEF2F2),
+                          color: isSuperAdmin
+                              ? const Color(0xFFFFFBEB)
+                              : const Color(0xFFFEF2F2),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: isSuperAdmin ? const Color(0xFFF59E0B) : const Color(0xFFF87171),
+                            color: isSuperAdmin
+                                ? const Color(0xFFF59E0B)
+                                : const Color(0xFFF87171),
                             width: 1.5,
                           ),
                         ),
                         child: Row(
                           children: [
                             Icon(
-                              isSuperAdmin ? Icons.lock_open_rounded : Icons.lock_rounded,
-                              color: isSuperAdmin ? const Color(0xFFD97706) : const Color(0xFFDC2626),
+                              isSuperAdmin
+                                  ? Icons.lock_open_rounded
+                                  : Icons.lock_rounded,
+                              color: isSuperAdmin
+                                  ? const Color(0xFFD97706)
+                                  : const Color(0xFFDC2626),
                               size: 22,
                             ),
                             const SizedBox(width: 12),
@@ -676,7 +715,9 @@ class _PatientRegistrationViewState
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
-                                      color: isSuperAdmin ? const Color(0xFFD97706) : const Color(0xFFDC2626),
+                                      color: isSuperAdmin
+                                          ? const Color(0xFFD97706)
+                                          : const Color(0xFFDC2626),
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -686,7 +727,9 @@ class _PatientRegistrationViewState
                                         : 'Camp "${patientCamp.name}" (${patientCamp.campCode}) is ${patientCamp.status.displayNameEn}. Patient records cannot be edited once a camp is closed. Contact your Super Admin if edits are required.',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: isSuperAdmin ? const Color(0xFF92400E) : const Color(0xFF991B1B),
+                                      color: isSuperAdmin
+                                          ? const Color(0xFF92400E)
+                                          : const Color(0xFF991B1B),
                                     ),
                                   ),
                                 ],
@@ -700,31 +743,49 @@ class _PatientRegistrationViewState
                     // Instruction Banner: Block Letters
                     Container(
                       margin: const EdgeInsets.only(bottom: 14),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF93C5FD), width: 1.2),
+                        border: Border.all(
+                          color: const Color(0xFF93C5FD),
+                          width: 1.2,
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.edit_note_rounded, color: Color(0xFF1D4ED8), size: 22),
+                              const Icon(
+                                Icons.edit_note_rounded,
+                                color: Color(0xFF1D4ED8),
+                                size: 22,
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: RichText(
                                   text: const TextSpan(
-                                    style: TextStyle(fontSize: 12.5, color: Color(0xFF1E3A8A)),
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: Color(0xFF1E3A8A),
+                                    ),
                                     children: [
                                       TextSpan(
                                         text: 'INSTRUCTION: PLEASE FILL IN BLOCK LETTERS ',
-                                        style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.5,
+                                        ),
                                       ),
                                       TextSpan(
                                         text: '(कृपया सबै विवरण सफा ठूला अक्षरमा भर्नुहोस्)',
-                                        style: TextStyle(fontWeight: FontWeight.w600),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -737,18 +798,34 @@ class _PatientRegistrationViewState
                             spacing: 8,
                             runSpacing: 6,
                             children: [
-    
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF1D4ED8),
-                                  side: const BorderSide(color: Color(0xFF93C5FD)),
+                                  side: const BorderSide(
+                                    color: Color(0xFF93C5FD),
+                                  ),
                                   backgroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
-                                icon: const Icon(Icons.print_outlined, size: 15),
-                                label: const Text('Print Blank Form', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                                onPressed: () => _printBlankRegistrationForm(camp),
+                                icon: const Icon(
+                                  Icons.print_outlined,
+                                  size: 15,
+                                ),
+                                label: const Text(
+                                  'Print Blank Form',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                onPressed: () =>
+                                    _printBlankRegistrationForm(camp),
                               ),
                             ],
                           ),
@@ -756,1646 +833,2140 @@ class _PatientRegistrationViewState
                       ),
                     ),
 
-                // No active camp warning banner (Bug #2 fix)
-                if (camp == null)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.orange.shade400,
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.warning_amber_rounded,
-                          color: Colors.orange.shade700,
-                          size: 22,
-                        ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'No active camp selected. Please activate a camp from the dashboard before registering patients.',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: Color(0xFF92400E),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppTheme.primaryTeal.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      InkWell(
-                        onTap: _pickIntakeDate,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryTeal.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.calendar_today_rounded,
-                            size: 20,
-                            color: AppTheme.primaryTeal,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: InkWell(
-                          onTap: _pickIntakeDate,
-                          borderRadius: BorderRadius.circular(6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 8,
-                                runSpacing: 4,
-                                children: [
-                                  const Text(
-                                    'Intake Date (दर्ता मिति):',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.primaryDark,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.5), width: 0.7),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.edit_calendar_outlined, size: 11, color: AppTheme.primaryTeal),
-                                        SizedBox(width: 3),
-                                        Text('Change', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  NepaliLocalizationService.formatDualCalendarDate(
-                                    state.intakeDate ?? (camp?.startDate ?? DateTime.now()),
-                                  ),
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimaryLight,
-                                  ),
-                                ),
-                              ),
-                            if (camp != null) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                '${camp.name} • ${camp.venue}, Ward ${camp.ward}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
+                    // No active camp warning banner (Bug #2 fix)
+                    if (camp == null)
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryTeal,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          camp?.campCode ?? 'KTM01',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                            color: Colors.white,
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.orange.shade400,
+                            width: 1.5,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 2. LIVE DUPLICATE WARNING CARD
-                if (state.duplicateResult.hasDuplicate)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.amber.shade700,
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                        child: Row(
                           children: [
                             Icon(
                               Icons.warning_amber_rounded,
-                              color: Colors.amber.shade900,
+                              color: Colors.orange.shade700,
                               size: 22,
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
+                            const SizedBox(width: 10),
+                            const Expanded(
                               child: Text(
-                                'DUPLICATE DATA DETECTED (दोहोरिएको रेकर्ड)',
+                                'No active camp selected. Please activate a camp from the dashboard before registering patients.',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.amber.shade900,
                                   fontSize: 13,
+                                  color: Color(0xFF92400E),
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          state.duplicateResult.matchReasonEn ?? 'A patient with identical credentials already exists in this camp.',
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF78350F),
-                          ),
-                        ),
-                        if (state.duplicateResult.matchReasonNe != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            state.duplicateResult.matchReasonNe!,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: Colors.amber.shade900,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                      ),
 
-                // 3. Section 1: Patient Demographics Card
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.person_outline_rounded,
-                              color: AppTheme.primaryTeal,
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Patient Demographics (महिलाको विवरण)',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E293B),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryLight.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppTheme.primaryTeal.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          InkWell(
+                            onTap: _pickIntakeDate,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryTeal.withValues(
+                                  alpha: 0.12,
                                 ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.calendar_today_rounded,
+                                size: 20,
+                                color: AppTheme.primaryTeal,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        // Patient Token ID / Auto-generation Notice
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: InkWell(
+                              onTap: _pickIntakeDate,
+                              borderRadius: BorderRadius.circular(6),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.tag_rounded, size: 16, color: AppTheme.primaryPurple),
-                                  const SizedBox(width: 6),
-                                  const Expanded(
-                                    child: Text(
-                                      'Patient Token ID (बिरामी टोकन नं.) [Optional / ऐच्छिक]',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF334155)),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: _patientIdController.text.trim().isNotEmpty
-                                          ? const Color(0xFFDCFCE7)
-                                          : const Color(0xFFEDE9FE),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      _patientIdController.text.trim().isNotEmpty
-                                          ? 'Custom Token'
-                                          : 'Auto-Generate on Save',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: _patientIdController.text.trim().isNotEmpty
-                                            ? const Color(0xFF15803D)
-                                            : AppTheme.primaryPurple,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: _patientIdController,
-                                focusNode: _patientIdFocus,
-                                textCapitalization: TextCapitalization.characters,
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  labelText: 'Pre-assigned Token / Blank Form ID',
-                                  hintText: 'Leave empty to auto-generate sequentially (e.g. 00042 or GC-DHN-2026-00042)',
-                                  hintStyle: const TextStyle(fontSize: 11.5, color: Colors.grey),
-                                  suffixIcon: _patientIdController.text.isNotEmpty
-                                      ? IconButton(
-                                          icon: const Icon(Icons.clear, size: 16),
-                                          onPressed: () {
-                                            _patientIdController.clear();
-                                            vm.setPatientId(null);
-                                            setState(() {});
-                                          },
-                                        )
-                                      : null,
-                                ),
-                                onChanged: (val) {
-                                  vm.setPatientId(val);
-                                  setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (isMobile) ...[
-                          _buildBlockGrid(
-                            _firstNameController.text, 14,
-                            label: 'First Name * (पहिलो नाम) [BLOCK LETTERS]',
-                            controller: _firstNameController,
-                            focusNode: _firstNameFocus,
-                            onChanged: (val) {
-                              vm.updateField(firstName: val.toUpperCase());
-                              _triggerLiveDuplicateCheck();
-                            },
-                          ),
-                          _buildBlockGrid(
-                            _surnameController.text, 14,
-                            label: 'Surname * (थर) [BLOCK LETTERS]',
-                            controller: _surnameController,
-                            focusNode: _surnameFocus,
-                            onChanged: (val) {
-                              vm.updateField(surname: val.toUpperCase());
-                              _triggerLiveDuplicateCheck();
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _ageController,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Age * (उमेर)',
-                                    hintText: 'Years',
-                                    prefixIcon: Icon(Icons.cake_outlined),
-                                  ),
-                                  onChanged: (val) {
-                                    final parsed = int.tryParse(val);
-                                    vm.updateField(age: parsed);
-                                    setState(() {});
-                                    _triggerLiveDuplicateCheck();
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  controller: _wardController,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Ward No * (वडा नं)',
-                                    hintText: '01–35',
-                                    prefixIcon: Icon(Icons.map_outlined),
-                                  ),
-                                  onChanged: (val) {
-                                    vm.updateField(ward: val);
-                                    setState(() {});
-                                    _triggerLiveDuplicateCheck();
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            key: ValueKey('province_${state.province}'),
-                            initialValue: ClinicalConstants.nepalProvinces.any((p) => p.toLowerCase() == state.province.toLowerCase())
-                                ? ClinicalConstants.nepalProvinces.firstWhere((p) => p.toLowerCase() == state.province.toLowerCase())
-                                : 'Bagmati',
-                            decoration: const InputDecoration(
-                              labelText: 'Province * (प्रदेश)',
-                              prefixIcon: Icon(Icons.account_balance_outlined),
-                            ),
-                            items: ClinicalConstants.nepalProvinces.map((prov) {
-                              return DropdownMenuItem(
-                                value: prov,
-                                child: Text(prov),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                vm.updateField(province: val);
-                                final newDists = NepalGeodata.districtsFor(val);
-                                if (!newDists.any((d) => d.toUpperCase() == _districtController.text.toUpperCase())) {
-                                  final newDist = newDists.isNotEmpty ? newDists.first : '';
-                                  _districtController.text = newDist.toUpperCase();
-                                  vm.updateField(district: newDist.toUpperCase());
-                                  final newPalikas = NepalGeodata.palikasFor(newDist);
-                                  final newPalika = newPalikas.isNotEmpty ? newPalikas.first : '';
-                                  _municipalityController.text = newPalika.toUpperCase();
-                                  vm.updateField(municipality: newPalika.toUpperCase());
-                                }
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          Builder(
-                            builder: (context) {
-                              final availableDistricts = NepalGeodata.districtsFor(
-                                state.province.isNotEmpty ? state.province : 'Bagmati',
-                              );
-                              final currentDistrict = availableDistricts.firstWhere(
-                                (d) => d.toUpperCase() == _districtController.text.trim().toUpperCase(),
-                                orElse: () => availableDistricts.isNotEmpty ? availableDistricts.first : '',
-                              );
-                              return DropdownButtonFormField<String>(
-                                isExpanded: true,
-                                key: ValueKey('reg_mob_dist_${state.province}_${_districtController.text}'),
-                                initialValue: currentDistrict.isNotEmpty ? currentDistrict : null,
-                                decoration: const InputDecoration(
-                                  labelText: 'District * (जिल्ला)',
-                                  prefixIcon: Icon(Icons.map_outlined),
-                                ),
-                                items: availableDistricts.map((dist) {
-                                  return DropdownMenuItem(value: dist, child: Text(dist));
-                                }).toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    _districtController.text = val.toUpperCase();
-                                    vm.updateField(district: val.toUpperCase());
-                                    final newPalikas = NepalGeodata.palikasFor(val);
-                                    if (!newPalikas.any((p) => p.toUpperCase() == _municipalityController.text.toUpperCase())) {
-                                      final newPalika = newPalikas.isNotEmpty ? newPalikas.first : '';
-                                      _municipalityController.text = newPalika.toUpperCase();
-                                      vm.updateField(municipality: newPalika.toUpperCase());
-                                    }
-                                  }
-                                },
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          Builder(
-                            builder: (context) {
-                              final dist = _districtController.text.isNotEmpty ? _districtController.text : state.district;
-                              final availablePalikas = NepalGeodata.palikasFor(
-                                dist,
-                                extraPalikas: _municipalityController.text.isNotEmpty ? [_municipalityController.text] : null,
-                              );
-                              final currentPalika = availablePalikas.firstWhere(
-                                (p) => p.toUpperCase() == _municipalityController.text.trim().toUpperCase(),
-                                orElse: () => availablePalikas.isNotEmpty ? availablePalikas.first : '',
-                              );
-                              return DropdownButtonFormField<String>(
-                                isExpanded: true,
-                                key: ValueKey('reg_mob_palika_${dist}_${_municipalityController.text}'),
-                                initialValue: currentPalika.isNotEmpty ? currentPalika : null,
-                                decoration: const InputDecoration(
-                                  labelText: 'Palika / Municipality * (पालिका)',
-                                  prefixIcon: Icon(Icons.location_city_outlined),
-                                ),
-                                items: availablePalikas.map((palika) {
-                                  return DropdownMenuItem(value: palika, child: Text(palika));
-                                }).toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    _municipalityController.text = val.toUpperCase();
-                                    vm.updateField(municipality: val.toUpperCase());
-                                  }
-                                },
-                              );
-                            },
-                          ),
-                        ] else ...[
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildBlockGrid(
-                                  _firstNameController.text, 14,
-                                  label: 'First Name * (पहिलो नाम) [BLOCK LETTERS]',
-                                  controller: _firstNameController,
-                                  focusNode: _firstNameFocus,
-                                  onChanged: (val) {
-                                    vm.updateField(firstName: val.toUpperCase());
-                                    _triggerLiveDuplicateCheck();
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildBlockGrid(
-                                  _surnameController.text, 14,
-                                  label: 'Surname * (थर) [BLOCK LETTERS]',
-                                  controller: _surnameController,
-                                  focusNode: _surnameFocus,
-                                  onChanged: (val) {
-                                    vm.updateField(surname: val.toUpperCase());
-                                    _triggerLiveDuplicateCheck();
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _ageController,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Age * (उमेर)',
-                                    hintText: 'Years',
-                                    prefixIcon: Icon(Icons.cake_outlined),
-                                  ),
-                                  onChanged: (val) {
-                                    final parsed = int.tryParse(val);
-                                    vm.updateField(age: parsed);
-                                    setState(() {});
-                                    _triggerLiveDuplicateCheck();
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  controller: _wardController,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Ward No * (वडा नं)',
-                                    hintText: '01–35',
-                                    prefixIcon: Icon(Icons.map_outlined),
-                                  ),
-                                  onChanged: (val) {
-                                    vm.updateField(ward: val);
-                                    setState(() {});
-                                    _triggerLiveDuplicateCheck();
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: DropdownButtonFormField<String>(
-                                  isExpanded: true,
-                                  key: ValueKey('province_desktop_${state.province}'),
-                                  initialValue: ClinicalConstants.nepalProvinces.any((p) => p.toLowerCase() == state.province.toLowerCase())
-                                      ? ClinicalConstants.nepalProvinces.firstWhere((p) => p.toLowerCase() == state.province.toLowerCase())
-                                      : 'Bagmati',
-                                  decoration: const InputDecoration(
-                                    labelText: 'Province * (प्रदेश)',
-                                    prefixIcon: Icon(Icons.account_balance_outlined),
-                                  ),
-                                  items: ClinicalConstants.nepalProvinces.map((prov) {
-                                    return DropdownMenuItem(
-                                      value: prov,
-                                      child: Text(prov),
-                                    );
-                                  }).toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      vm.updateField(province: val);
-                                      final newDists = NepalGeodata.districtsFor(val);
-                                      if (!newDists.any((d) => d.toUpperCase() == _districtController.text.toUpperCase())) {
-                                        final newDist = newDists.isNotEmpty ? newDists.first : '';
-                                        _districtController.text = newDist.toUpperCase();
-                                        vm.updateField(district: newDist.toUpperCase());
-                                        final newPalikas = NepalGeodata.palikasFor(newDist);
-                                        final newPalika = newPalikas.isNotEmpty ? newPalikas.first : '';
-                                        _municipalityController.text = newPalika.toUpperCase();
-                                        vm.updateField(municipality: newPalika.toUpperCase());
-                                      }
-                                    }
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 3,
-                                child: Builder(
-                                  builder: (context) {
-                                    final availableDistricts = NepalGeodata.districtsFor(
-                                      state.province.isNotEmpty ? state.province : 'Bagmati',
-                                    );
-                                    final currentDistrict = availableDistricts.firstWhere(
-                                      (d) => d.toUpperCase() == _districtController.text.trim().toUpperCase(),
-                                      orElse: () => availableDistricts.isNotEmpty ? availableDistricts.first : '',
-                                    );
-                                    return DropdownButtonFormField<String>(
-                                      isExpanded: true,
-                                      key: ValueKey('reg_desk_dist_${state.province}_${_districtController.text}'),
-                                      initialValue: currentDistrict.isNotEmpty ? currentDistrict : null,
-                                      decoration: const InputDecoration(
-                                        labelText: 'District * (जिल्ला)',
-                                        prefixIcon: Icon(Icons.map_outlined),
-                                      ),
-                                      items: availableDistricts.map((dist) {
-                                        return DropdownMenuItem(value: dist, child: Text(dist));
-                                      }).toList(),
-                                      onChanged: (val) {
-                                        if (val != null) {
-                                          _districtController.text = val.toUpperCase();
-                                          vm.updateField(district: val.toUpperCase());
-                                          final newPalikas = NepalGeodata.palikasFor(val);
-                                          if (!newPalikas.any((p) => p.toUpperCase() == _municipalityController.text.toUpperCase())) {
-                                            final newPalika = newPalikas.isNotEmpty ? newPalikas.first : '';
-                                            _municipalityController.text = newPalika.toUpperCase();
-                                            vm.updateField(municipality: newPalika.toUpperCase());
-                                          }
-                                        }
-                                      },
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 3,
-                                child: Builder(
-                                  builder: (context) {
-                                    final dist = _districtController.text.isNotEmpty ? _districtController.text : state.district;
-                                    final availablePalikas = NepalGeodata.palikasFor(
-                                      dist,
-                                      extraPalikas: _municipalityController.text.isNotEmpty ? [_municipalityController.text] : null,
-                                    );
-                                    final currentPalika = availablePalikas.firstWhere(
-                                      (p) => p.toUpperCase() == _municipalityController.text.trim().toUpperCase(),
-                                      orElse: () => availablePalikas.isNotEmpty ? availablePalikas.first : '',
-                                    );
-                                    return DropdownButtonFormField<String>(
-                                      isExpanded: true,
-                                      key: ValueKey('reg_desk_palika_${dist}_${_municipalityController.text}'),
-                                      initialValue: currentPalika.isNotEmpty ? currentPalika : null,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Palika / Municipality * (पालिका)',
-                                        prefixIcon: Icon(Icons.location_city_outlined),
-                                      ),
-                                      items: availablePalikas.map((palika) {
-                                        return DropdownMenuItem(value: palika, child: Text(palika));
-                                      }).toList(),
-                                      onChanged: (val) {
-                                        if (val != null) {
-                                          _municipalityController.text = val.toUpperCase();
-                                          vm.updateField(municipality: val.toUpperCase());
-                                        }
-                                      },
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 4. Section 2: Family & Marital Profile Card
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.family_restroom_outlined,
-                              color: AppTheme.primaryTeal,
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Marital Profile (वैवाहिक स्थिति)',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Marital Status Classification first
-                        const Text(
-                          'Marital Status Classification:',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 8,
-                          children:
-                              [
-                                'married',
-                                'unmarried',
-                                'widow',
-                                'divorced',
-                              ].map((status) {
-                                final isSelected =
-                                    state.maritalStatus == status;
-                                return ChoiceChip(
-                                  label: Text(
-                                    '${NepaliLocalizationService.translate(status)} ($status)',
-                                  ),
-                                  selected: isSelected,
-                                  selectedColor: AppTheme.primaryTeal
-                                      .withValues(alpha: 0.15),
-                                  labelStyle: TextStyle(
-                                    color: isSelected
-                                        ? AppTheme.primaryTeal
-                                        : const Color(0xFF334155),
-                                    fontWeight: isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    fontSize: 12.5,
-                                  ),
-                                  onSelected: (_) {
-                                    if (status == 'unmarried') {
-                                      _maritalAgeController.clear();
-                                      vm.updateField(
-                                        maritalStatus: status,
-                                        relationshipType: 'Father',
-                                        clearMaritalAge: true,
-                                      );
-                                    } else if (status == 'married') {
-                                      vm.updateField(
-                                        maritalStatus: status,
-                                        relationshipType: 'Husband',
-                                      );
-                                    } else if (status == 'divorced') {
-                                      vm.updateField(
-                                        maritalStatus: status,
-                                        relationshipType: 'Father',
-                                      );
-                                    } else {
-                                      vm.updateField(maritalStatus: status);
-                                    }
-                                    setState(() {});
-                                    _triggerLiveDuplicateCheck();
-                                  },
-                                );
-                              }).toList(),
-                        ),
-                        const SizedBox(height: 16),
-                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                        const SizedBox(height: 16),
-
-                        // Relative Name & Relationship Type (Dynamic based on marital status)
-                        Builder(
-                          builder: (context) {
-                            final isUnmarried =
-                                state.maritalStatus == 'unmarried';
-                            final isWidow = state.maritalStatus == 'widow';
-                            final isDivorced =
-                                state.maritalStatus == 'divorced';
-
-                            final String relativeLabel;
-
-                            if (isUnmarried) {
-                              relativeLabel = "Father's / Guardian's Name * (बुबा वा संरक्षकको नाम)";
-                            } else if (isWidow) {
-                              relativeLabel = "Late Husband's / Father's Name * (दिवंगत श्रीमान वा बुबाको नाम)";
-                            } else if (isDivorced) {
-                              relativeLabel = "Father's / Guardian's Name * (बुबा वा संरक्षकको नाम)";
-                            } else {
-                              relativeLabel = "Husband's Name * (श्रीमानको नाम)";
-                            }
-
-                            final List<DropdownMenuItem<String>> relationItems;
-                            if (isUnmarried || isDivorced) {
-                              relationItems = const [
-                                DropdownMenuItem(
-                                  value: 'Father',
-                                  child: Text(
-                                    'Father (बुबा)',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'Mother',
-                                  child: Text(
-                                    'Mother (आमा)',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'Guardian',
-                                  child: Text(
-                                    'Guardian (संरक्षक)',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'Other',
-                                  child: Text(
-                                    'Other (अन्य)',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ];
-                            } else {
-                              relationItems = const [
-                                DropdownMenuItem(
-                                  value: 'Husband',
-                                  child: Text(
-                                    'Husband (श्रीमान)',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'Father',
-                                  child: Text(
-                                    'Father (बुबा)',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'Mother',
-                                  child: Text(
-                                    'Mother (आमा)',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'Guardian',
-                                  child: Text(
-                                    'Guardian (संरक्षक)',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'Other',
-                                  child: Text(
-                                    'Other (अन्य)',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ];
-                            }
-
-                            final validValues = relationItems
-                                .map((e) => e.value)
-                                .toSet();
-                            final selectedRelation =
-                                validValues.contains(state.relationshipType)
-                                ? state.relationshipType
-                                : (isUnmarried || isDivorced
-                                      ? 'Father'
-                                      : 'Husband');
-
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Relative Name & Surname 14-box grids matching Blank Yellow Form Row 2
-                                if (isMobile) ...[
-                                  _buildBlockGrid(
-                                    _relativeNameController.text, 14,
-                                    label: '$relativeLabel (आफन्तको पहिलो नाम) [14 BOXES]',
-                                    controller: _relativeNameController,
-                                    focusNode: _relativeNameFocus,
-                                    onChanged: (val) => _updateCombinedRelativeName(vm),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildBlockGrid(
-                                    _relativeSurnameController.text, 14,
-                                    label: 'Relative Surname (आफन्तको थर) [14 BOXES]',
-                                    controller: _relativeSurnameController,
-                                    focusNode: _relativeSurnameFocus,
-                                    onChanged: (val) => _updateCombinedRelativeName(vm),
-                                  ),
-                                ] else ...[
-                                  Row(
+                                  Wrap(
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    spacing: 8,
+                                    runSpacing: 4,
                                     children: [
-                                      Expanded(
-                                        child: _buildBlockGrid(
-                                          _relativeNameController.text, 14,
-                                          label: '$relativeLabel (आफन्तको पहिलो नाम) [14 BOXES]',
-                                          controller: _relativeNameController,
-                                          focusNode: _relativeNameFocus,
-                                          onChanged: (val) => _updateCombinedRelativeName(vm),
+                                      const Text(
+                                        'Intake Date (दर्ता मिति):',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.primaryDark,
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _buildBlockGrid(
-                                          _relativeSurnameController.text, 14,
-                                          label: 'Relative Surname (आफन्तको थर) [14 BOXES]',
-                                          controller: _relativeSurnameController,
-                                          focusNode: _relativeSurnameFocus,
-                                          onChanged: (val) => _updateCombinedRelativeName(vm),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 1.5,
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                                const SizedBox(height: 12),
-
-                                // Relation & Marriage Age
-                                if (isMobile) ...[
-                                  DropdownButtonFormField<String>(
-                                    key: ValueKey('relation_$selectedRelation'),
-                                    isExpanded: true,
-                                    initialValue: selectedRelation,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Relation (नाता)',
-                                      prefixIcon: Icon(Icons.group_outlined),
-                                    ),
-                                    items: relationItems,
-                                    onChanged: (val) {
-                                      if (val != null) {
-                                        vm.updateField(relationshipType: val);
-                                      }
-                                    },
-                                  ),
-                                  const SizedBox(height: 12),
-                                  if (isUnmarried)
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 10,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF8FAFC),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: const Color(0xFFE2E8F0),
-                                        ),
-                                      ),
-                                      child: const Row(
-                                        children: [
-                                          Icon(
-                                            Icons.info_outline,
-                                            size: 18,
-                                            color: Color(0xFF64748B),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
                                           ),
-                                          SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              'Marriage Age is not applicable for unmarried patients (अविवाहित - विवाह उमेर लागू हुँदैन).',
+                                          border: Border.all(
+                                            color: AppTheme.primaryTeal
+                                                .withValues(alpha: 0.5),
+                                            width: 0.7,
+                                          ),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.edit_calendar_outlined,
+                                              size: 11,
+                                              color: AppTheme.primaryTeal,
+                                            ),
+                                            SizedBox(width: 3),
+                                            Text(
+                                              'Change',
                                               style: TextStyle(
-                                                fontSize: 12,
-                                                color: Color(0xFF64748B),
-                                                fontStyle: FontStyle.italic,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.primaryTeal,
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  else
-                                    TextField(
-                                      controller: _maritalAgeController,
-                                      keyboardType: TextInputType.number,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Marriage Age (विवाह उमेर)',
-                                        hintText: 'e.g. 18 (Years at marriage)',
-                                        prefixIcon: Icon(Icons.history_edu_outlined),
-                                        helperText: 'Assessing early marriage and obstetric risks',
-                                      ),
-                                      onChanged: (val) {
-                                        final parsed = int.tryParse(val);
-                                        vm.updateField(maritalAge: parsed);
-                                      },
-                                    ),
-                                ] else ...[
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: DropdownButtonFormField<String>(
-                                          key: ValueKey('relation_$selectedRelation'),
-                                          isExpanded: true,
-                                          initialValue: selectedRelation,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Relation (नाता)',
-                                            prefixIcon: Icon(Icons.group_outlined),
-                                          ),
-                                          items: relationItems,
-                                          onChanged: (val) {
-                                            if (val != null) vm.updateField(relationshipType: val);
-                                          },
+                                          ],
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: isUnmarried
-                                            ? Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 14,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: const Color(0xFFF8FAFC),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  border: Border.all(
-                                                    color: const Color(0xFFE2E8F0),
-                                                  ),
-                                                ),
-                                                child: const Row(
-                                                  children: [
-                                                    Icon(
-                                                      Icons.info_outline,
-                                                      size: 18,
-                                                      color: Color(0xFF64748B),
-                                                    ),
-                                                    SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: Text(
-                                                        'Marriage Age is not applicable for unmarried patients (अविवाहित - विवाह उमेर लागू हुँदैन).',
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          color: Color(0xFF64748B),
-                                                          fontStyle: FontStyle.italic,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              )
-                                            : TextField(
-                                                controller: _maritalAgeController,
-                                                keyboardType: TextInputType.number,
-                                                decoration: const InputDecoration(
-                                                  labelText: 'Marriage Age (विवाह उमेर)',
-                                                  hintText: 'e.g. 18 (Years at marriage)',
-                                                  prefixIcon: Icon(Icons.history_edu_outlined),
-                                                  helperText: 'Assessing early marriage and obstetric risks',
-                                                ),
-                                                onChanged: (val) {
-                                                  final parsed = int.tryParse(val);
-                                                  vm.updateField(maritalAge: parsed);
-                                                },
-                                              ),
                                       ),
                                     ],
                                   ),
-                                ],
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 5. Section 3: Contact Details Card
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.phone_in_talk_outlined,
-                              color: AppTheme.primaryTeal,
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Contact Information (सम्पर्क विवरण)',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        _buildBlockGrid(
-                          _mobileController.text, 10,
-                          label: "Woman's Mobile (मोबाइल नम्बर) — 10 digits",
-                          controller: _mobileController,
-                          focusNode: _mobileFocus,
-                          keyboardType: TextInputType.phone,
-                          inputFormatters: [],
-                          onChanged: (val) {
-                            vm.updateField(mobile: val);
-                            _triggerLiveDuplicateCheck();
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        if (isMobile) ...[
-                          _buildBlockGrid(
-                            _contactPersonController.text, 14,
-                            label: 'Contact Person (सम्पर्क व्यक्ति) [BLOCK LETTERS]',
-                            controller: _contactPersonController,
-                            focusNode: _contactPersonFocus,
-                            onChanged: (val) => vm.updateField(contactPerson: val.toUpperCase()),
-                          ),
-                          const SizedBox(height: 12),
-                          _buildBlockGrid(
-                            _contactMobileController.text, 10,
-                            label: 'Contact Mobile (सम्पर्क नम्बर) — 10 digits',
-                            controller: _contactMobileController,
-                            focusNode: _contactMobileFocus,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [],
-                            onChanged: (val) => vm.updateField(contactMobile: val),
-                          ),
-                        ] else ...[
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildBlockGrid(
-                                  _contactPersonController.text, 14,
-                                  label: 'Contact Person (सम्पर्क व्यक्ति) [BLOCK LETTERS]',
-                                  controller: _contactPersonController,
-                                  focusNode: _contactPersonFocus,
-                                  onChanged: (val) => vm.updateField(contactPerson: val.toUpperCase()),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildBlockGrid(
-                                  _contactMobileController.text, 10,
-                                  label: 'Contact Mobile (सम्पर्क नम्बर) — 10 digits',
-                                  controller: _contactMobileController,
-                                  focusNode: _contactMobileFocus,
-                                  keyboardType: TextInputType.phone,
-                                  inputFormatters: [],
-                                  onChanged: (val) => vm.updateField(contactMobile: val),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 6. Section 4: Reasons for Visit Checkboxes
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.checklist_rounded,
-                              color: AppTheme.primaryTeal,
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Primary Reason for Visit (शिविरमा आउनुको मुख्य कारण)',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Select all presenting symptoms matching Yellow Form Page 1 checkboxes:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        if (state.selectedReasons.isNotEmpty) ...[
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: state.selectedReasons.map((r) {
-                              final rClean = r.trim().toLowerCase().replaceAll('_', ' ');
-                              final matchedEntry = _reasonOptions.entries.firstWhere(
-                                (e) => e.key.trim().toLowerCase().replaceAll('_', ' ') == rClean,
-                                orElse: () => MapEntry(r, r.replaceAll('_', ' ')),
-                              );
-                              return InputChip(
-                                label: Text(
-                                  matchedEntry.value,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF581C87)),
-                                ),
-                                deleteIcon: const Icon(Icons.close, size: 16, color: Color(0xFF7E22CE)),
-                                onDeleted: () => vm.toggleReason(r),
-                                backgroundColor: const Color(0xFFF3E8FF),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  side: const BorderSide(color: Color(0xFFD8B4FE)),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final isWide = constraints.maxWidth > 550;
-                            return GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: isWide ? 2 : 1,
-                                    childAspectRatio: isWide ? 5.0 : 4.5,
-                                    crossAxisSpacing: 10,
-                                    mainAxisSpacing: 8,
+                                  const SizedBox(height: 2),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      NepaliLocalizationService.formatDualCalendarDate(
+                                        state.intakeDate ??
+                                            (camp?.startDate ?? DateTime.now()),
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimaryLight,
+                                      ),
+                                    ),
                                   ),
-                              itemCount: _reasonOptions.length,
-                              itemBuilder: (context, index) {
-                                final reason = _reasonOptions.keys.elementAt(index);
-                                final label = _reasonOptions[reason]!;
-                                final isChecked = state.selectedReasons.any((r) {
-                                  final rNorm = r.trim().toLowerCase().replaceAll('_', ' ');
-                                  final reasonNorm = reason.trim().toLowerCase().replaceAll('_', ' ');
-                                  return rNorm == reasonNorm;
-                                });
-                                return _buildReasonTile(
-                                  reason,
-                                  label,
-                                  isChecked,
-                                  () => vm.toggleReason(reason),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ],
+                                  if (camp != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${camp.name} • ${camp.venue}${camp.ward.trim().isNotEmpty ? ", Ward ${camp.ward.trim()}" : ""}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryTeal,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              camp?.campCode ?? 'KTM01',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                // Section: Consultation (परामर्श)
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(
-                      color: state.treatmentLevel != null && state.treatmentLevel!.isNotEmpty
-                          ? const Color(0xFF7C3AED)
-                          : const Color(0xFFE2E8F0),
-                      width: state.treatmentLevel != null && state.treatmentLevel!.isNotEmpty ? 1.5 : 1.0,
-                    ),
-                  ),
-                  child: Builder(
-                    builder: (context) {
-                      final isCounsel = state.isCounseling || (state.treatmentLevel == null && widget.patientToEdit?.isCounseling == true);
-                      final isGyno = state.isGynocheckup || (state.treatmentLevel == null && widget.patientToEdit?.isGynocheckup == true);
-                      final isNone = !isCounsel && !isGyno;
-                      return Padding(
-                        padding: const EdgeInsets.all(16.0),
+                    // 2. LIVE DUPLICATE WARNING CARD
+                    if (state.duplicateResult.hasDuplicate)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.amber.shade700,
+                            width: 1.5,
+                          ),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(Icons.medical_information_rounded, color: Color(0xFF7C3AED), size: 20),
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Colors.amber.shade900,
+                                  size: 22,
                                 ),
-                                const SizedBox(width: 10),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'DUPLICATE DATA DETECTED (दोहोरिएको रेकर्ड)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.amber.shade900,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              state.duplicateResult.matchReasonEn ?? 'A patient with identical credentials already exists in this camp.',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF78350F),
+                              ),
+                            ),
+                            if (state.duplicateResult.matchReasonNe !=
+                                null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                state.duplicateResult.matchReasonNe!,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Colors.amber.shade900,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+
+                    // 3. Section 1: Patient Demographics Card
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.person_outline_rounded,
+                                  color: AppTheme.primaryTeal,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Patient Demographics (महिलाको विवरण)',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // Patient Token ID / Auto-generation Notice
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     children: [
-                                      Text(
-                                        'Consultation (परामर्श)',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                          color: Color(0xFF1E293B),
+                                      const Icon(
+                                        Icons.tag_rounded,
+                                        size: 16,
+                                        color: AppTheme.primaryPurple,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Expanded(
+                                        child: Text(
+                                          'Patient Token ID (बिरामी टोकन नं.) [Optional / ऐच्छिक]',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12.5,
+                                            color: Color(0xFF334155),
+                                          ),
                                         ),
                                       ),
-                                      Text(
-                                        'Triage assessment level — Counseling or Gynocheckup (Optional)',
-                                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 7,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              _patientIdController.text
+                                                  .trim()
+                                                  .isNotEmpty
+                                              ? const Color(0xFFDCFCE7)
+                                              : const Color(0xFFEDE9FE),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _patientIdController.text
+                                                  .trim()
+                                                  .isNotEmpty
+                                              ? 'Custom Token'
+                                              : 'Auto-Generate on Save',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color:
+                                                _patientIdController.text
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? const Color(0xFF15803D)
+                                                : AppTheme.primaryPurple,
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
-                                ),
-                                if (!isNone)
-                                  Chip(
-                                    visualDensity: VisualDensity.compact,
-                                    backgroundColor: isCounsel ? const Color(0xFFEDE9FE) : const Color(0xFFCCFBF1),
-                                    avatar: Icon(Icons.check, size: 14, color: isCounsel ? const Color(0xFF7C3AED) : const Color(0xFF0D9488)),
-                                    label: Text(
-                                      isCounsel ? 'Counseling' : 'Gynocheckup',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                        color: isCounsel ? const Color(0xFF7C3AED) : const Color(0xFF0D9488),
+                                  const SizedBox(height: 8),
+                                  TextField(
+                                    controller: _patientIdController,
+                                    focusNode: _patientIdFocus,
+                                    textCapitalization:
+                                        TextCapitalization.characters,
+                                    decoration: InputDecoration(
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 10,
+                                          ),
+                                      labelText:
+                                          'Pre-assigned Token / Blank Form ID',
+                                      hintText: 'Leave empty to auto-generate sequentially (e.g. 00042 or GC-DHN-2026-00042)',
+                                      hintStyle: const TextStyle(
+                                        fontSize: 11.5,
+                                        color: Colors.grey,
                                       ),
+                                      suffixIcon:
+                                          _patientIdController.text.isNotEmpty
+                                          ? IconButton(
+                                              icon: const Icon(
+                                                Icons.clear,
+                                                size: 16,
+                                              ),
+                                              onPressed: () {
+                                                _patientIdController.clear();
+                                                vm.setPatientId(null);
+                                                setState(() {});
+                                              },
+                                            )
+                                          : null,
+                                    ),
+                                    onChanged: (val) {
+                                      vm.setPatientId(val);
+                                      setState(() {});
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (isMobile) ...[
+                              _buildBlockGrid(
+                                _firstNameController.text,
+                                14,
+                                label:
+                                    'First Name * (पहिलो नाम) [BLOCK LETTERS]',
+                                controller: _firstNameController,
+                                focusNode: _firstNameFocus,
+                                onChanged: (val) {
+                                  vm.updateField(firstName: val.toUpperCase());
+                                  _triggerLiveDuplicateCheck();
+                                },
+                              ),
+                              _buildBlockGrid(
+                                _surnameController.text,
+                                14,
+                                label: 'Surname * (थर) [BLOCK LETTERS]',
+                                controller: _surnameController,
+                                focusNode: _surnameFocus,
+                                onChanged: (val) {
+                                  vm.updateField(surname: val.toUpperCase());
+                                  _triggerLiveDuplicateCheck();
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _ageController,
+                                      keyboardType: TextInputType.number,
+                                      textInputAction: TextInputAction.next,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Age * (उमेर)',
+                                        hintText: 'Years',
+                                        prefixIcon: Icon(Icons.cake_outlined),
+                                      ),
+                                      onChanged: (val) {
+                                        final parsed = int.tryParse(val);
+                                        vm.updateField(age: parsed);
+                                        setState(() {});
+                                        _triggerLiveDuplicateCheck();
+                                      },
                                     ),
                                   ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _wardController,
+                                      keyboardType: TextInputType.number,
+                                      textInputAction: TextInputAction.next,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Ward No * (वडा नं)',
+                                        hintText: '01–35',
+                                        prefixIcon: Icon(Icons.map_outlined),
+                                      ),
+                                      onChanged: (val) {
+                                        vm.updateField(ward: val);
+                                        setState(() {});
+                                        _triggerLiveDuplicateCheck();
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              DropdownButtonFormField<String>(
+                                key: ValueKey('province_${state.province}'),
+                                initialValue:
+                                    ClinicalConstants.nepalProvinces.any(
+                                      (p) =>
+                                          p.toLowerCase() ==
+                                          state.province.toLowerCase(),
+                                    )
+                                    ? ClinicalConstants.nepalProvinces
+                                          .firstWhere(
+                                            (p) =>
+                                                p.toLowerCase() ==
+                                                state.province.toLowerCase(),
+                                          )
+                                    : 'Bagmati',
+                                decoration: const InputDecoration(
+                                  labelText: 'Province * (प्रदेश)',
+                                  prefixIcon: Icon(
+                                    Icons.account_balance_outlined,
+                                  ),
+                                ),
+                                items: ClinicalConstants.nepalProvinces.map((
+                                  prov,
+                                ) {
+                                  return DropdownMenuItem(
+                                    value: prov,
+                                    child: Text(prov),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    vm.updateField(province: val);
+                                    final newDists = NepalGeodata.districtsFor(
+                                      val,
+                                    );
+                                    if (!newDists.any(
+                                      (d) =>
+                                          d.toUpperCase() ==
+                                          _districtController.text
+                                              .toUpperCase(),
+                                    )) {
+                                      final newDist = newDists.isNotEmpty
+                                          ? newDists.first
+                                          : '';
+                                      _districtController.text = newDist
+                                          .toUpperCase();
+                                      vm.updateField(
+                                        district: newDist.toUpperCase(),
+                                      );
+                                      final newPalikas =
+                                          NepalGeodata.palikasFor(newDist);
+                                      final newPalika = newPalikas.isNotEmpty
+                                          ? newPalikas.first
+                                          : '';
+                                      _municipalityController.text = newPalika
+                                          .toUpperCase();
+                                      vm.updateField(
+                                        municipality: newPalika.toUpperCase(),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              Builder(
+                                builder: (context) {
+                                  final availableDistricts =
+                                      NepalGeodata.districtsFor(
+                                        state.province.isNotEmpty
+                                            ? state.province
+                                            : 'Bagmati',
+                                      );
+                                  final currentDistrict = availableDistricts
+                                      .firstWhere(
+                                        (d) =>
+                                            d.toUpperCase() ==
+                                            _districtController.text
+                                                .trim()
+                                                .toUpperCase(),
+                                        orElse: () =>
+                                            availableDistricts.isNotEmpty
+                                            ? availableDistricts.first
+                                            : '',
+                                      );
+                                  return DropdownButtonFormField<String>(
+                                    isExpanded: true,
+                                    key: ValueKey(
+                                      'reg_mob_dist_${state.province}_${_districtController.text}',
+                                    ),
+                                    initialValue: currentDistrict.isNotEmpty
+                                        ? currentDistrict
+                                        : null,
+                                    decoration: const InputDecoration(
+                                      labelText: 'District * (जिल्ला)',
+                                      prefixIcon: Icon(Icons.map_outlined),
+                                    ),
+                                    items: availableDistricts.map((dist) {
+                                      return DropdownMenuItem(
+                                        value: dist,
+                                        child: Text(dist),
+                                      );
+                                    }).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        _districtController.text = val
+                                            .toUpperCase();
+                                        vm.updateField(
+                                          district: val.toUpperCase(),
+                                        );
+                                        final newPalikas =
+                                            NepalGeodata.palikasFor(val);
+                                        if (!newPalikas.any(
+                                          (p) =>
+                                              p.toUpperCase() ==
+                                              _municipalityController.text
+                                                  .toUpperCase(),
+                                        )) {
+                                          final newPalika =
+                                              newPalikas.isNotEmpty
+                                              ? newPalikas.first
+                                              : '';
+                                          _municipalityController.text =
+                                              newPalika.toUpperCase();
+                                          vm.updateField(
+                                            municipality: newPalika
+                                                .toUpperCase(),
+                                          );
+                                        }
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              Builder(
+                                builder: (context) {
+                                  final dist =
+                                      _districtController.text.isNotEmpty
+                                      ? _districtController.text
+                                      : state.district;
+                                  final availablePalikas =
+                                      NepalGeodata.palikasFor(
+                                        dist,
+                                        extraPalikas:
+                                            _municipalityController
+                                                .text
+                                                .isNotEmpty
+                                            ? [_municipalityController.text]
+                                            : null,
+                                      );
+                                  final currentPalika = availablePalikas
+                                      .firstWhere(
+                                        (p) =>
+                                            p.toUpperCase() ==
+                                            _municipalityController.text
+                                                .trim()
+                                                .toUpperCase(),
+                                        orElse: () =>
+                                            availablePalikas.isNotEmpty
+                                            ? availablePalikas.first
+                                            : '',
+                                      );
+                                  return DropdownButtonFormField<String>(
+                                    isExpanded: true,
+                                    key: ValueKey(
+                                      'reg_mob_palika_${dist}_${_municipalityController.text}',
+                                    ),
+                                    initialValue: currentPalika.isNotEmpty
+                                        ? currentPalika
+                                        : null,
+                                    decoration: const InputDecoration(
+                                      labelText:
+                                          'Palika / Municipality * (पालिका)',
+                                      prefixIcon: Icon(
+                                        Icons.location_city_outlined,
+                                      ),
+                                    ),
+                                    items: availablePalikas.map((palika) {
+                                      return DropdownMenuItem(
+                                        value: palika,
+                                        child: Text(palika),
+                                      );
+                                    }).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        _municipalityController.text = val
+                                            .toUpperCase();
+                                        vm.updateField(
+                                          municipality: val.toUpperCase(),
+                                        );
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                            ] else ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildBlockGrid(
+                                      _firstNameController.text,
+                                      14,
+                                      label: 'First Name * (पहिलो नाम) [BLOCK LETTERS]',
+                                      controller: _firstNameController,
+                                      focusNode: _firstNameFocus,
+                                      onChanged: (val) {
+                                        vm.updateField(
+                                          firstName: val.toUpperCase(),
+                                        );
+                                        _triggerLiveDuplicateCheck();
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildBlockGrid(
+                                      _surnameController.text,
+                                      14,
+                                      label: 'Surname * (थर) [BLOCK LETTERS]',
+                                      controller: _surnameController,
+                                      focusNode: _surnameFocus,
+                                      onChanged: (val) {
+                                        vm.updateField(
+                                          surname: val.toUpperCase(),
+                                        );
+                                        _triggerLiveDuplicateCheck();
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _ageController,
+                                      keyboardType: TextInputType.number,
+                                      textInputAction: TextInputAction.next,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Age * (उमेर)',
+                                        hintText: 'Years',
+                                        prefixIcon: Icon(Icons.cake_outlined),
+                                      ),
+                                      onChanged: (val) {
+                                        final parsed = int.tryParse(val);
+                                        vm.updateField(age: parsed);
+                                        setState(() {});
+                                        _triggerLiveDuplicateCheck();
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _wardController,
+                                      keyboardType: TextInputType.number,
+                                      textInputAction: TextInputAction.next,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Ward No * (वडा नं)',
+                                        hintText: '01–35',
+                                        prefixIcon: Icon(Icons.map_outlined),
+                                      ),
+                                      onChanged: (val) {
+                                        vm.updateField(ward: val);
+                                        setState(() {});
+                                        _triggerLiveDuplicateCheck();
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: DropdownButtonFormField<String>(
+                                      isExpanded: true,
+                                      key: ValueKey(
+                                        'province_desktop_${state.province}',
+                                      ),
+                                      initialValue:
+                                          ClinicalConstants.nepalProvinces.any(
+                                            (p) =>
+                                                p.toLowerCase() ==
+                                                state.province.toLowerCase(),
+                                          )
+                                          ? ClinicalConstants.nepalProvinces
+                                                .firstWhere(
+                                                  (p) =>
+                                                      p.toLowerCase() ==
+                                                      state.province
+                                                          .toLowerCase(),
+                                                )
+                                          : 'Bagmati',
+                                      decoration: const InputDecoration(
+                                        labelText: 'Province * (प्रदेश)',
+                                        prefixIcon: Icon(
+                                          Icons.account_balance_outlined,
+                                        ),
+                                      ),
+                                      items: ClinicalConstants.nepalProvinces
+                                          .map((prov) {
+                                            return DropdownMenuItem(
+                                              value: prov,
+                                              child: Text(prov),
+                                            );
+                                          })
+                                          .toList(),
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          vm.updateField(province: val);
+                                          final newDists =
+                                              NepalGeodata.districtsFor(val);
+                                          if (!newDists.any(
+                                            (d) =>
+                                                d.toUpperCase() ==
+                                                _districtController.text
+                                                    .toUpperCase(),
+                                          )) {
+                                            final newDist = newDists.isNotEmpty
+                                                ? newDists.first
+                                                : '';
+                                            _districtController.text = newDist
+                                                .toUpperCase();
+                                            vm.updateField(
+                                              district: newDist.toUpperCase(),
+                                            );
+                                            final newPalikas =
+                                                NepalGeodata.palikasFor(
+                                                  newDist,
+                                                );
+                                            final newPalika =
+                                                newPalikas.isNotEmpty
+                                                ? newPalikas.first
+                                                : '';
+                                            _municipalityController.text =
+                                                newPalika.toUpperCase();
+                                            vm.updateField(
+                                              municipality: newPalika
+                                                  .toUpperCase(),
+                                            );
+                                          }
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Builder(
+                                      builder: (context) {
+                                        final availableDistricts =
+                                            NepalGeodata.districtsFor(
+                                              state.province.isNotEmpty
+                                                  ? state.province
+                                                  : 'Bagmati',
+                                            );
+                                        final currentDistrict =
+                                            availableDistricts.firstWhere(
+                                              (d) =>
+                                                  d.toUpperCase() ==
+                                                  _districtController.text
+                                                      .trim()
+                                                      .toUpperCase(),
+                                              orElse: () =>
+                                                  availableDistricts.isNotEmpty
+                                                  ? availableDistricts.first
+                                                  : '',
+                                            );
+                                        return DropdownButtonFormField<String>(
+                                          isExpanded: true,
+                                          key: ValueKey(
+                                            'reg_desk_dist_${state.province}_${_districtController.text}',
+                                          ),
+                                          initialValue:
+                                              currentDistrict.isNotEmpty
+                                              ? currentDistrict
+                                              : null,
+                                          decoration: const InputDecoration(
+                                            labelText: 'District * (जिल्ला)',
+                                            prefixIcon: Icon(
+                                              Icons.map_outlined,
+                                            ),
+                                          ),
+                                          items: availableDistricts.map((dist) {
+                                            return DropdownMenuItem(
+                                              value: dist,
+                                              child: Text(dist),
+                                            );
+                                          }).toList(),
+                                          onChanged: (val) {
+                                            if (val != null) {
+                                              _districtController.text = val
+                                                  .toUpperCase();
+                                              vm.updateField(
+                                                district: val.toUpperCase(),
+                                              );
+                                              final newPalikas =
+                                                  NepalGeodata.palikasFor(val);
+                                              if (!newPalikas.any(
+                                                (p) =>
+                                                    p.toUpperCase() ==
+                                                    _municipalityController.text
+                                                        .toUpperCase(),
+                                              )) {
+                                                final newPalika =
+                                                    newPalikas.isNotEmpty
+                                                    ? newPalikas.first
+                                                    : '';
+                                                _municipalityController.text =
+                                                    newPalika.toUpperCase();
+                                                vm.updateField(
+                                                  municipality: newPalika
+                                                      .toUpperCase(),
+                                                );
+                                              }
+                                            }
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Builder(
+                                      builder: (context) {
+                                        final dist =
+                                            _districtController.text.isNotEmpty
+                                            ? _districtController.text
+                                            : state.district;
+                                        final availablePalikas =
+                                            NepalGeodata.palikasFor(
+                                              dist,
+                                              extraPalikas:
+                                                  _municipalityController
+                                                      .text
+                                                      .isNotEmpty
+                                                  ? [
+                                                      _municipalityController
+                                                          .text,
+                                                    ]
+                                                  : null,
+                                            );
+                                        final currentPalika = availablePalikas
+                                            .firstWhere(
+                                              (p) =>
+                                                  p.toUpperCase() ==
+                                                  _municipalityController.text
+                                                      .trim()
+                                                      .toUpperCase(),
+                                              orElse: () =>
+                                                  availablePalikas.isNotEmpty
+                                                  ? availablePalikas.first
+                                                  : '',
+                                            );
+                                        return DropdownButtonFormField<String>(
+                                          isExpanded: true,
+                                          key: ValueKey(
+                                            'reg_desk_palika_${dist}_${_municipalityController.text}',
+                                          ),
+                                          initialValue: currentPalika.isNotEmpty
+                                              ? currentPalika
+                                              : null,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Palika / Municipality * (पालिका)',
+                                            prefixIcon: Icon(
+                                              Icons.location_city_outlined,
+                                            ),
+                                          ),
+                                          items: availablePalikas.map((palika) {
+                                            return DropdownMenuItem(
+                                              value: palika,
+                                              child: Text(palika),
+                                            );
+                                          }).toList(),
+                                          onChanged: (val) {
+                                            if (val != null) {
+                                              _municipalityController.text = val
+                                                  .toUpperCase();
+                                              vm.updateField(
+                                                municipality: val.toUpperCase(),
+                                              );
+                                            }
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 4. Section 2: Family & Marital Profile Card
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.family_restroom_outlined,
+                                  color: AppTheme.primaryTeal,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Marital Profile (वैवाहिक स्थिति)',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 14),
+
+                            // Marital Status Classification first
+                            const Text(
+                              'Marital Status Classification:',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
                             Wrap(
                               spacing: 10,
                               runSpacing: 8,
-                              children: [
-                                ChoiceChip(
-                                  avatar: Icon(
-                                    Icons.do_not_disturb_alt_rounded,
-                                    size: 14,
-                                    color: isNone ? const Color(0xFF64748B) : Colors.grey,
-                                  ),
-                                  label: const Text('None / Unassigned (तोकिएको छैन)', style: TextStyle(fontSize: 12)),
-                                  selected: isNone,
-                                  selectedColor: const Color(0xFFF1F5F9),
-                                  onSelected: (selected) {
-                                    if (selected) vm.setTreatmentLevel(null);
-                                  },
-                                ),
-                                ChoiceChip(
-                                  avatar: Icon(
-                                    Icons.record_voice_over_rounded,
-                                    size: 14,
-                                    color: isCounsel ? const Color(0xFF7C3AED) : Colors.grey,
-                                  ),
-                                  label: const Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12)),
-                                  selected: isCounsel,
-                                  selectedColor: const Color(0xFFEDE9FE),
-                                  onSelected: (selected) {
-                                    vm.setTreatmentLevel(selected ? 'counseling' : null);
-                                  },
-                                ),
-                                ChoiceChip(
-                                  avatar: Icon(
-                                    Icons.health_and_safety_rounded,
-                                    size: 14,
-                                    color: isGyno ? const Color(0xFF0D9488) : Colors.grey,
-                                  ),
-                                  label: const Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12)),
-                                  selected: isGyno,
-                                  selectedColor: const Color(0xFFCCFBF1),
-                                  onSelected: (selected) {
-                                    vm.setTreatmentLevel(selected ? 'gyno_checkup' : null);
-                                  },
-                                ),
-                              ],
+                              children:
+                                  [
+                                    'married',
+                                    'unmarried',
+                                    'widow',
+                                    'divorced',
+                                  ].map((status) {
+                                    final isSelected =
+                                        state.maritalStatus == status;
+                                    return ChoiceChip(
+                                      label: Text(
+                                        '${NepaliLocalizationService.translate(status)} ($status)',
+                                      ),
+                                      selected: isSelected,
+                                      selectedColor: AppTheme.primaryTeal
+                                          .withValues(alpha: 0.15),
+                                      labelStyle: TextStyle(
+                                        color: isSelected
+                                            ? AppTheme.primaryTeal
+                                            : const Color(0xFF334155),
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        fontSize: 12.5,
+                                      ),
+                                      onSelected: (_) {
+                                        if (status == 'unmarried') {
+                                          _maritalAgeController.clear();
+                                          vm.updateField(
+                                            maritalStatus: status,
+                                            relationshipType: 'Father',
+                                            clearMaritalAge: true,
+                                          );
+                                        } else if (status == 'married') {
+                                          vm.updateField(
+                                            maritalStatus: status,
+                                            relationshipType: 'Husband',
+                                          );
+                                        } else if (status == 'divorced') {
+                                          vm.updateField(
+                                            maritalStatus: status,
+                                            relationshipType: 'Father',
+                                          );
+                                        } else {
+                                          vm.updateField(maritalStatus: status);
+                                        }
+                                        setState(() {});
+                                        _triggerLiveDuplicateCheck();
+                                      },
+                                    );
+                                  }).toList(),
+                            ),
+                            const SizedBox(height: 16),
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                            const SizedBox(height: 16),
+
+                            // Relative Name & Relationship Type (Dynamic based on marital status)
+                            Builder(
+                              builder: (context) {
+                                final isUnmarried =
+                                    state.maritalStatus == 'unmarried';
+                                final isWidow = state.maritalStatus == 'widow';
+                                final isDivorced =
+                                    state.maritalStatus == 'divorced';
+
+                                final String relativeLabel;
+
+                                if (isUnmarried) {
+                                  relativeLabel = "Father's / Guardian's Name * (बुबा वा संरक्षकको नाम)";
+                                } else if (isWidow) {
+                                  relativeLabel = "Late Husband's / Father's Name * (दिवंगत श्रीमान वा बुबाको नाम)";
+                                } else if (isDivorced) {
+                                  relativeLabel = "Father's / Guardian's Name * (बुबा वा संरक्षकको नाम)";
+                                } else {
+                                  relativeLabel =
+                                      "Husband's Name * (श्रीमानको नाम)";
+                                }
+
+                                final List<DropdownMenuItem<String>>
+                                relationItems;
+                                if (isUnmarried || isDivorced) {
+                                  relationItems = const [
+                                    DropdownMenuItem(
+                                      value: 'Father',
+                                      child: Text(
+                                        'Father (बुबा)',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Mother',
+                                      child: Text(
+                                        'Mother (आमा)',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Guardian',
+                                      child: Text(
+                                        'Guardian (संरक्षक)',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Other',
+                                      child: Text(
+                                        'Other (अन्य)',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ];
+                                } else {
+                                  relationItems = const [
+                                    DropdownMenuItem(
+                                      value: 'Husband',
+                                      child: Text(
+                                        'Husband (श्रीमान)',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Father',
+                                      child: Text(
+                                        'Father (बुबा)',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Mother',
+                                      child: Text(
+                                        'Mother (आमा)',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Guardian',
+                                      child: Text(
+                                        'Guardian (संरक्षक)',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Other',
+                                      child: Text(
+                                        'Other (अन्य)',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ];
+                                }
+
+                                final validValues = relationItems
+                                    .map((e) => e.value)
+                                    .toSet();
+                                final selectedRelation =
+                                    validValues.contains(state.relationshipType)
+                                    ? state.relationshipType
+                                    : (isUnmarried || isDivorced
+                                          ? 'Father'
+                                          : 'Husband');
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Relative Name & Surname 14-box grids matching Blank Yellow Form Row 2
+                                    if (isMobile) ...[
+                                      _buildBlockGrid(
+                                        _relativeNameController.text,
+                                        14,
+                                        label:
+                                            '$relativeLabel (आफन्तको पहिलो नाम) [14 BOXES]',
+                                        controller: _relativeNameController,
+                                        focusNode: _relativeNameFocus,
+                                        onChanged: (val) =>
+                                            _updateCombinedRelativeName(vm),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildBlockGrid(
+                                        _relativeSurnameController.text,
+                                        14,
+                                        label: 'Relative Surname (आफन्तको थर) [14 BOXES]',
+                                        controller: _relativeSurnameController,
+                                        focusNode: _relativeSurnameFocus,
+                                        onChanged: (val) =>
+                                            _updateCombinedRelativeName(vm),
+                                      ),
+                                    ] else ...[
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildBlockGrid(
+                                              _relativeNameController.text,
+                                              14,
+                                              label:
+                                                  '$relativeLabel (आफन्तको पहिलो नाम) [14 BOXES]',
+                                              controller:
+                                                  _relativeNameController,
+                                              focusNode: _relativeNameFocus,
+                                              onChanged: (val) =>
+                                                  _updateCombinedRelativeName(
+                                                    vm,
+                                                  ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: _buildBlockGrid(
+                                              _relativeSurnameController.text,
+                                              14,
+                                              label: 'Relative Surname (आफन्तको थर) [14 BOXES]',
+                                              controller:
+                                                  _relativeSurnameController,
+                                              focusNode: _relativeSurnameFocus,
+                                              onChanged: (val) =>
+                                                  _updateCombinedRelativeName(
+                                                    vm,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                    const SizedBox(height: 12),
+
+                                    // Relation & Marriage Age
+                                    if (isMobile) ...[
+                                      DropdownButtonFormField<String>(
+                                        key: ValueKey(
+                                          'relation_$selectedRelation',
+                                        ),
+                                        isExpanded: true,
+                                        initialValue: selectedRelation,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Relation (नाता)',
+                                          prefixIcon: Icon(
+                                            Icons.group_outlined,
+                                          ),
+                                        ),
+                                        items: relationItems,
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            vm.updateField(
+                                              relationshipType: val,
+                                            );
+                                          }
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      if (isUnmarried)
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF8FAFC),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: const Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          child: const Row(
+                                            children: [
+                                              Icon(
+                                                Icons.info_outline,
+                                                size: 18,
+                                                color: Color(0xFF64748B),
+                                              ),
+                                              SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  'Marriage Age is not applicable for unmarried patients (अविवाहित - विवाह उमेर लागू हुँदैन).',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF64748B),
+                                                    fontStyle: FontStyle.italic,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      else
+                                        TextField(
+                                          controller: _maritalAgeController,
+                                          keyboardType: TextInputType.number,
+                                          decoration: const InputDecoration(
+                                            labelText:
+                                                'Marriage Age (विवाह उमेर)',
+                                            hintText:
+                                                'e.g. 18 (Years at marriage)',
+                                            prefixIcon: Icon(
+                                              Icons.history_edu_outlined,
+                                            ),
+                                            helperText: 'Assessing early marriage and obstetric risks',
+                                          ),
+                                          onChanged: (val) {
+                                            final parsed = int.tryParse(val);
+                                            vm.updateField(maritalAge: parsed);
+                                          },
+                                        ),
+                                    ] else ...[
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child:
+                                                DropdownButtonFormField<String>(
+                                                  key: ValueKey(
+                                                    'relation_$selectedRelation',
+                                                  ),
+                                                  isExpanded: true,
+                                                  initialValue:
+                                                      selectedRelation,
+                                                  decoration:
+                                                      const InputDecoration(
+                                                        labelText:
+                                                            'Relation (नाता)',
+                                                        prefixIcon: Icon(
+                                                          Icons.group_outlined,
+                                                        ),
+                                                      ),
+                                                  items: relationItems,
+                                                  onChanged: (val) {
+                                                    if (val != null)
+                                                      vm.updateField(
+                                                        relationshipType: val,
+                                                      );
+                                                  },
+                                                ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: isUnmarried
+                                                ? Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 14,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(
+                                                        0xFFF8FAFC,
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: const Color(
+                                                          0xFFE2E8F0,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    child: const Row(
+                                                      children: [
+                                                        Icon(
+                                                          Icons.info_outline,
+                                                          size: 18,
+                                                          color: Color(
+                                                            0xFF64748B,
+                                                          ),
+                                                        ),
+                                                        SizedBox(width: 8),
+                                                        Expanded(
+                                                          child: Text(
+                                                            'Marriage Age is not applicable for unmarried patients (अविवाहित - विवाह उमेर लागू हुँदैन).',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              color: Color(
+                                                                0xFF64748B,
+                                                              ),
+                                                              fontStyle:
+                                                                  FontStyle
+                                                                      .italic,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  )
+                                                : TextField(
+                                                    controller:
+                                                        _maritalAgeController,
+                                                    keyboardType:
+                                                        TextInputType.number,
+                                                    decoration:
+                                                        const InputDecoration(
+                                                          labelText: 'Marriage Age (विवाह उमेर)',
+                                                          hintText: 'e.g. 18 (Years at marriage)',
+                                                          prefixIcon: Icon(
+                                                            Icons
+                                                                .history_edu_outlined,
+                                                          ),
+                                                          helperText: 'Assessing early marriage and obstetric risks',
+                                                        ),
+                                                    onChanged: (val) {
+                                                      final parsed =
+                                                          int.tryParse(val);
+                                                      vm.updateField(
+                                                        maritalAge: parsed,
+                                                      );
+                                                    },
+                                                  ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 7. Section 5: Clinical Consents
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          activeThumbColor: AppTheme.primaryTeal,
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(
-                            'Consent for Treatment (उपचारको सहमति)',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13.5,
-                            ),
-                          ),
-                          subtitle: const Text(
-                            'Patient consents to medical examination and clinical treatment.',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                          value: state.consentTreatment,
-                          onChanged: (val) =>
-                              vm.updateField(consentTreatment: val),
-                        ),
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          activeThumbColor: AppTheme.primaryTeal,
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(
-                            'Consent to Store Medical Information',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13.5,
-                            ),
-                          ),
-                          subtitle: const Text(
-                            'Patient consents to secure recording in the Gynocamp health database.',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                          value: state.consentStoreMedicalInfo,
-                          onChanged: (val) =>
-                              vm.updateField(consentStoreMedicalInfo: val),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                if (state.errorMessage != null) ...[
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerRose.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.dangerRose),
-                    ),
-                    child: Text(
-                      state.errorMessage!,
-                      style: const TextStyle(
-                        color: AppTheme.dangerRose,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
 
-                // 8. Submit & Registration Action Bar
-                if (isMobile)
-                  Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryTeal,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          icon: state.isSubmitting
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : (widget.patientToEdit != null
-                                  ? const Icon(Icons.check_circle_outline_rounded, size: 20)
-                                  : const Icon(Icons.arrow_forward_rounded, size: 20)),
-                          label: Text(
-                            state.isSubmitting
-                                ? (widget.patientToEdit != null ? 'Updating Patient Details...' : 'Registering Patient...')
-                                : (widget.patientToEdit != null ? 'Update Patient Details (विवरण अद्यावधिक गर्नुहोस्)' : 'Register Patient & Start Clinical Form (Station 1 → 2)'),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          onPressed: state.isSubmitting || camp == null || isLockedCamp
-                              ? null
-                              : () => _submitRegistrationForm(
-                                  context: context,
-                                  state: state,
-                                  vm: vm,
-                                  camp: camp,
-                                  user: user,
-                                  device: device,
+                    // 5. Section 3: Contact Details Card
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.phone_in_talk_outlined,
+                                  color: AppTheme.primaryTeal,
+                                  size: 20,
                                 ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Contact Information (सम्पर्क विवरण)',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            _buildBlockGrid(
+                              _mobileController.text,
+                              10,
+                              label:
+                                  "Woman's Mobile (मोबाइल नम्बर) — 10 digits",
+                              controller: _mobileController,
+                              focusNode: _mobileFocus,
+                              keyboardType: TextInputType.phone,
+                              inputFormatters: [],
+                              onChanged: (val) {
+                                vm.updateField(mobile: val);
+                                _triggerLiveDuplicateCheck();
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            if (isMobile) ...[
+                              _buildBlockGrid(
+                                _contactPersonController.text,
+                                14,
+                                label: 'Contact Person (सम्पर्क व्यक्ति) [BLOCK LETTERS]',
+                                controller: _contactPersonController,
+                                focusNode: _contactPersonFocus,
+                                onChanged: (val) => vm.updateField(
+                                  contactPerson: val.toUpperCase(),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildBlockGrid(
+                                _contactMobileController.text,
+                                10,
+                                label: 'Contact Mobile (सम्पर्क नम्बर) — 10 digits',
+                                controller: _contactMobileController,
+                                focusNode: _contactMobileFocus,
+                                keyboardType: TextInputType.phone,
+                                inputFormatters: [],
+                                onChanged: (val) =>
+                                    vm.updateField(contactMobile: val),
+                              ),
+                            ] else ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildBlockGrid(
+                                      _contactPersonController.text,
+                                      14,
+                                      label: 'Contact Person (सम्पर्क व्यक्ति) [BLOCK LETTERS]',
+                                      controller: _contactPersonController,
+                                      focusNode: _contactPersonFocus,
+                                      onChanged: (val) => vm.updateField(
+                                        contactPerson: val.toUpperCase(),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildBlockGrid(
+                                      _contactMobileController.text,
+                                      10,
+                                      label: 'Contact Mobile (सम्पर्क नम्बर) — 10 digits',
+                                      controller: _contactMobileController,
+                                      focusNode: _contactMobileFocus,
+                                      keyboardType: TextInputType.phone,
+                                      inputFormatters: [],
+                                      onChanged: (val) =>
+                                          vm.updateField(contactMobile: val),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 6. Section 4: Reasons for Visit Checkboxes
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.checklist_rounded,
+                                  color: AppTheme.primaryTeal,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Primary Reason for Visit (शिविरमा आउनुको मुख्य कारण)',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Select all presenting symptoms matching Yellow Form Page 1 checkboxes:',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            if (state.selectedReasons.isNotEmpty) ...[
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                children: state.selectedReasons.map((r) {
+                                  final rClean = r
+                                      .trim()
+                                      .toLowerCase()
+                                      .replaceAll('_', ' ');
+                                  final matchedEntry = _reasonOptions.entries
+                                      .firstWhere(
+                                        (e) =>
+                                            e.key
+                                                .trim()
+                                                .toLowerCase()
+                                                .replaceAll('_', ' ') ==
+                                            rClean,
+                                        orElse: () =>
+                                            MapEntry(r, r.replaceAll('_', ' ')),
+                                      );
+                                  return InputChip(
+                                    label: Text(
+                                      matchedEntry.value,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF581C87),
+                                      ),
+                                    ),
+                                    deleteIcon: const Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: Color(0xFF7E22CE),
+                                    ),
+                                    onDeleted: () => vm.toggleReason(r),
+                                    backgroundColor: const Color(0xFFF3E8FF),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      side: const BorderSide(
+                                        color: Color(0xFFD8B4FE),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isWide = constraints.maxWidth > 550;
+                                return GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: isWide ? 2 : 1,
+                                        childAspectRatio: isWide ? 5.0 : 4.5,
+                                        crossAxisSpacing: 10,
+                                        mainAxisSpacing: 8,
+                                      ),
+                                  itemCount: _reasonOptions.length,
+                                  itemBuilder: (context, index) {
+                                    final reason = _reasonOptions.keys
+                                        .elementAt(index);
+                                    final label = _reasonOptions[reason]!;
+                                    final isChecked = state.selectedReasons.any(
+                                      (r) {
+                                        final rNorm = r
+                                            .trim()
+                                            .toLowerCase()
+                                            .replaceAll('_', ' ');
+                                        final reasonNorm = reason
+                                            .trim()
+                                            .toLowerCase()
+                                            .replaceAll('_', ' ');
+                                        return rNorm == reasonNorm;
+                                      },
+                                    );
+                                    return _buildReasonTile(
+                                      reason,
+                                      label,
+                                      isChecked,
+                                      () => vm.toggleReason(reason),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Section: Consultation (परामर्श)
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(
+                          color:
+                              state.treatmentLevel != null &&
+                                  state.treatmentLevel!.isNotEmpty
+                              ? const Color(0xFF7C3AED)
+                              : const Color(0xFFE2E8F0),
+                          width:
+                              state.treatmentLevel != null &&
+                                  state.treatmentLevel!.isNotEmpty
+                              ? 1.5
+                              : 1.0,
+                        ),
+                      ),
+                      child: Builder(
+                        builder: (context) {
+                          final isCounsel =
+                              state.isCounseling ||
+                              (state.treatmentLevel == null &&
+                                  widget.patientToEdit?.isCounseling == true);
+                          final isGyno =
+                              state.isGynocheckup ||
+                              (state.treatmentLevel == null &&
+                                  widget.patientToEdit?.isGynocheckup == true);
+                          final isNone = !isCounsel && !isGyno;
+                          return Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF7C3AED)
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.medical_information_rounded,
+                                        color: Color(0xFF7C3AED),
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Consultation (परामर्श)',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: Color(0xFF1E293B),
+                                            ),
+                                          ),
+                                          Text(
+                                            'Triage assessment level — Counseling or Gynocheckup (Optional)',
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              color: Color(0xFF64748B),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (!isNone)
+                                      Chip(
+                                        visualDensity: VisualDensity.compact,
+                                        backgroundColor: isCounsel
+                                            ? const Color(0xFFEDE9FE)
+                                            : const Color(0xFFCCFBF1),
+                                        avatar: Icon(
+                                          Icons.check,
+                                          size: 14,
+                                          color: isCounsel
+                                              ? const Color(0xFF7C3AED)
+                                              : const Color(0xFF0D9488),
+                                        ),
+                                        label: Text(
+                                          isCounsel
+                                              ? 'Counseling'
+                                              : 'Gynocheckup',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                            color: isCounsel
+                                                ? const Color(0xFF7C3AED)
+                                                : const Color(0xFF0D9488),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 8,
+                                  children: [
+                                    ChoiceChip(
+                                      avatar: Icon(
+                                        Icons.do_not_disturb_alt_rounded,
+                                        size: 14,
+                                        color: isNone
+                                            ? const Color(0xFF64748B)
+                                            : Colors.grey,
+                                      ),
+                                      label: const Text(
+                                        'None / Unassigned (तोकिएको छैन)',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                      selected: isNone,
+                                      selectedColor: const Color(0xFFF1F5F9),
+                                      onSelected: (selected) {
+                                        if (selected)
+                                          vm.setTreatmentLevel(null);
+                                      },
+                                    ),
+                                    ChoiceChip(
+                                      avatar: Icon(
+                                        Icons.record_voice_over_rounded,
+                                        size: 14,
+                                        color: isCounsel
+                                            ? const Color(0xFF7C3AED)
+                                            : Colors.grey,
+                                      ),
+                                      label: const Text(
+                                        'Counseling (काउन्सिलिङ)',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                      selected: isCounsel,
+                                      selectedColor: const Color(0xFFEDE9FE),
+                                      onSelected: (selected) {
+                                        vm.setTreatmentLevel(
+                                          selected ? 'counseling' : null,
+                                        );
+                                      },
+                                    ),
+                                    ChoiceChip(
+                                      avatar: Icon(
+                                        Icons.health_and_safety_rounded,
+                                        size: 14,
+                                        color: isGyno
+                                            ? const Color(0xFF0D9488)
+                                            : Colors.grey,
+                                      ),
+                                      label: const Text(
+                                        'Gynocheckup (गाइनो जाँच)',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                      selected: isGyno,
+                                      selectedColor: const Color(0xFFCCFBF1),
+                                      onSelected: (selected) {
+                                        vm.setTreatmentLevel(
+                                          selected ? 'gyno_checkup' : null,
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 7. Section 5: Clinical Consents
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 8.0,
+                        ),
+                        child: Column(
+                          children: [
+                            SwitchListTile(
+                              activeThumbColor: AppTheme.primaryTeal,
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text(
+                                'Consent for Treatment (उपचारको सहमति)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13.5,
+                                ),
+                              ),
+                              subtitle: const Text(
+                                'Patient consents to medical examination and clinical treatment.',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              value: state.consentTreatment,
+                              onChanged: (val) =>
+                                  vm.updateField(consentTreatment: val),
+                            ),
+                            const Divider(height: 1),
+                            SwitchListTile(
+                              activeThumbColor: AppTheme.primaryTeal,
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text(
+                                'Consent to Store Medical Information',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13.5,
+                                ),
+                              ),
+                              subtitle: const Text(
+                                'Patient consents to secure recording in the Gynocamp health database.',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              value: state.consentStoreMedicalInfo,
+                              onChanged: (val) =>
+                                  vm.updateField(consentStoreMedicalInfo: val),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    if (state.errorMessage != null) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerRose.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.dangerRose),
+                        ),
+                        child: Text(
+                          state.errorMessage!,
+                          style: const TextStyle(
+                            color: AppTheme.dangerRose,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
                           ),
-                          icon: const Icon(Icons.clear_rounded, size: 18),
-                          label: Text(widget.patientToEdit != null ? 'Reset to Original' : 'Clear Form'),
-                          onPressed: _clearForm,
                         ),
                       ),
                     ],
-                  )
-                else
-                  Row(
-                    children: [
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 16,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: const Icon(Icons.clear_rounded, size: 18),
-                        label: Text(widget.patientToEdit != null ? 'Reset to Original' : 'Clear'),
-                        onPressed: _clearForm,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryTeal,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          icon: state.isSubmitting
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : (widget.patientToEdit != null
-                                  ? const Icon(Icons.check_circle_outline_rounded, size: 20)
-                                  : const Icon(Icons.arrow_forward_rounded, size: 20)),
-                          label: Text(
-                            state.isSubmitting
-                                ? (widget.patientToEdit != null ? 'Updating Patient Details...' : 'Registering Patient...')
-                                : (widget.patientToEdit != null ? 'Update Patient Details (विवरण अद्यावधिक गर्नुहोस्)' : 'Register Patient & Start Clinical Form (Station 1 → 2)'),
-                            style: const TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: state.isSubmitting || camp == null || isLockedCamp
-                              ? null
-                              : () => _submitRegistrationForm(
-                                  context: context,
-                                  state: state,
-                                  vm: vm,
-                                  camp: camp,
-                                  user: user,
-                                  device: device,
+
+                    // 8. Submit & Registration Action Bar
+                    if (isMobile)
+                      Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryTeal,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
                                 ),
-                        ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              icon: state.isSubmitting
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : (widget.patientToEdit != null
+                                        ? const Icon(
+                                            Icons.check_circle_outline_rounded,
+                                            size: 20,
+                                          )
+                                        : const Icon(
+                                            Icons.arrow_forward_rounded,
+                                            size: 20,
+                                          )),
+                              label: Text(
+                                state.isSubmitting
+                                    ? (widget.patientToEdit != null
+                                          ? 'Updating Patient Details...'
+                                          : 'Registering Patient...')
+                                    : (widget.patientToEdit != null
+                                          ? 'Update Patient Details (विवरण अद्यावधिक गर्नुहोस्)'
+                                          : 'Register Patient & Start Clinical Form (Station 1 → 2)'),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              onPressed:
+                                  state.isSubmitting ||
+                                      camp == null ||
+                                      isLockedCamp
+                                  ? null
+                                  : () => _submitRegistrationForm(
+                                      context: context,
+                                      state: state,
+                                      vm: vm,
+                                      camp: camp,
+                                      user: user,
+                                      device: device,
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              icon: const Icon(Icons.clear_rounded, size: 18),
+                              label: Text(
+                                widget.patientToEdit != null
+                                    ? 'Reset to Original'
+                                    : 'Clear Form',
+                              ),
+                              onPressed: _clearForm,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                            label: Text(
+                              widget.patientToEdit != null
+                                  ? 'Reset to Original'
+                                  : 'Clear',
+                            ),
+                            onPressed: _clearForm,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryTeal,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              icon: state.isSubmitting
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : (widget.patientToEdit != null
+                                        ? const Icon(
+                                            Icons.check_circle_outline_rounded,
+                                            size: 20,
+                                          )
+                                        : const Icon(
+                                            Icons.arrow_forward_rounded,
+                                            size: 20,
+                                          )),
+                              label: Text(
+                                state.isSubmitting
+                                    ? (widget.patientToEdit != null
+                                          ? 'Updating Patient Details...'
+                                          : 'Registering Patient...')
+                                    : (widget.patientToEdit != null
+                                          ? 'Update Patient Details (विवरण अद्यावधिक गर्नुहोस्)'
+                                          : 'Register Patient & Start Clinical Form (Station 1 → 2)'),
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              onPressed:
+                                  state.isSubmitting ||
+                                      camp == null ||
+                                      isLockedCamp
+                                  ? null
+                                  : () => _submitRegistrationForm(
+                                      context: context,
+                                      state: state,
+                                      vm: vm,
+                                      camp: camp,
+                                      user: user,
+                                      device: device,
+                                    ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                const SizedBox(height: 30),
-              ],
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-      );
-    },
-  ),
-);
-}
+          );
+        },
+      ),
+    );
+  }
 
-  Widget _buildFormStepBar(PatientRegistrationState state, {bool isMobile = false}) {
+  Widget _buildFormStepBar(
+    PatientRegistrationState state, {
+    bool isMobile = false,
+  }) {
     final steps = [
-      _FormStep(label: 'Demographics', icon: Icons.person_outline_rounded, done: state.firstName.isNotEmpty && state.age != null),
-      _FormStep(label: 'Family Profile', icon: Icons.family_restroom_outlined, done: state.spouseOrFatherName.isNotEmpty),
-      _FormStep(label: 'Contact Info', icon: Icons.phone_in_talk_outlined, done: state.mobile.isNotEmpty),
-      _FormStep(label: 'Visit Reasons', icon: Icons.checklist_rounded, done: state.selectedReasons.isNotEmpty),
-      _FormStep(label: 'Consent', icon: Icons.verified_user_outlined, done: state.consentTreatment && state.consentStoreMedicalInfo),
+      _FormStep(
+        label: 'Demographics',
+        icon: Icons.person_outline_rounded,
+        done: state.firstName.isNotEmpty && state.age != null,
+      ),
+      _FormStep(
+        label: 'Family Profile',
+        icon: Icons.family_restroom_outlined,
+        done: state.spouseOrFatherName.isNotEmpty,
+      ),
+      _FormStep(
+        label: 'Contact Info',
+        icon: Icons.phone_in_talk_outlined,
+        done: state.mobile.isNotEmpty,
+      ),
+      _FormStep(
+        label: 'Visit Reasons',
+        icon: Icons.checklist_rounded,
+        done: state.selectedReasons.isNotEmpty,
+      ),
+      _FormStep(
+        label: 'Consent',
+        icon: Icons.verified_user_outlined,
+        done: state.consentTreatment && state.consentStoreMedicalInfo,
+      ),
     ];
     final completedCount = steps.where((s) => s.done).length;
     final progressFraction = completedCount / steps.length;
@@ -2419,7 +2990,11 @@ class _PatientRegistrationViewState
         children: [
           Row(
             children: [
-              const Icon(Icons.assignment_turned_in_outlined, size: 16, color: AppTheme.primaryTeal),
+              const Icon(
+                Icons.assignment_turned_in_outlined,
+                size: 16,
+                color: AppTheme.primaryTeal,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -2450,7 +3025,9 @@ class _PatientRegistrationViewState
               value: progressFraction,
               minHeight: 5,
               backgroundColor: const Color(0xFFE2E8F0),
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryTeal),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppTheme.primaryTeal,
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -2473,7 +3050,9 @@ class _PatientRegistrationViewState
                                   ? AppTheme.primaryTeal
                                   : const Color(0xFFF1F5F9),
                               border: Border.all(
-                                color: step.done ? AppTheme.primaryTeal : const Color(0xFFCBD5E1),
+                                color: step.done
+                                    ? AppTheme.primaryTeal
+                                    : const Color(0xFFCBD5E1),
                                 width: 1.5,
                               ),
                             ),
@@ -2481,7 +3060,9 @@ class _PatientRegistrationViewState
                               child: Icon(
                                 step.done ? Icons.check_rounded : step.icon,
                                 size: 14,
-                                color: step.done ? Colors.white : const Color(0xFF94A3B8),
+                                color: step.done
+                                    ? Colors.white
+                                    : const Color(0xFF94A3B8),
                               ),
                             ),
                           ),
@@ -2493,8 +3074,12 @@ class _PatientRegistrationViewState
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: isMobile ? 8 : 9,
-                              fontWeight: step.done ? FontWeight.bold : FontWeight.normal,
-                              color: step.done ? AppTheme.primaryTeal : const Color(0xFF94A3B8),
+                              fontWeight: step.done
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: step.done
+                                  ? AppTheme.primaryTeal
+                                  : const Color(0xFF94A3B8),
                             ),
                           ),
                         ],
@@ -2504,7 +3089,9 @@ class _PatientRegistrationViewState
                       Container(
                         width: isMobile ? 8 : 16,
                         height: 1.5,
-                        color: step.done ? AppTheme.primaryTeal : const Color(0xFFE2E8F0),
+                        color: step.done
+                            ? AppTheme.primaryTeal
+                            : const Color(0xFFE2E8F0),
                       ),
                   ],
                 ),
@@ -2572,7 +3159,11 @@ class _FormStep {
   final String label;
   final IconData icon;
   final bool done;
-  const _FormStep({required this.label, required this.icon, required this.done});
+  const _FormStep({
+    required this.label,
+    required this.icon,
+    required this.done,
+  });
 }
 
 class _BlockLetterGridField extends StatefulWidget {
@@ -2617,16 +3208,20 @@ class _BlockLetterGridFieldState extends State<_BlockLetterGridField> {
     final viewportWidth = _scrollController.position.viewportDimension;
 
     if (cursorRight > currentOffset + viewportWidth - 20) {
-      final target = (cursorRight - viewportWidth + 60)
-          .clamp(0.0, _scrollController.position.maxScrollExtent);
+      final target = (cursorRight - viewportWidth + 60).clamp(
+        0.0,
+        _scrollController.position.maxScrollExtent,
+      );
       _scrollController.animateTo(
         target,
         duration: const Duration(milliseconds: 150),
         curve: Curves.easeOutCubic,
       );
     } else if (cursorLeft < currentOffset + 15) {
-      final target = (cursorLeft - 40)
-          .clamp(0.0, _scrollController.position.maxScrollExtent);
+      final target = (cursorLeft - 40).clamp(
+        0.0,
+        _scrollController.position.maxScrollExtent,
+      );
       _scrollController.animateTo(
         target,
         duration: const Duration(milliseconds: 150),
@@ -2652,16 +3247,17 @@ class _BlockLetterGridFieldState extends State<_BlockLetterGridField> {
   Widget build(BuildContext context) {
     final isInteractive = widget.controller != null;
     final listenable = isInteractive
-        ? Listenable.merge([
-            ?widget.focusNode,
-            widget.controller,
-          ])
+        ? Listenable.merge([?widget.focusNode, widget.controller])
         : null;
 
     Widget contentBuilder(BuildContext context) {
-      final textValue = widget.controller != null ? widget.controller!.text : widget.value;
+      final textValue = widget.controller != null
+          ? widget.controller!.text
+          : widget.value;
       final chars = textValue.toUpperCase().split('');
-      final total = chars.length > widget.minBoxes ? chars.length : widget.minBoxes;
+      final total = chars.length > widget.minBoxes
+          ? chars.length
+          : widget.minBoxes;
       final isFocused = widget.focusNode != null && widget.focusNode!.hasFocus;
 
       final isMobile = MediaQuery.of(context).size.width < 768;
@@ -2673,8 +3269,8 @@ class _BlockLetterGridFieldState extends State<_BlockLetterGridField> {
 
       final cursorIndex = isFocused
           ? (widget.controller != null && widget.controller!.selection.isValid
-              ? widget.controller!.selection.baseOffset.clamp(0, total - 1)
-              : chars.length.clamp(0, total - 1))
+                ? widget.controller!.selection.baseOffset.clamp(0, total - 1)
+                : chars.length.clamp(0, total - 1))
           : -1;
 
       if (isFocused && cursorIndex >= 0) {
@@ -2697,15 +3293,15 @@ class _BlockLetterGridFieldState extends State<_BlockLetterGridField> {
               color: isCursor
                   ? const Color(0xFFE0F2FE)
                   : hasChar
-                      ? AppTheme.brandPurpleLight
-                      : Colors.white,
+                  ? AppTheme.brandPurpleLight
+                  : Colors.white,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
                 color: isCursor
                     ? AppTheme.primaryTeal
                     : hasChar
-                        ? AppTheme.primaryTeal.withValues(alpha: 0.8)
-                        : const Color(0xFFCBD5E1),
+                    ? AppTheme.primaryTeal.withValues(alpha: 0.8)
+                    : const Color(0xFFCBD5E1),
                 width: isCursor ? 2.0 : (hasChar ? 1.4 : 1.0),
               ),
               boxShadow: isCursor
@@ -2730,15 +3326,15 @@ class _BlockLetterGridFieldState extends State<_BlockLetterGridField> {
                       ),
                     )
                   : isCursor
-                      ? Container(
-                          width: 2.0,
-                          height: boxHeight * 0.52,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryTeal,
-                            borderRadius: BorderRadius.circular(1),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
+                  ? Container(
+                      width: 2.0,
+                      height: boxHeight * 0.52,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryTeal,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           );
         }),
@@ -2797,7 +3393,9 @@ class _BlockLetterGridFieldState extends State<_BlockLetterGridField> {
                           widget.label!,
                           style: TextStyle(
                             fontSize: 11,
-                            fontWeight: isFocused ? FontWeight.bold : FontWeight.w600,
+                            fontWeight: isFocused
+                                ? FontWeight.bold
+                                : FontWeight.w600,
                             color: isFocused
                                 ? AppTheme.primaryTeal
                                 : const Color(0xFF475569),
@@ -2892,7 +3490,8 @@ class _BlockLetterGridFieldState extends State<_BlockLetterGridField> {
                         focusNode: widget.focusNode,
                         keyboardType: widget.keyboardType,
                         textCapitalization: TextCapitalization.characters,
-                        inputFormatters: widget.inputFormatters ??
+                        inputFormatters:
+                            widget.inputFormatters ??
                             [const UpperCaseTextFormatter()],
                         onChanged: (val) {
                           widget.onChanged?.call(val);
@@ -2919,4 +3518,3 @@ class _BlockLetterGridFieldState extends State<_BlockLetterGridField> {
     return Builder(builder: contentBuilder);
   }
 }
-

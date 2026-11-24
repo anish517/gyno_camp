@@ -320,4 +320,57 @@ void main() {
 
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('New Camp modal hides Ward No., orders Geographic Location above Camp Identity, and auto-fills Official Camp Name from Palika, District, and Province while allowing manual edits', (tester) async {
+    tester.view.physicalSize = const Size(1280, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeCampRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New Camp').first);
+    await tester.pumpAndSettle();
+
+    // 1. Ward No. is hidden
+    expect(find.text('Ward No.'), findsNothing);
+
+    // 2. Geographic Location appears above Camp Identity
+    final geoY = tester.getTopLeft(find.text('Geographic Location (नेपाल स्थान विवरण)')).dy;
+    final idY = tester.getTopLeft(find.text('Camp Identity (शिविर पहिचान)')).dy;
+    expect(geoY, lessThan(idY));
+
+    // 3. Official Camp Name auto-populates from initial Palika, District, Province
+    final nameFieldFinder = find.widgetWithText(TextField, 'Official Camp Name *');
+    expect(nameFieldFinder, findsOneWidget);
+    expect(tester.widget<TextField>(nameFieldFinder).controller?.text, 'Budhanilkantha, Kathmandu, Bagmati');
+
+    // 4. Changing Province updates District, Palika, and Official Camp Name automatically
+    await tester.tap(find.byKey(const ValueKey('create_prov_Bagmati')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gandaki').last);
+    await tester.pumpAndSettle();
+
+    final autoGandakiName = tester.widget<TextField>(nameFieldFinder).controller?.text ?? '';
+    expect(autoGandakiName, endsWith(', Gandaki'));
+    expect(autoGandakiName, isNot(equals('Budhanilkantha, Kathmandu, Bagmati')));
+
+    // 5. Manual editing is preserved even when location changes, and can be saved with empty ward
+    await tester.enterText(nameFieldFinder, 'Custom Gandaki Outreach Camp');
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(nameFieldFinder).controller?.text, 'Custom Gandaki Outreach Camp');
+
+    final codeFieldFinder = find.widgetWithText(TextField, 'Camp Code *');
+    await tester.enterText(codeFieldFinder, 'GND99');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Schedule Camp'));
+    await tester.pumpAndSettle();
+
+    final savedCamp = fakeRepo.camps.firstWhere((c) => c.campCode == 'GND99');
+    expect(savedCamp.name, 'Custom Gandaki Outreach Camp');
+    expect(savedCamp.province, 'Gandaki');
+    expect(savedCamp.ward, isEmpty);
+  });
 }

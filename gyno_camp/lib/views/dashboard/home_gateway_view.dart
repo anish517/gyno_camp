@@ -2132,7 +2132,7 @@ class HomeGatewayView extends ConsumerWidget {
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
-                      '${camp.venue}, Ward ${camp.ward}, ${camp.municipality.isNotEmpty ? "${camp.municipality}, " : ""}${camp.district}',
+                      '${camp.venue}${camp.ward.trim().isNotEmpty ? ", Ward ${camp.ward.trim()}" : ""}, ${camp.municipality.isNotEmpty ? "${camp.municipality}, " : ""}${camp.district}',
                       style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), fontWeight: FontWeight.w500),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 2,
@@ -2600,7 +2600,7 @@ class HomeGatewayView extends ConsumerWidget {
                           ),
                         ),
                         title: Text(camp.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        subtitle: Text('${camp.venue}, Ward ${camp.ward}, ${camp.district}', style: const TextStyle(fontSize: 11)),
+                        subtitle: Text('${camp.venue}${camp.ward.trim().isNotEmpty ? ", Ward ${camp.ward.trim()}" : ""}, ${camp.district}', style: const TextStyle(fontSize: 11)),
                         trailing: isCurrent
                             ? Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -3204,7 +3204,7 @@ class HomeGatewayView extends ConsumerWidget {
                     if (isCampAssigned) ...[
                       const SizedBox(height: 4),
                       Text(
-                        'Location: ${userCamp.venue}, Ward ${userCamp.ward}, ${userCamp.district}',
+                        'Location: ${userCamp.venue}${userCamp.ward.trim().isNotEmpty ? ", Ward ${userCamp.ward.trim()}" : ""}, ${userCamp.district}',
                         style: const TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                       const SizedBox(height: 16),

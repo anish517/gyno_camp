@@ -919,7 +919,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '${camp.venue}, Ward ${camp.ward}, ${camp.municipality.isNotEmpty ? "${camp.municipality}, " : ""}${camp.district}${camp.province.isNotEmpty ? ", Province: ${camp.province}" : ""}',
+                      '${camp.venue}${camp.ward.trim().isNotEmpty ? ", Ward ${camp.ward.trim()}" : ""}, ${camp.municipality.isNotEmpty ? "${camp.municipality}, " : ""}${camp.district}${camp.province.isNotEmpty ? ", Province: ${camp.province}" : ""}',
                       style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryLight),
                     ),
                   ),
@@ -2021,7 +2021,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '${c.venue}, Ward ${c.ward}, ${c.municipality.isNotEmpty ? "${c.municipality}, " : ""}${c.district}',
+                        '${c.venue}${c.ward.trim().isNotEmpty ? ", Ward ${c.ward.trim()}" : ""}, ${c.municipality.isNotEmpty ? "${c.municipality}, " : ""}${c.district}',
                         style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryLight),
                       ),
                       const SizedBox(height: 6),
@@ -2186,7 +2186,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(camp.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                            Text('${camp.venue}, Ward ${camp.ward}, ${camp.district}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text('${camp.venue}${camp.ward.trim().isNotEmpty ? ", Ward ${camp.ward.trim()}" : ""}, ${camp.district}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                           ],
                         ),
                       ),
@@ -2874,9 +2874,20 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     );
   }
 
+  static String _buildAutoCampName({
+    required String municipality,
+    required String district,
+    required String province,
+  }) {
+    return [
+      municipality.trim(),
+      district.trim(),
+      province.trim(),
+    ].where((s) => s.isNotEmpty).join(', ');
+  }
+
   void _showCreateCampDialog(BuildContext context, {CampStatus initialStatus = CampStatus.scheduled}) {
     final codeCtrl = TextEditingController();
-    final nameCtrl = TextEditingController();
     // Doctor & NMC roster state
     final docNameCtrl = TextEditingController();
     final docNmcCtrl = TextEditingController();
@@ -2889,8 +2900,17 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     bool showNurseOnForms = true;
     String selectedProvince = 'Bagmati';
     String selectedDistrict = 'Kathmandu';
-    final munCtrl = TextEditingController();
-    final wardCtrl = TextEditingController();
+    final initialPalikas = NepalGeodata.palikasFor(selectedDistrict);
+    final munCtrl = TextEditingController(
+      text: initialPalikas.isNotEmpty ? initialPalikas.first : '',
+    );
+    String lastAutoName = _buildAutoCampName(
+      municipality: munCtrl.text,
+      district: selectedDistrict,
+      province: selectedProvince,
+    );
+    final nameCtrl = TextEditingController(text: lastAutoName);
+    bool isNameCustomized = false;
     final venueCtrl = TextEditingController();
     DateTime startDate = DateTime.now();
     DateTime endDate = DateTime.now().add(const Duration(days: 2));
@@ -2917,6 +2937,25 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               builder: (innerCtx, setDialogState) {
                 final durationDays = endDate.difference(startDate).inDays + 1;
                 final isDateValid = !endDate.isBefore(startDate);
+
+                void syncAutoCampName({bool force = false}) {
+                  final autoName = _buildAutoCampName(
+                    municipality: munCtrl.text,
+                    district: selectedDistrict,
+                    province: selectedProvince,
+                  );
+                  if (force ||
+                      !isNameCustomized ||
+                      nameCtrl.text.trim().isEmpty ||
+                      nameCtrl.text.trim() == lastAutoName) {
+                    nameCtrl.text = autoName;
+                    isNameCustomized = false;
+                    if (nameError != null && autoName.isNotEmpty) {
+                      nameError = null;
+                    }
+                  }
+                  lastAutoName = autoName;
+                }
 
                 return Dialog(
                   backgroundColor: Colors.white,
@@ -3014,12 +3053,143 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // SECTION 1: Camp Identity
+                                // SECTION 1: Geographic Location
+                                _buildSectionHeader(Icons.place_outlined, 'Geographic Location (नेपाल स्थान विवरण)'),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        key: ValueKey('create_prov_$selectedProvince'),
+                                        initialValue: selectedProvince,
+                                        decoration: _dialogInputDecoration(
+                                          labelText: 'Province * (प्रदेश)',
+                                          prefixIcon: const Icon(Icons.account_balance_outlined, size: 18, color: AppTheme.primaryDark),
+                                        ),
+                                        items: ClinicalConstants.nepalProvinces.map((prov) {
+                                          return DropdownMenuItem(value: prov, child: Text(prov, style: const TextStyle(fontSize: 13)));
+                                        }).toList(),
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            setDialogState(() {
+                                              selectedProvince = val;
+                                              final dists = NepalGeodata.districtsFor(val);
+                                              if (!dists.contains(selectedDistrict)) {
+                                                selectedDistrict = dists.isNotEmpty ? dists.first : '';
+                                              }
+                                              final palikas = NepalGeodata.palikasFor(selectedDistrict);
+                                              if (!palikas.contains(munCtrl.text)) {
+                                                munCtrl.text = palikas.isNotEmpty ? palikas.first : '';
+                                              }
+                                              syncAutoCampName();
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        key: ValueKey('create_dist_${selectedProvince}_$selectedDistrict'),
+                                        initialValue: NepalGeodata.districtsFor(selectedProvince).contains(selectedDistrict)
+                                            ? selectedDistrict
+                                            : (NepalGeodata.districtsFor(selectedProvince).isNotEmpty ? NepalGeodata.districtsFor(selectedProvince).first : null),
+                                        decoration: _dialogInputDecoration(
+                                          labelText: 'District * (जिल्ला)',
+                                          prefixIcon: const Icon(Icons.map_outlined, size: 18, color: AppTheme.primaryDark),
+                                        ),
+                                        items: NepalGeodata.districtsFor(selectedProvince).map((dist) {
+                                          return DropdownMenuItem(value: dist, child: Text(dist, style: const TextStyle(fontSize: 13)));
+                                        }).toList(),
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            setDialogState(() {
+                                              selectedDistrict = val;
+                                              final palikas = NepalGeodata.palikasFor(val);
+                                              if (!palikas.contains(munCtrl.text)) {
+                                                munCtrl.text = palikas.isNotEmpty ? palikas.first : '';
+                                              }
+                                              syncAutoCampName();
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Builder(
+                                  builder: (context) {
+                                    final availablePalikas = NepalGeodata.palikasFor(
+                                      selectedDistrict,
+                                      extraPalikas: munCtrl.text.isNotEmpty ? [munCtrl.text] : null,
+                                    );
+                                    final currentPalika = availablePalikas.contains(munCtrl.text)
+                                        ? munCtrl.text
+                                        : (availablePalikas.isNotEmpty ? availablePalikas.first : null);
+                                    if (munCtrl.text.isEmpty && currentPalika != null) {
+                                      munCtrl.text = currentPalika;
+                                    }
+                                    return DropdownButtonFormField<String>(
+                                      key: ValueKey('create_palika_${selectedDistrict}_${munCtrl.text}'),
+                                      initialValue: currentPalika,
+                                      isExpanded: true,
+                                      decoration: _dialogInputDecoration(
+                                        labelText: 'Palika / Municipality * (पालिका)',
+                                        prefixIcon: const Icon(Icons.location_city_outlined, size: 18, color: AppTheme.primaryDark),
+                                      ),
+                                      items: availablePalikas.map((p) {
+                                        return DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)));
+                                      }).toList(),
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          setDialogState(() {
+                                            munCtrl.text = val;
+                                            syncAutoCampName();
+                                          });
+                                        }
+                                      },
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: venueCtrl,
+                                  decoration: _dialogInputDecoration(
+                                    labelText: 'Venue / Health Post Facility *',
+                                    prefixIcon: const Icon(Icons.business_outlined, size: 18, color: AppTheme.primaryDark),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+
+                                // SECTION 2: Camp Identity
                                 _buildSectionHeader(Icons.badge_outlined, 'Camp Identity (शिविर पहिचान)'),
                                 const SizedBox(height: 10),
                                 LayoutBuilder(
                                   builder: (context, idConstraints) {
                                     final isCompact = idConstraints.maxWidth < 450;
+                                    final campNameDecoration = _dialogInputDecoration(
+                                      labelText: 'Official Camp Name *',
+                                      errorText: nameError,
+                                      prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
+                                    ).copyWith(
+                                      suffixIcon: isNameCustomized
+                                          ? IconButton(
+                                              tooltip: 'Auto-fill from Palika, District & Province',
+                                              icon: const Icon(Icons.autorenew_rounded, size: 18, color: AppTheme.primaryTeal),
+                                              onPressed: () => setDialogState(() => syncAutoCampName(force: true)),
+                                            )
+                                          : null,
+                                    );
+                                    void handleNameChanged(String val) {
+                                      final trimmed = val.trim();
+                                      setDialogState(() {
+                                        isNameCustomized = trimmed.isNotEmpty && trimmed != lastAutoName;
+                                        if (nameError != null && trimmed.isNotEmpty) {
+                                          nameError = null;
+                                        }
+                                      });
+                                    }
                                     if (isCompact) {
                                       return Column(
                                         children: [
@@ -3040,16 +3210,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                           const SizedBox(height: 12),
                                           TextField(
                                             controller: nameCtrl,
-                                            onChanged: (val) {
-                                              if (nameError != null && val.trim().isNotEmpty) {
-                                                setDialogState(() => nameError = null);
-                                              }
-                                            },
-                                            decoration: _dialogInputDecoration(
-                                              labelText: 'Official Camp Name *',
-                                              errorText: nameError,
-                                              prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
-                                            ),
+                                            onChanged: handleNameChanged,
+                                            decoration: campNameDecoration,
                                           ),
                                         ],
                                       );
@@ -3078,16 +3240,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         Expanded(
                                           child: TextField(
                                             controller: nameCtrl,
-                                            onChanged: (val) {
-                                              if (nameError != null && val.trim().isNotEmpty) {
-                                                setDialogState(() => nameError = null);
-                                              }
-                                            },
-                                            decoration: _dialogInputDecoration(
-                                              labelText: 'Official Camp Name *',
-                                              errorText: nameError,
-                                              prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
-                                            ),
+                                            onChanged: handleNameChanged,
+                                            decoration: campNameDecoration,
                                           ),
                                         ),
                                       ],
@@ -3113,125 +3267,6 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   showNurseOnForms: showNurseOnForms,
                                   setDialogState: setDialogState,
                                   onShowNurseChanged: (val) => setDialogState(() => showNurseOnForms = val),
-                                ),
-                                const SizedBox(height: 20),
-
-                                // SECTION 2: Geographic Location
-                                _buildSectionHeader(Icons.place_outlined, 'Geographic Location (नेपाल स्थान विवरण)'),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: DropdownButtonFormField<String>(
-                                        key: ValueKey('create_prov_$selectedProvince'),
-                                        initialValue: selectedProvince,
-                                        decoration: _dialogInputDecoration(
-                                          labelText: 'Province * (प्रदेश)',
-                                          prefixIcon: const Icon(Icons.account_balance_outlined, size: 18, color: AppTheme.primaryDark),
-                                        ),
-                                        items: ClinicalConstants.nepalProvinces.map((prov) {
-                                          return DropdownMenuItem(value: prov, child: Text(prov, style: const TextStyle(fontSize: 13)));
-                                        }).toList(),
-                                        onChanged: (val) {
-                                          if (val != null) {
-                                            setDialogState(() {
-                                              selectedProvince = val;
-                                              final dists = NepalGeodata.districtsFor(val);
-                                              if (!dists.contains(selectedDistrict)) {
-                                                selectedDistrict = dists.isNotEmpty ? dists.first : '';
-                                              }
-                                            });
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: DropdownButtonFormField<String>(
-                                        key: ValueKey('create_dist_${selectedProvince}_$selectedDistrict'),
-                                        initialValue: NepalGeodata.districtsFor(selectedProvince).contains(selectedDistrict)
-                                            ? selectedDistrict
-                                            : (NepalGeodata.districtsFor(selectedProvince).isNotEmpty ? NepalGeodata.districtsFor(selectedProvince).first : null),
-                                        decoration: _dialogInputDecoration(
-                                          labelText: 'District * (जिल्ला)',
-                                          prefixIcon: const Icon(Icons.map_outlined, size: 18, color: AppTheme.primaryDark),
-                                        ),
-                                        items: NepalGeodata.districtsFor(selectedProvince).map((dist) {
-                                          return DropdownMenuItem(value: dist, child: Text(dist, style: const TextStyle(fontSize: 13)));
-                                        }).toList(),
-                                        onChanged: (val) {
-                                          if (val != null) {
-                                            setDialogState(() {
-                                              selectedDistrict = val;
-                                              final palikas = NepalGeodata.palikasFor(val);
-                                              if (!palikas.contains(munCtrl.text)) {
-                                                munCtrl.text = palikas.isNotEmpty ? palikas.first : '';
-                                              }
-                                            });
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: Builder(
-                                        builder: (context) {
-                                          final availablePalikas = NepalGeodata.palikasFor(
-                                            selectedDistrict,
-                                            extraPalikas: munCtrl.text.isNotEmpty ? [munCtrl.text] : null,
-                                          );
-                                          final currentPalika = availablePalikas.contains(munCtrl.text)
-                                              ? munCtrl.text
-                                              : (availablePalikas.isNotEmpty ? availablePalikas.first : null);
-                                          if (munCtrl.text.isEmpty && currentPalika != null) {
-                                            munCtrl.text = currentPalika;
-                                          }
-                                          return DropdownButtonFormField<String>(
-                                            key: ValueKey('create_palika_${selectedDistrict}_${munCtrl.text}'),
-                                            initialValue: currentPalika,
-                                            isExpanded: true,
-                                            decoration: _dialogInputDecoration(
-                                              labelText: 'Palika / Municipality * (पालिका)',
-                                              prefixIcon: const Icon(Icons.location_city_outlined, size: 18, color: AppTheme.primaryDark),
-                                            ),
-                                            items: availablePalikas.map((p) {
-                                              return DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)));
-                                            }).toList(),
-                                            onChanged: (val) {
-                                              if (val != null) {
-                                                setDialogState(() => munCtrl.text = val);
-                                              }
-                                            },
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    SizedBox(
-                                      width: 140,
-                                      child: TextField(
-                                        controller: wardCtrl,
-                                        keyboardType: TextInputType.number,
-                                        decoration: _dialogInputDecoration(
-                                          labelText: 'Ward No.',
-                                          prefixIcon: const Icon(Icons.numbers_outlined, size: 18, color: AppTheme.primaryDark),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: venueCtrl,
-                                  decoration: _dialogInputDecoration(
-                                    labelText: 'Venue / Health Post Facility *',
-                                    prefixIcon: const Icon(Icons.business_outlined, size: 18, color: AppTheme.primaryDark),
-                                  ),
                                 ),
                                 const SizedBox(height: 20),
 
@@ -3781,7 +3816,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                           province: selectedProvince,
                                           district: selectedDistrict,
                                           municipality: munCtrl.text.trim(),
-                                          ward: wardCtrl.text.trim(),
+                                          ward: '',
                                           venue: venueCtrl.text.trim(),
                                           startDate: startDate,
                                           endDate: endDate,
@@ -3840,7 +3875,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                           province: selectedProvince,
                                           district: selectedDistrict,
                                           municipality: munCtrl.text.trim(),
-                                          ward: wardCtrl.text.trim(),
+                                          ward: '',
                                           venue: venueCtrl.text.trim(),
                                           startDate: startDate,
                                           endDate: endDate,
@@ -3938,7 +3973,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
       province: province,
       district: district.isNotEmpty ? district : 'Bagmati',
       municipality: municipality,
-      ward: ward.isNotEmpty ? ward : '01',
+      ward: ward.trim(),
       venue: venue.isNotEmpty ? venue : 'Health Post',
       startDate: startDate,
       endDate: endDate,
@@ -4028,8 +4063,21 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     String selectedDistrict = availableDistricts.contains(camp.district)
         ? camp.district
         : (availableDistricts.isNotEmpty ? availableDistricts.first : camp.district);
-    final munCtrl = TextEditingController(text: camp.municipality);
-    final wardCtrl = TextEditingController(text: camp.ward);
+    final initialEditPalikas = NepalGeodata.palikasFor(
+      selectedDistrict,
+      extraPalikas: camp.municipality.isNotEmpty ? [camp.municipality] : null,
+    );
+    final munCtrl = TextEditingController(
+      text: camp.municipality.isNotEmpty
+          ? camp.municipality
+          : (initialEditPalikas.isNotEmpty ? initialEditPalikas.first : ''),
+    );
+    String lastAutoName = _buildAutoCampName(
+      municipality: munCtrl.text,
+      district: selectedDistrict,
+      province: selectedProvince,
+    );
+    bool isNameCustomized = camp.name.trim().isNotEmpty && camp.name.trim() != lastAutoName;
     final venueCtrl = TextEditingController(text: camp.venue);
     DateTime startDate = camp.startDate;
     DateTime endDate = camp.endDate;
@@ -4045,6 +4093,22 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           builder: (dialogCtx, setDialogState) {
             final durationDays = endDate.difference(startDate).inDays + 1;
             final isDateValid = !endDate.isBefore(startDate);
+
+            void syncEditAutoCampName({bool force = false}) {
+              final autoName = _buildAutoCampName(
+                municipality: munCtrl.text,
+                district: selectedDistrict,
+                province: selectedProvince,
+              );
+              if (force ||
+                  !isNameCustomized ||
+                  nameCtrl.text.trim().isEmpty ||
+                  nameCtrl.text.trim() == lastAutoName) {
+                nameCtrl.text = autoName;
+                isNameCustomized = false;
+              }
+              lastAutoName = autoName;
+            }
 
             return Dialog(
               backgroundColor: Colors.white,
@@ -4140,39 +4204,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // SECTION 1: Camp Identity
-                            _buildSectionHeader(Icons.badge_outlined, 'Camp Identity (शिविर पहिचान)'),
-                            const SizedBox(height: 10),
-                            TextField(
-                              controller: nameCtrl,
-                              decoration: _dialogInputDecoration(
-                                labelText: 'Camp Name *',
-                                prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            _buildDoctorNmcRoster(
-                              context: context,
-                              assignedDoctors: assignedDoctors,
-                              docNameCtrl: docNameCtrl,
-                              docNmcCtrl: docNmcCtrl,
-                              showDoctorOnForms: showDoctorOnForms,
-                              setDialogState: setDialogState,
-                              onShowDoctorChanged: (val) => setDialogState(() => showDoctorOnForms = val),
-                            ),
-                            const SizedBox(height: 12),
-                            _buildNurseRoster(
-                              context: context,
-                              assignedNurses: assignedNurses,
-                              nurseNameCtrl: nurseNameCtrl,
-                              nurseRegCtrl: nurseRegCtrl,
-                              showNurseOnForms: showNurseOnForms,
-                              setDialogState: setDialogState,
-                              onShowNurseChanged: (val) => setDialogState(() => showNurseOnForms = val),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // SECTION 2: Geographic Location
+                            // SECTION 1: Geographic Location
                             _buildSectionHeader(Icons.place_outlined, 'Geographic Location (नेपाल स्थान विवरण)'),
                             const SizedBox(height: 10),
                             Row(
@@ -4196,6 +4228,11 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                           if (!dists.contains(selectedDistrict)) {
                                             selectedDistrict = dists.isNotEmpty ? dists.first : '';
                                           }
+                                          final palikas = NepalGeodata.palikasFor(selectedDistrict);
+                                          if (!palikas.contains(munCtrl.text)) {
+                                            munCtrl.text = palikas.isNotEmpty ? palikas.first : '';
+                                          }
+                                          syncEditAutoCampName();
                                         });
                                       }
                                     },
@@ -4223,6 +4260,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                           if (!palikas.contains(munCtrl.text)) {
                                             munCtrl.text = palikas.isNotEmpty ? palikas.first : '';
                                           }
+                                          syncEditAutoCampName();
                                         });
                                       }
                                     },
@@ -4231,55 +4269,39 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                               ],
                             ),
                             const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Builder(
-                                    builder: (context) {
-                                      final availablePalikas = NepalGeodata.palikasFor(
-                                        selectedDistrict,
-                                        extraPalikas: munCtrl.text.isNotEmpty ? [munCtrl.text] : null,
-                                      );
-                                      final currentPalika = availablePalikas.contains(munCtrl.text)
-                                          ? munCtrl.text
-                                          : (availablePalikas.isNotEmpty ? availablePalikas.first : null);
-                                      if (munCtrl.text.isEmpty && currentPalika != null) {
-                                        munCtrl.text = currentPalika;
-                                      }
-                                      return DropdownButtonFormField<String>(
-                                        key: ValueKey('edit_palika_${selectedDistrict}_${munCtrl.text}'),
-                                        initialValue: currentPalika,
-                                        isExpanded: true,
-                                        decoration: _dialogInputDecoration(
-                                          labelText: 'Palika / Municipality * (पालिका)',
-                                          prefixIcon: const Icon(Icons.location_city_outlined, size: 18, color: AppTheme.primaryDark),
-                                        ),
-                                        items: availablePalikas.map((p) {
-                                          return DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)));
-                                        }).toList(),
-                                        onChanged: (val) {
-                                          if (val != null) {
-                                            setDialogState(() => munCtrl.text = val);
-                                          }
-                                        },
-                                      );
-                                    },
+                            Builder(
+                              builder: (context) {
+                                final availablePalikas = NepalGeodata.palikasFor(
+                                  selectedDistrict,
+                                  extraPalikas: munCtrl.text.isNotEmpty ? [munCtrl.text] : null,
+                                );
+                                final currentPalika = availablePalikas.contains(munCtrl.text)
+                                    ? munCtrl.text
+                                    : (availablePalikas.isNotEmpty ? availablePalikas.first : null);
+                                if (munCtrl.text.isEmpty && currentPalika != null) {
+                                  munCtrl.text = currentPalika;
+                                }
+                                return DropdownButtonFormField<String>(
+                                  key: ValueKey('edit_palika_${selectedDistrict}_${munCtrl.text}'),
+                                  initialValue: currentPalika,
+                                  isExpanded: true,
+                                  decoration: _dialogInputDecoration(
+                                    labelText: 'Palika / Municipality * (पालिका)',
+                                    prefixIcon: const Icon(Icons.location_city_outlined, size: 18, color: AppTheme.primaryDark),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                SizedBox(
-                                  width: 140,
-                                  child: TextField(
-                                    controller: wardCtrl,
-                                    keyboardType: TextInputType.number,
-                                    decoration: _dialogInputDecoration(
-                                      labelText: 'Ward No.',
-                                      prefixIcon: const Icon(Icons.numbers_outlined, size: 18, color: AppTheme.primaryDark),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                  items: availablePalikas.map((p) {
+                                    return DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)));
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setDialogState(() {
+                                        munCtrl.text = val;
+                                        syncEditAutoCampName();
+                                      });
+                                    }
+                                  },
+                                );
+                              },
                             ),
                             const SizedBox(height: 12),
                             TextField(
@@ -4288,6 +4310,52 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 labelText: 'Venue / Health Post Facility *',
                                 prefixIcon: const Icon(Icons.business_outlined, size: 18, color: AppTheme.primaryDark),
                               ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // SECTION 2: Camp Identity
+                            _buildSectionHeader(Icons.badge_outlined, 'Camp Identity (शिविर पहिचान)'),
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: nameCtrl,
+                              onChanged: (val) {
+                                final trimmed = val.trim();
+                                setDialogState(() {
+                                  isNameCustomized = trimmed.isNotEmpty && trimmed != lastAutoName;
+                                });
+                              },
+                              decoration: _dialogInputDecoration(
+                                labelText: 'Official Camp Name *',
+                                prefixIcon: const Icon(Icons.health_and_safety_outlined, size: 18, color: AppTheme.primaryDark),
+                              ).copyWith(
+                                suffixIcon: isNameCustomized
+                                    ? IconButton(
+                                        tooltip: 'Auto-fill from Palika, District & Province',
+                                        icon: const Icon(Icons.autorenew_rounded, size: 18, color: AppTheme.primaryTeal),
+                                        onPressed: () => setDialogState(() => syncEditAutoCampName(force: true)),
+                                      )
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildDoctorNmcRoster(
+                              context: context,
+                              assignedDoctors: assignedDoctors,
+                              docNameCtrl: docNameCtrl,
+                              docNmcCtrl: docNmcCtrl,
+                              showDoctorOnForms: showDoctorOnForms,
+                              setDialogState: setDialogState,
+                              onShowDoctorChanged: (val) => setDialogState(() => showDoctorOnForms = val),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildNurseRoster(
+                              context: context,
+                              assignedNurses: assignedNurses,
+                              nurseNameCtrl: nurseNameCtrl,
+                              nurseRegCtrl: nurseRegCtrl,
+                              showNurseOnForms: showNurseOnForms,
+                              setDialogState: setDialogState,
+                              onShowNurseChanged: (val) => setDialogState(() => showNurseOnForms = val),
                             ),
                             const SizedBox(height: 20),
 
@@ -4581,7 +4649,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                 province: selectedProvince,
                                 district: selectedDistrict,
                                 municipality: munCtrl.text.trim(),
-                                ward: wardCtrl.text.trim(),
+                                ward: camp.ward,
                                 venue: venueCtrl.text.trim(),
                                 startDate: startDate,
                                 endDate: endDate,
