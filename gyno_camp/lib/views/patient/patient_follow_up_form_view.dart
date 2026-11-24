@@ -2809,18 +2809,6 @@ class _PatientFollowUpFormViewState
                 );
               },
             ),
-            const SizedBox(height: 14),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            const Text(
-              'Attending / Assisting Nurse(s) (सेवा दिने नर्सहरू):',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12.5,
-                color: Color(0xFF81005D),
-              ),
-            ),
-            const SizedBox(height: 6),
             Builder(
               builder: (context) {
                 final campState = ref.watch(campStateProvider);
@@ -2830,73 +2818,92 @@ class _PatientFollowUpFormViewState
                       (c) => c?.id == widget.patient.campId,
                       orElse: () => null,
                     );
+                if (!(cCamp?.showNurseOnForms ?? false)) {
+                  return const SizedBox.shrink();
+                }
                 final nurses = cCamp?.nurseProfiles ?? <NurseProfile>[];
 
-                if (nurses.isEmpty) {
-                  return const Text(
-                    'No specific nurses assigned to this camp in camp settings.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                      color: Colors.blueGrey,
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 14),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Attending / Assisting Nurse(s) (सेवा दिने नर्सहरू):',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
+                        color: Color(0xFF81005D),
+                      ),
                     ),
-                  );
-                }
-
-                return Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: nurses.map((nurse) {
-                    final nurseKey = nurse.displayName;
-                    final isSelected =
-                        _selectedNurses.contains(nurseKey) ||
-                        _selectedNurses.any(
-                          (n) =>
-                              n.toLowerCase().trim() ==
-                              nurse.name.toLowerCase().trim(),
-                        );
-                    return FilterChip(
-                      avatar: CircleAvatar(
-                        radius: 10,
-                        backgroundColor: isSelected
-                            ? Colors.white
-                            : const Color(0xFF81005D).withValues(alpha: 0.15),
-                        child: Icon(
-                          Icons.badge_outlined,
-                          size: 12,
-                          color: isSelected
-                              ? const Color(0xFF81005D)
-                              : Colors.pink.shade700,
-                        ),
-                      ),
-                      label: Text(
-                        nurse.formattedLabel,
+                    const SizedBox(height: 6),
+                    if (nurses.isEmpty)
+                      const Text(
+                        'No specific nurses assigned to this camp in camp settings.',
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.blueGrey,
                         ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: nurses.map((nurse) {
+                          final nurseKey = nurse.displayName;
+                          final isSelected =
+                              _selectedNurses.contains(nurseKey) ||
+                              _selectedNurses.any(
+                                (n) =>
+                                    n.toLowerCase().trim() ==
+                                    nurse.name.toLowerCase().trim(),
+                              );
+                          return FilterChip(
+                            avatar: CircleAvatar(
+                              radius: 10,
+                              backgroundColor: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF81005D).withValues(alpha: 0.15),
+                              child: Icon(
+                                Icons.badge_outlined,
+                                size: 12,
+                                color: isSelected
+                                    ? const Color(0xFF81005D)
+                                    : Colors.pink.shade700,
+                              ),
+                            ),
+                            label: Text(
+                              nurse.formattedLabel,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            selected: isSelected,
+                            selectedColor: const Color(0xFFFCE7F3),
+                            checkmarkColor: const Color(0xFF81005D),
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  _selectedNurses.add(nurseKey);
+                                } else {
+                                  _selectedNurses.remove(nurseKey);
+                                  _selectedNurses.removeWhere(
+                                    (n) =>
+                                        n.toLowerCase().trim() ==
+                                        nurse.name.toLowerCase().trim(),
+                                  );
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
                       ),
-                      selected: isSelected,
-                      selectedColor: const Color(0xFFFCE7F3),
-                      checkmarkColor: const Color(0xFF81005D),
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedNurses.add(nurseKey);
-                          } else {
-                            _selectedNurses.remove(nurseKey);
-                            _selectedNurses.removeWhere(
-                              (n) =>
-                                  n.toLowerCase().trim() ==
-                                  nurse.name.toLowerCase().trim(),
-                            );
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
+                  ],
                 );
               },
             ),

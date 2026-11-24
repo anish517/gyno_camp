@@ -764,8 +764,10 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     }
 
     for (final camp in relevantCamps) {
-      for (final n in camp.nurseNames) {
-        addNurseRaw(n);
+      if (camp.showNurseOnForms) {
+        for (final n in camp.nurseNames) {
+          addNurseRaw(n);
+        }
       }
     }
     if (docSummary != null) {

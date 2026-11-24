@@ -395,6 +395,45 @@ void main() {
     expect(text.contains('NNC'), true);
     expect(text.contains('9988'), true);
   });
+
+  test('Camp with showNurseOnForms OFF (default) omits Attending Nurse block from Yellow Form and Follow-Up Slip PDFs', () async {
+    final campNurseOff = CampModel(
+      id: 'camp-nurse-off',
+      campCode: 'NO_NURSE',
+      name: 'Madi, Chitwan, Bagmati',
+      province: 'Bagmati',
+      district: 'Chitwan',
+      municipality: 'Madi',
+      ward: '',
+      venue: 'Health Post',
+      startDate: DateTime(2026, 11, 24),
+      endDate: DateTime(2026, 11, 26),
+      status: CampStatus.open,
+      doctorNames: ['Anita Sharma (NMC: 12345)'],
+      createdAt: DateTime(2026, 11, 24),
+    );
+    expect(campNurseOff.showNurseOnForms, isFalse);
+
+    final pdfService = PdfReportService();
+    final yellowBytes = await pdfService.generatePatientRegistrationFormPdf(
+      camp: campNurseOff,
+      blankDoctorLines: true,
+    );
+    final yellowText = _extractPdfText(yellowBytes);
+    expect(yellowText.contains('Attending'), isFalse);
+    expect(yellowText.contains('NNC'), isFalse);
+    expect(yellowText.contains('Examining'), isTrue);
+    expect(yellowText.contains('Doctor'), isTrue);
+
+    final followUpBytes = await pdfService.generateBlankFollowUpSlipPdf(
+      camp: campNurseOff,
+      blankDoctorLines: true,
+    );
+    final followUpText = _extractPdfText(followUpBytes);
+    expect(followUpText.contains('Staff'), isFalse);
+    expect(followUpText.contains('Examining'), isTrue);
+    expect(followUpText.contains('Doctor'), isTrue);
+  });
 }
 
 String _extractPdfText(List<int> bytes) {

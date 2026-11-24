@@ -372,5 +372,37 @@ void main() {
     expect(savedCamp.name, 'Custom Gandaki Outreach Camp');
     expect(savedCamp.province, 'Gandaki');
     expect(savedCamp.ward, isEmpty);
+    expect(savedCamp.showNurseOnForms, isFalse);
+  });
+
+  testWidgets('Attending Nurses & NNC toggle defaults to OFF (inputs hidden) and reveals inputs when toggled ON', (tester) async {
+    tester.view.physicalSize = const Size(1280, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeCampRepository();
+    await tester.pumpWidget(createTestWidget(fakeRepo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New Camp').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Attending Nurses & NNC Numbers'), findsOneWidget);
+    expect(find.text('Show in UI & Forms'), findsOneWidget);
+    // Default OFF: Nurse Name and NNC No. fields are hidden
+    expect(find.widgetWithText(TextField, 'Nurse Name'), findsNothing);
+    expect(find.widgetWithText(TextField, 'NNC No. (optional)'), findsNothing);
+
+    // Toggle Switch ON (2nd Switch in dialog; 1st is Examining Doctors)
+    final switches = find.byType(Switch);
+    expect(switches, findsNWidgets(2));
+    expect(tester.widget<Switch>(switches.at(1)).value, isFalse);
+
+    await tester.tap(switches.at(1));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Switch>(switches.at(1)).value, isTrue);
+    expect(find.widgetWithText(TextField, 'Nurse Name'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'NNC No. (optional)'), findsOneWidget);
   });
 }

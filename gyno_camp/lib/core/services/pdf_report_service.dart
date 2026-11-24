@@ -3571,7 +3571,7 @@ class PdfReportService {
     final boxBg = PdfColor.fromHex('FAFAFA');
 
     final bool showDoctor = camp?.showDoctorOnForms ?? true;
-    final bool showNurse = camp?.showNurseOnForms ?? true;
+    final bool showNurse = camp?.showNurseOnForms ?? (nurse != null);
     final List<String> campDoctors = camp?.doctorNames.isNotEmpty == true
         ? camp!.doctorNames
               .map(
@@ -3982,36 +3982,39 @@ class PdfReportService {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  pw.SizedBox(
-                    width: 230,
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: nurseWidgets.isNotEmpty
-                          ? nurseWidgets
-                          : [
-                              pw.Container(
-                                width: 120,
-                                height: 0.8,
-                                color: PdfColors.black,
-                              ),
-                              pw.SizedBox(height: 2),
-                              pw.Text(
-                                'Staff Nurse / Health Worker',
-                                style: pw.TextStyle(
-                                  fontSize: 7,
-                                  fontWeight: pw.FontWeight.bold,
+                  if (showNurse)
+                    pw.SizedBox(
+                      width: 230,
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: nurseWidgets.isNotEmpty
+                            ? nurseWidgets
+                            : [
+                                pw.Container(
+                                  width: 120,
+                                  height: 0.8,
+                                  color: PdfColors.black,
                                 ),
-                              ),
-                              pw.Text(
-                                'Signature & Date:',
-                                style: const pw.TextStyle(
-                                  fontSize: 6,
-                                  color: PdfColors.grey600,
+                                pw.SizedBox(height: 2),
+                                pw.Text(
+                                  'Staff Nurse / Health Worker',
+                                  style: pw.TextStyle(
+                                    fontSize: 7,
+                                    fontWeight: pw.FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                            ],
-                    ),
-                  ),
+                                pw.Text(
+                                  'Signature & Date:',
+                                  style: const pw.TextStyle(
+                                    fontSize: 6,
+                                    color: PdfColors.grey600,
+                                  ),
+                                ),
+                              ],
+                      ),
+                    )
+                  else
+                    pw.Spacer(),
                   pw.SizedBox(
                     width: 280,
                     child: pw.Column(
@@ -4589,7 +4592,7 @@ class PdfReportService {
     }
 
     // ── Resolve Nurse Information ──
-    final bool showNurse = camp?.showNurseOnForms ?? true;
+    final bool showNurse = camp?.showNurseOnForms ?? (nurse != null || allNursesChecklist);
     final List<NurseProfile> campNurses =
         camp?.nurseProfiles.toSet().toList() ?? <NurseProfile>[];
     final List<NurseProfile> effectiveNurses = campNurses;
@@ -7774,96 +7777,98 @@ class PdfReportService {
                     ],
                   ),
                 ),
-                pw.SizedBox(width: 10),
-                // 2. Attending Nurse
-                pw.SizedBox(
-                  width: 195,
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
-                    children: [
-                      pw.SizedBox(height: 22.0), // Clear pen signing zone
-                      pw.Container(
-                        width: 130,
-                        height: 0.8,
-                        color: PdfColor.fromHex('1E293B'),
-                      ),
-                      pw.SizedBox(height: 3.5),
-                      if (!showNurse || blankNurseLines) ...[
-                        pw.Text('Attending Nurse', style: bold(size: 8.4)),
-                        pw.Text(
-                          'Signature & NNC No.',
-                          style: pw.TextStyle(
-                            fontSize: 7.8,
-                            color: inkMuted,
+                if (showNurse) ...[
+                  pw.SizedBox(width: 10),
+                  // 2. Attending Nurse
+                  pw.SizedBox(
+                    width: 195,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.SizedBox(height: 22.0), // Clear pen signing zone
+                        pw.Container(
+                          width: 130,
+                          height: 0.8,
+                          color: PdfColor.fromHex('1E293B'),
+                        ),
+                        pw.SizedBox(height: 3.5),
+                        if (blankNurseLines) ...[
+                          pw.Text('Attending Nurse', style: bold(size: 8.4)),
+                          pw.Text(
+                            'Signature & NNC No.',
+                            style: pw.TextStyle(
+                              fontSize: 7.8,
+                              color: inkMuted,
+                            ),
                           ),
-                        ),
-                      ] else if (allNursesChecklist || (effectiveNurses.length > 1 && nurse == null && (visit == null || visit.attendingNurseNames.length > 1))) ...[
-                        pw.Text('Attending Nurse (Tick on Paper):', style: bold(size: 8.0)),
-                        pw.SizedBox(height: 2.0),
-                        pw.Wrap(
-                          alignment: pw.WrapAlignment.center,
-                          spacing: 4,
-                          runSpacing: 2,
-                          children: effectiveNurses.map((n) {
-                            final label = n.hasRegistration
-                                ? '${n.displayName} (${n.registrationNumber})'
-                                : n.displayName;
-                            final isNurseSelected = visit != null &&
-                                visit.attendingNurseNames.any((vn) {
-                                  final vLow = vn.toLowerCase().trim();
-                                  final nLow = n.name.toLowerCase().trim();
-                                  return vLow.isNotEmpty &&
-                                      (vLow.contains(nLow) || nLow.contains(vLow));
-                                });
-                            return cb(label, isNurseSelected, bottom: 0, boxSize: 9.8, fontSize: 7.8);
-                          }).toList(),
-                        ),
-                      ] else if (nurse != null) ...[
-                        pw.Text(sanitizeText(nurse.displayName), style: bold(size: 8.4)),
-                        pw.Text(
-                          nurse.hasRegistration
-                              ? 'NNC No: ${nurse.registrationNumber}'
-                              : 'Attending Nurse Signature',
-                          style: pw.TextStyle(
-                            fontSize: 7.8,
-                            color: inkMuted,
+                        ] else if (allNursesChecklist || (effectiveNurses.length > 1 && nurse == null && (visit == null || visit.attendingNurseNames.length > 1))) ...[
+                          pw.Text('Attending Nurse (Tick on Paper):', style: bold(size: 8.0)),
+                          pw.SizedBox(height: 2.0),
+                          pw.Wrap(
+                            alignment: pw.WrapAlignment.center,
+                            spacing: 4,
+                            runSpacing: 2,
+                            children: effectiveNurses.map((n) {
+                              final label = n.hasRegistration
+                                  ? '${n.displayName} (${n.registrationNumber})'
+                                  : n.displayName;
+                              final isNurseSelected = visit != null &&
+                                  visit.attendingNurseNames.any((vn) {
+                                    final vLow = vn.toLowerCase().trim();
+                                    final nLow = n.name.toLowerCase().trim();
+                                    return vLow.isNotEmpty &&
+                                        (vLow.contains(nLow) || nLow.contains(vLow));
+                                  });
+                              return cb(label, isNurseSelected, bottom: 0, boxSize: 9.8, fontSize: 7.8);
+                            }).toList(),
                           ),
-                        ),
-                      ] else if (visit != null &&
-                          visit.primaryNurseName != null &&
-                          visit.primaryNurseName!.isNotEmpty) ...[
-                        pw.Text(sanitizeText(visit.primaryNurseName!), style: bold(size: 8.4)),
-                        pw.Text(
-                          'Attending Nurse Signature',
-                          style: pw.TextStyle(
-                            fontSize: 7.8,
-                            color: inkMuted,
+                        ] else if (nurse != null) ...[
+                          pw.Text(sanitizeText(nurse.displayName), style: bold(size: 8.4)),
+                          pw.Text(
+                            nurse.hasRegistration
+                                ? 'NNC No: ${nurse.registrationNumber}'
+                                : 'Attending Nurse Signature',
+                            style: pw.TextStyle(
+                              fontSize: 7.8,
+                              color: inkMuted,
+                            ),
                           ),
-                        ),
-                      ] else if (effectiveNurses.isNotEmpty) ...[
-                        pw.Text(sanitizeText(effectiveNurses.first.displayName), style: bold(size: 8.4)),
-                        pw.Text(
-                          effectiveNurses.first.hasRegistration
-                              ? 'NNC No: ${effectiveNurses.first.registrationNumber}'
-                              : 'Attending Nurse Signature',
-                          style: pw.TextStyle(
-                            fontSize: 7.8,
-                            color: inkMuted,
+                        ] else if (visit != null &&
+                            visit.primaryNurseName != null &&
+                            visit.primaryNurseName!.isNotEmpty) ...[
+                          pw.Text(sanitizeText(visit.primaryNurseName!), style: bold(size: 8.4)),
+                          pw.Text(
+                            'Attending Nurse Signature',
+                            style: pw.TextStyle(
+                              fontSize: 7.8,
+                              color: inkMuted,
+                            ),
                           ),
-                        ),
-                      ] else ...[
-                        pw.Text('Attending Nurse', style: bold(size: 8.4)),
-                        pw.Text(
-                          'Signature & NNC No.',
-                          style: pw.TextStyle(
-                            fontSize: 7.8,
-                            color: inkMuted,
+                        ] else if (effectiveNurses.isNotEmpty) ...[
+                          pw.Text(sanitizeText(effectiveNurses.first.displayName), style: bold(size: 8.4)),
+                          pw.Text(
+                            effectiveNurses.first.hasRegistration
+                                ? 'NNC No: ${effectiveNurses.first.registrationNumber}'
+                                : 'Attending Nurse Signature',
+                            style: pw.TextStyle(
+                              fontSize: 7.8,
+                              color: inkMuted,
+                            ),
                           ),
-                        ),
+                        ] else ...[
+                          pw.Text('Attending Nurse', style: bold(size: 8.4)),
+                          pw.Text(
+                            'Signature & NNC No.',
+                            style: pw.TextStyle(
+                              fontSize: 7.8,
+                              color: inkMuted,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
+                ],
                 pw.SizedBox(width: 10),
                 // 3. Examining Doctor
                 pw.SizedBox(

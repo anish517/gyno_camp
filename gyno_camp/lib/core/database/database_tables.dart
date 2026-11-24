@@ -71,7 +71,7 @@ class DatabaseTables {
       doctor_name TEXT DEFAULT '',
       doctor_names TEXT DEFAULT '',
       nurse_names TEXT DEFAULT '',
-      show_nurse_on_forms INTEGER DEFAULT 1,
+      show_nurse_on_forms INTEGER DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT
     );

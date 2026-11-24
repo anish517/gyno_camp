@@ -949,7 +949,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   ],
                 ),
               ],
-              if (camp.nurseNames.isNotEmpty) ...[
+              if (camp.showNurseOnForms && camp.nurseNames.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2053,7 +2053,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           ],
                         ),
                       ],
-                      if (c.nurseNames.isNotEmpty) ...[
+                      if (c.showNurseOnForms && c.nurseNames.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2897,7 +2897,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     final nurseNameCtrl = TextEditingController();
     final nurseRegCtrl = TextEditingController();
     final assignedNurses = <NurseProfile>[];
-    bool showNurseOnForms = true;
+    bool showNurseOnForms = false;
     String selectedProvince = 'Bagmati';
     String selectedDistrict = 'Kathmandu';
     final initialPalikas = NepalGeodata.palikasFor(selectedDistrict);
@@ -3912,7 +3912,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     List<String>? doctorNames,
     bool showDoctorOnForms = true,
     List<String> nurseNames = const [],
-    bool showNurseOnForms = true,
+    bool showNurseOnForms = false,
     required String province,
     required String district,
     required String municipality,
@@ -5013,10 +5013,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: const BoxDecoration(
-              color: Color(0xFFFDF2F8),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-              border: Border(bottom: BorderSide(color: Color(0xFFFBCFE8))),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFDF2F8),
+              borderRadius: showNurseOnForms
+                  ? const BorderRadius.vertical(top: Radius.circular(12))
+                  : BorderRadius.circular(12),
+              border: showNurseOnForms
+                  ? const Border(bottom: BorderSide(color: Color(0xFFFBCFE8)))
+                  : null,
             ),
             child: Row(
               children: [
@@ -5048,7 +5052,7 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     const Text(
-                      'Show on forms',
+                      'Show in UI & Forms',
                       style: TextStyle(fontSize: 10, color: Color(0xFF475569), fontWeight: FontWeight.w600),
                     ),
                     Transform.scale(
@@ -5065,7 +5069,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               ],
             ),
           ),
-          Padding(
+          if (showNurseOnForms)
+            Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

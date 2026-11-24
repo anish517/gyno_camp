@@ -846,10 +846,12 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                           ),
                         ],
 
-                        const SizedBox(height: 22),
-                        const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                        const SizedBox(height: 18),
-                        _buildNurseSection(isNarrow),
+                        if (_selectedCamp?.showNurseOnForms == true) ...[
+                          const SizedBox(height: 22),
+                          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                          const SizedBox(height: 18),
+                          _buildNurseSection(isNarrow),
+                        ],
                         const SizedBox(height: 22),
                         const Divider(height: 1, color: Color(0xFFE2E8F0)),
                         const SizedBox(height: 18),
@@ -1023,7 +1025,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   Widget _buildNurseSection(bool isNarrow) {
     final nurses = _selectedCamp?.nurseProfiles ?? [];
     final hasNurses = nurses.isNotEmpty;
-    final showNurseSetting = _selectedCamp?.showNurseOnForms ?? true;
+    final showNurseSetting = _selectedCamp?.showNurseOnForms ?? false;
 
     Widget infoBox(IconData icon, Color iconColor, Color bg, Color border, Color textColor, String text) {
       return Container(

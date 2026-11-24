@@ -169,7 +169,7 @@ class PostgresDatabaseService {
         doctor_name TEXT DEFAULT '',
         doctor_names TEXT DEFAULT '',
         nurse_names TEXT DEFAULT '',
-        show_nurse_on_forms INTEGER DEFAULT 1,
+        show_nurse_on_forms INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT
       );
@@ -272,7 +272,7 @@ class PostgresDatabaseService {
       await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_names TEXT DEFAULT '';");
       await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_doctor_on_forms INTEGER DEFAULT 1;");
       await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS nurse_names TEXT DEFAULT '';");
-      await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_nurse_on_forms INTEGER DEFAULT 1;");
+      await conn.execute("ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_nurse_on_forms INTEGER DEFAULT 0;");
       await conn.execute("ALTER TABLE patients ADD COLUMN IF NOT EXISTS province TEXT DEFAULT 'Bagmati';");
       await conn.execute("ALTER TABLE patients ADD COLUMN IF NOT EXISTS treatment_level TEXT;");
       await conn.execute("ALTER TABLE clinical_visits ADD COLUMN IF NOT EXISTS is_follow_up INTEGER DEFAULT 0;");
@@ -469,7 +469,9 @@ class PostgresDatabaseService {
             'doctor_names': c['doctor_names']?.toString() ?? '',
             'show_doctor_on_forms': (c['show_doctor_on_forms'] is int ? c['show_doctor_on_forms'] : 1),
             'nurse_names': c['nurse_names']?.toString() ?? '',
-            'show_nurse_on_forms': (c['show_nurse_on_forms'] is int ? c['show_nurse_on_forms'] : 1),
+            'show_nurse_on_forms': (c['show_nurse_on_forms'] is int
+                ? c['show_nurse_on_forms']
+                : ((c['nurse_names']?.toString().trim().isNotEmpty ?? false) ? 1 : 0)),
             'created_at':
                 c['created_at']?.toString() ?? DateTime.now().toIso8601String(),
             'updated_at': c['updated_at']?.toString(),

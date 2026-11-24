@@ -399,7 +399,26 @@ class GynoCampSyncServer {
       await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS doctor_names TEXT DEFAULT \'\';');
       await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_doctor_on_forms INTEGER DEFAULT 1;');
       await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS nurse_names TEXT DEFAULT \'\';');
-      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_nurse_on_forms INTEGER DEFAULT 1;');
+      await _connection!.execute('ALTER TABLE camps ADD COLUMN IF NOT EXISTS show_nurse_on_forms INTEGER DEFAULT 0;');
+      await _connection!.execute('ALTER TABLE camps ALTER COLUMN show_nurse_on_forms SET DEFAULT 0;');
+      await _connection!.execute('''
+        CREATE TABLE IF NOT EXISTS app_metadata (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      ''');
+      final nurseMigRows = await _connection!.execute(
+        "SELECT value FROM app_metadata WHERE key = 'nurse_default_off_migrated_v1' LIMIT 1;",
+      );
+      if (nurseMigRows.isEmpty) {
+        await _connection!.execute(
+          "UPDATE camps SET show_nurse_on_forms = 0 WHERE (nurse_names IS NULL OR TRIM(nurse_names) = '') AND show_nurse_on_forms = 1;",
+        );
+        await _connection!.execute(
+          "INSERT INTO app_metadata (key, value, updated_at) VALUES ('nurse_default_off_migrated_v1', 'true', NOW()::text) ON CONFLICT (key) DO NOTHING;",
+        );
+      }
       await _connection!.execute('''
         CREATE TABLE IF NOT EXISTS deleted_entities (
           id TEXT PRIMARY KEY,
@@ -1004,7 +1023,7 @@ class GynoCampSyncServer {
               'nurse_names': map['nurse_names'] ?? '',
               'show_nurse_on_forms': (map['show_nurse_on_forms'] is bool)
                   ? (map['show_nurse_on_forms'] == true ? 1 : 0)
-                  : (map['show_nurse_on_forms'] ?? 1),
+                  : (map['show_nurse_on_forms'] ?? ((map['nurse_names']?.toString().trim().isNotEmpty ?? false) ? 1 : 0)),
               'created_at': map['created_at'] ?? utcNow,
               'updated_at': effectiveUpdatedAt,
             },
@@ -2069,7 +2088,7 @@ class GynoCampSyncServer {
             'nurse_names': map['nurse_names'] ?? '',
             'show_nurse_on_forms': (map['show_nurse_on_forms'] is bool)
                 ? (map['show_nurse_on_forms'] == true ? 1 : 0)
-                : (map['show_nurse_on_forms'] ?? 1),
+                : (map['show_nurse_on_forms'] ?? ((map['nurse_names']?.toString().trim().isNotEmpty ?? false) ? 1 : 0)),
             'created_at': map['created_at'] ?? utcNow,
             'updated_at': effectiveUpdatedAt,
           },

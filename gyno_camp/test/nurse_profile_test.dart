@@ -59,11 +59,27 @@ void main() {
           createdAt: DateTime(2026, 1, 1),
         );
 
-    test('defaults: no nurses, show on forms', () {
+    test('defaults: no nurses -> OFF by default, with nurses -> ON by default', () {
       final c = base();
       expect(c.hasNurses, isFalse);
       expect(c.nurseProfiles, isEmpty);
-      expect(c.showNurseOnForms, isTrue);
+      expect(c.showNurseOnForms, isFalse);
+
+      final withNurses = CampModel(
+        id: 'c2',
+        campCode: 'KTM02',
+        name: 'Camp 2',
+        district: 'Kathmandu',
+        municipality: 'KMC',
+        ward: '',
+        venue: 'Hall',
+        startDate: DateTime(2026, 1, 1),
+        endDate: DateTime(2026, 1, 2),
+        nurseNames: const ['Sita Sharma (NNC: 1001)'],
+        createdAt: DateTime(2026, 1, 1),
+      );
+      expect(withNurses.hasNurses, isTrue);
+      expect(withNurses.showNurseOnForms, isTrue);
     });
 
     test('toMap/fromMap round trip keeps NNC and toggle', () {
@@ -81,13 +97,20 @@ void main() {
       expect(back.nurseProfiles.first.registrationNumber, '1');
     });
 
-    test('legacy map without nurse keys loads cleanly', () {
+    test('legacy map without nurse keys loads cleanly (OFF without nurses, ON with nurses)', () {
       final map = base().toMap()
         ..remove('nurse_names')
         ..remove('show_nurse_on_forms');
       final back = CampModel.fromMap(map);
       expect(back.nurseNames, isEmpty);
-      expect(back.showNurseOnForms, isTrue);
+      expect(back.showNurseOnForms, isFalse);
+
+      final mapWithNurses = base().toMap()
+        ..['nurse_names'] = 'Sita (NNC: 99)'
+        ..remove('show_nurse_on_forms');
+      final backWithNurses = CampModel.fromMap(mapWithNurses);
+      expect(backWithNurses.nurseNames, ['Sita (NNC: 99)']);
+      expect(backWithNurses.showNurseOnForms, isTrue);
     });
   });
 

@@ -8284,6 +8284,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
           const SizedBox(height: 16),
 
           // ── 10. ATTENDING NURSE ASSIGNMENT (सेवा दिने नर्स) ───
+          if (ref.watch(userActiveCampProvider)?.showNurseOnForms ?? false) ...[
           Card(
             elevation: 1.5,
             shape: RoundedRectangleBorder(
@@ -8466,6 +8467,8 @@ class _FormScanViewState extends ConsumerState<FormScanView>
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          ],
           // ── 11. CLINICAL NOTES & OUTTAKE REMARKS ───
           Card(
             elevation: 1.5,
@@ -8932,16 +8935,17 @@ class _FormScanViewState extends ConsumerState<FormScanView>
         'value': result.examiningDoctor ?? 'Unassigned',
         'confKey': 'diagnoses',
       },
-      {
-        'key': 'attendingNurse',
-        'label': 'Attending Nurse',
-        'section': 'Signatures',
-        'tabIndex': 3,
-        'value': result.attendingNurses.isNotEmpty
-            ? result.attendingNurses.join(', ')
-            : (result.examiningNurse ?? 'Unassigned'),
-        'confKey': 'diagnoses',
-      },
+      if (ref.watch(userActiveCampProvider)?.showNurseOnForms ?? false)
+        {
+          'key': 'attendingNurse',
+          'label': 'Attending Nurse',
+          'section': 'Signatures',
+          'tabIndex': 3,
+          'value': result.attendingNurses.isNotEmpty
+              ? result.attendingNurses.join(', ')
+              : (result.examiningNurse ?? 'Unassigned'),
+          'confKey': 'diagnoses',
+        },
     ];
 
     final total = fields.length;

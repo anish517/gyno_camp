@@ -113,7 +113,7 @@ class CampModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
-  const CampModel({
+  CampModel({
     required this.id,
     required this.campCode,
     required this.name,
@@ -133,10 +133,10 @@ class CampModel {
     this.doctorNames = const [],
     this.showDoctorOnForms = true,
     this.nurseNames = const [],
-    this.showNurseOnForms = true,
+    bool? showNurseOnForms,
     required this.createdAt,
     this.updatedAt,
-  });
+  }) : showNurseOnForms = showNurseOnForms ?? nurseNames.isNotEmpty;
 
   bool get isOpen => status == CampStatus.open;
   bool isStaffAssigned(String userId) => assignedStaffIds.contains(userId);
@@ -233,10 +233,11 @@ class CampModel {
       }(),
       showNurseOnForms: () {
         final raw = map['show_nurse_on_forms'];
-        if (raw == null) return true; // Default ON for backward compat
+        final rawNurses = (map['nurse_names'] as String?)?.trim() ?? '';
+        if (raw == null) return rawNurses.isNotEmpty;
         if (raw is bool) return raw;
         if (raw is int) return raw != 0;
-        return true;
+        return rawNurses.isNotEmpty;
       }(),
       createdAt: DateTime.tryParse(map['created_at'] as String? ?? '') ?? DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'] as String) : null,

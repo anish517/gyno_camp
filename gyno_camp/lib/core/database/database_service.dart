@@ -72,7 +72,7 @@ class DatabaseService {
         {'name': 'doctor_names', 'def': "doctor_names TEXT DEFAULT ''"},
         {'name': 'show_doctor_on_forms', 'def': 'show_doctor_on_forms INTEGER DEFAULT 1'},
         {'name': 'nurse_names', 'def': "nurse_names TEXT DEFAULT ''"},
-        {'name': 'show_nurse_on_forms', 'def': 'show_nurse_on_forms INTEGER DEFAULT 1'},
+        {'name': 'show_nurse_on_forms', 'def': 'show_nurse_on_forms INTEGER DEFAULT 0'},
       ],
       DatabaseTables.tablePatients: [
         {'name': 'tenant_id', 'def': "tenant_id TEXT DEFAULT 'tenant_default'"},
@@ -160,6 +160,30 @@ class DatabaseService {
     } catch (_) {}
     try {
       await db.execute(DatabaseTables.createTableDeletedEntitiesQueue);
+    } catch (_) {}
+
+    // One-time migration: turn show_nurse_on_forms OFF by default for existing camps that have no nurses assigned
+    try {
+      final migratedRows = await db.query(
+        DatabaseTables.tableMetadata,
+        where: 'key = ?',
+        whereArgs: ['nurse_default_off_migrated_v1'],
+        limit: 1,
+      );
+      if (migratedRows.isEmpty) {
+        await db.rawUpdate(
+          "UPDATE ${DatabaseTables.tableCamps} SET show_nurse_on_forms = 0 WHERE nurse_names IS NULL OR TRIM(nurse_names) = ''",
+        );
+        await db.insert(
+          DatabaseTables.tableMetadata,
+          {
+            'key': 'nurse_default_off_migrated_v1',
+            'value': 'true',
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
     } catch (_) {}
 
     // Sanitize any legacy stray codes like single-letter "k" or placeholders
