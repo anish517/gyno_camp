@@ -178,9 +178,11 @@ void main() {
       expect(find.text('EXECUTIVE COMMAND CONSOLE'), findsNothing);
       expect(find.text('•  Field Operations & Clinical Governance'), findsNothing);
       expect(find.text('Hardware Whitelist Enforced'), findsNothing);
+      expect(find.text('SHA-256 Verified'), findsNothing);
+      expect(find.text('Cryptographic Ledger'), findsNothing);
     });
 
-    testWidgets('renders 4 Telemetry Metric cards and Active Camp Spotlight', (tester) async {
+    testWidgets('renders 3 Telemetry Metric cards and Active Camp Spotlight', (tester) async {
       tester.view.physicalSize = const Size(1280, 1000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -191,8 +193,8 @@ void main() {
       expect(find.text('Camp Operations'), findsOneWidget);
       expect(find.text('Hardware Security'), findsOneWidget);
       expect(find.text('Intake Throughput'), findsOneWidget);
-      expect(find.text('Cryptographic Ledger'), findsOneWidget);
-      expect(find.text('SHA-256 Verified'), findsOneWidget);
+      expect(find.text('Cryptographic Ledger'), findsNothing);
+      expect(find.text('SHA-256 Verified'), findsNothing);
 
       // Active Camp Spotlight - Governance & Operations
       expect(find.text('KTM01'), findsWidgets);

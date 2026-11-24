@@ -1522,7 +1522,7 @@ class HomeGatewayView extends ConsumerWidget {
                   final isWide = constraints.maxWidth > 850;
                   final isMedium = constraints.maxWidth > 550;
                   final cardWidth = isWide
-                      ? (constraints.maxWidth - 48) / 4
+                      ? (constraints.maxWidth - 32) / 3
                       : isMedium
                           ? (constraints.maxWidth - 16) / 2
                           : constraints.maxWidth;
@@ -1615,31 +1615,6 @@ class HomeGatewayView extends ConsumerWidget {
                                   campId: campState.activeCamp?.id,
                                 ),
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        width: cardWidth,
-                        child: _buildExecutiveMetricCard(
-                          label: 'Cryptographic Ledger',
-                          value: 'SHA-256 Verified',
-                          subtitle: '${auditLogs.logs.length} chained blocks anchored',
-                          icon: Icons.verified_user_rounded,
-                          accentColor: const Color(0xFF10B981),
-                          trailingBadge: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFECFDF5),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFA7F3D0)),
-                            ),
-                            child: const Text('OK', style: TextStyle(color: Color(0xFF059669), fontSize: 10, fontWeight: FontWeight.bold)),
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const AuditTrailView()),
                             );
                           },
                         ),
