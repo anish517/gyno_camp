@@ -85,6 +85,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Clinical History & Dossier'), findsOneWidget);
+    expect(find.text('1st testing camp'), findsOneWidget);
+    // Patient name and ID appear once in left sidebar (not duplicated in top bar)
+    expect(find.text('KAMALA RAI'), findsOneWidget);
+    expect(find.text('GC-0007-2026-00012'), findsOneWidget);
+    expect(find.text('Dhankuta, Ward 05'), findsNothing);
+    expect(find.text('Age 58'), findsNothing);
+
     expect(find.textContaining('Intake Date: 2083-04-10 BS', findRichText: true), findsOneWidget);
     expect(find.textContaining('1st Visit (Treatment)'), findsOneWidget);
     expect(find.text('Visit Date (Treatment Date): 2083-04-15 BS (2026-07-31 AD)'), findsOneWidget);
@@ -161,11 +169,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Clinical History & Dossier'), findsOneWidget);
+    expect(find.text('1st testing camp'), findsOneWidget);
+    expect(find.text('KAMALA RAI'), findsNothing);
     expect(find.text('Visit Date (Treatment Date): 2083-04-15 BS (2026-07-31 AD)'), findsOneWidget);
 
     await tester.tap(find.text('Patient Profile & History'));
     await tester.pumpAndSettle();
 
+    expect(find.text('KAMALA RAI'), findsOneWidget);
+    expect(find.text('GC-0007-2026-00012'), findsOneWidget);
+    expect(find.text('Dhankuta, Ward 05'), findsNothing);
+    expect(find.text('Age 58'), findsNothing);
     expect(find.textContaining('Intake Date: 2083-04-10 BS', findRichText: true), findsOneWidget);
     expect(find.textContaining('1st Visit (Treatment)'), findsOneWidget);
   });

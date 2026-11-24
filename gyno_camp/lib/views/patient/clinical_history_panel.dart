@@ -215,40 +215,18 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 6,
-              runSpacing: 2,
-              children: [
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: isMobile ? 180 : 320),
-                  child: Text(
-                    p.fullName,
-                    style: TextStyle(
-                      fontSize: isMobile ? 15 : 18,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0F172A),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    p.patientId,
-                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                  ),
-                ),
-              ],
+            Text(
+              'Clinical History & Dossier',
+              style: TextStyle(
+                fontSize: isMobile ? 15 : 17.5,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF0F172A),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 2),
             if (widget.camp != null || p.campCode.isNotEmpty) ...[
+              const SizedBox(height: 2),
               Row(
                 children: [
                   const Icon(Icons.campaign_outlined, size: 12, color: AppTheme.primaryTeal),
@@ -257,7 +235,7 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
                     child: Text(
                       widget.camp?.name ?? 'Camp: ${p.campCode}',
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.primaryTeal,
                       ),
@@ -267,51 +245,7 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
                   ),
                 ],
               ),
-              const SizedBox(height: 2),
             ],
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 6,
-              runSpacing: 2,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF64748B)),
-                    const SizedBox(width: 2),
-                    Flexible(
-                      child: Text(
-                        '${p.district.isNotEmpty ? p.district : "District N/A"}, Ward ${p.ward}',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.cake_outlined, size: 12, color: Color(0xFF64748B)),
-                    const SizedBox(width: 2),
-                    Flexible(
-                      child: Text(
-                        'Age ${p.age}',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                if (p.maritalStatus.isNotEmpty) ...[
-                  const Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
-                  Text(
-                    p.maritalStatus,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                  ),
-                ],
-              ],
-            ),
           ],
         ),
       ),
