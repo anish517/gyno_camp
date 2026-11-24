@@ -671,10 +671,18 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(moreBtn);
         await tester.pumpAndSettle();
+        expect(find.textContaining('AES-256'), findsNothing);
         expect(
           find.text('Review / Edit Clinical Exam (Page 2)'),
           findsOneWidget,
         );
+        expect(find.text('Clinical History & Dossier'), findsOneWidget);
+        expect(find.text('Edit Registration (Page 1)'), findsOneWidget);
+        expect(find.text('Delete Patient Record'), findsOneWidget);
+        expect(find.text('Mark Nurse Seen (Quick Triage)'), findsNothing);
+        expect(find.text('Health Summary (PDF)'), findsNothing);
+        expect(find.text('Follow-Up Slip (PDF)'), findsNothing);
+        expect(find.text('EXPORTS & PRINTS'), findsNothing);
         expect(find.text('Edit Registration (Page 1)'), findsOneWidget);
       },
     );

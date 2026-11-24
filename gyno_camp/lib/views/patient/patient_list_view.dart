@@ -3284,15 +3284,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             title: hasClinical ? 'Review / Edit Clinical Exam (Page 2)' : 'Enter Clinical Exam (Page 2)',
             subtitle: 'Station 2–6 examination & staging',
           ),
-        if (!isCampLocked)
-          buildMenuItem(
-            value: 'nurse_seen',
-            icon: Icons.medical_services_outlined,
-            iconColor: const Color(0xFF0D9488),
-            iconBg: const Color(0xFFCCFBF1),
-            title: 'Mark Nurse Seen (Quick Triage)',
-            subtitle: 'Record nurse consultation without full exam',
-          ),
         buildMenuItem(
           value: 'history',
           icon: Icons.history_edu_rounded,
@@ -3321,24 +3312,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
             title: 'Delete Patient Record',
             subtitle: 'Permanently remove registration & visits',
           ),
-        const PopupMenuDivider(height: 10),
-        buildMenuHeader('EXPORTS & PRINTS'),
-        buildMenuItem(
-          value: 'pdf_summary',
-          icon: Icons.picture_as_pdf_rounded,
-          iconColor: const Color(0xFFE11D48),
-          iconBg: const Color(0xFFFFF1F2),
-          title: 'Health Summary (PDF)',
-          subtitle: 'Complete medical report export',
-        ),
-        buildMenuItem(
-          value: 'follow_up_slip',
-          icon: Icons.receipt_long_rounded,
-          iconColor: const Color(0xFF0284C7),
-          iconBg: const Color(0xFFF0F9FF),
-          title: 'Follow-Up Slip (PDF)',
-          subtitle: 'Patient visit slip & barcode',
-        ),
       ],
     );
 
