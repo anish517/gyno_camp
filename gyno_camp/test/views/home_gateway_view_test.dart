@@ -206,7 +206,7 @@ void main() {
       expect(find.text('Clinical Override'), findsOneWidget);
     });
 
-    testWidgets('renders 6 Administrative Module Cards', (tester) async {
+    testWidgets('renders 5 Administrative Module Cards', (tester) async {
       tester.view.physicalSize = const Size(1280, 1200);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -214,7 +214,8 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Camp Lifecycle & Interactive Calendar'), findsOneWidget);
+      expect(find.text('5 System Modules Active'), findsOneWidget);
+      expect(find.text('Camp Lifecycle & Interactive Calendar'), findsNothing);
       expect(find.text('Field Hardware Whitelist & Terminal Security'), findsOneWidget);
       expect(find.text('Staff & Personnel Directory (RBAC)'), findsOneWidget);
       expect(find.text('Clinical Master Data & Formulary'), findsOneWidget);

@@ -1641,7 +1641,7 @@ class HomeGatewayView extends ConsumerWidget {
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), letterSpacing: -0.2),
                   ),
                   Text(
-                    '6 System Modules Active',
+                    '5 System Modules Active',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
                   ),
                 ],
@@ -1657,25 +1657,6 @@ class HomeGatewayView extends ConsumerWidget {
                     spacing: 16,
                     runSpacing: 16,
                     children: [
-                      SizedBox(
-                        width: itemWidth,
-                        child: _buildAdminModuleCard(
-                          context: context,
-                          icon: Icons.calendar_month_rounded,
-                          title: 'Camp Lifecycle & Interactive Calendar',
-                          description: 'Schedule outreach camps, enforce single-active camp sessions, view monthly calendar & assign staff rosters.',
-                          badgeText: campState.hasActiveCamp ? 'Active: ${campState.activeCamp!.campCode}' : (campState.camps.length == 1 ? '1 Camp' : '${campState.camps.length} Camps'),
-                          badgeColor: AppTheme.brandPurple,
-                          accentColor: AppTheme.brandPurple,
-                          actionPrompt: 'Manage Camp Roster',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const CampManagementView()),
-                            );
-                          },
-                        ),
-                      ),
                       SizedBox(
                         width: itemWidth,
                         child: _buildAdminModuleCard(
