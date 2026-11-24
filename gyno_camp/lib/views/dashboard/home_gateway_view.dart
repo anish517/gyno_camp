@@ -290,40 +290,6 @@ class HomeGatewayView extends ConsumerWidget {
           ],
         ),
         actions: [
-          // Live status pill
-          Tooltip(
-            message: 'Central Node: Online / Connected',
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: isCompact ? 5 : 10,
-                vertical: isCompact ? 4 : 5,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFA7F3D0)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.fiber_manual_record, color: Color(0xFF10B981), size: 8),
-                  if (!isCompact) ...[
-                    const SizedBox(width: 5),
-                    const Text(
-                      'Live Node',
-                      style: TextStyle(
-                        color: Color(0xFF065F46),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          SizedBox(width: isCompact ? 5 : 8),
           // User Profile chip (clickable with expanded hit area)
           Center(
             child: Tooltip(
@@ -1276,71 +1242,6 @@ class HomeGatewayView extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Top Eyebrow Row: Portal Tag & Security Enforced
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 6,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF5F3FF),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFFE9D5FF)),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.shield_rounded, size: 12, color: Color(0xFF30026E)),
-                                      SizedBox(width: 5),
-                                      Text(
-                                        'EXECUTIVE COMMAND CONSOLE',
-                                        style: TextStyle(
-                                          color: Color(0xFF30026E),
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.6,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Text(
-                                  '•  Field Operations & Clinical Governance',
-                                  style: TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.lock_rounded, size: 11, color: Color(0xFF94A3B8)),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Hardware Whitelist Enforced',
-                                        style: TextStyle(
-                                          color: Color(0xFF64748B),
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-
                             // Main Title & Action Buttons Row (Responsive)
                             LayoutBuilder(
                               builder: (ctx, constraints) {

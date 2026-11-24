@@ -161,6 +161,25 @@ void main() {
       expect(find.text('Switch Camp'), findsWidgets);
     });
 
+    testWidgets('hides Live Node and Executive Command Console eyebrow strip on Super Admin header', (tester) async {
+      tester.view.physicalSize = const Size(1280, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(createTestWidget());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Operations & Health Camp Governance'), findsOneWidget);
+      expect(find.text('New Camp'), findsOneWidget);
+      expect(find.text('Switch Camp'), findsWidgets);
+      expect(find.text('Blank Forms'), findsOneWidget);
+
+      expect(find.text('Live Node'), findsNothing);
+      expect(find.text('EXECUTIVE COMMAND CONSOLE'), findsNothing);
+      expect(find.text('•  Field Operations & Clinical Governance'), findsNothing);
+      expect(find.text('Hardware Whitelist Enforced'), findsNothing);
+    });
+
     testWidgets('renders 4 Telemetry Metric cards and Active Camp Spotlight', (tester) async {
       tester.view.physicalSize = const Size(1280, 1000);
       tester.view.devicePixelRatio = 1.0;
