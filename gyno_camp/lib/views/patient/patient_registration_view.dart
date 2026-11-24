@@ -2161,10 +2161,11 @@ class _PatientRegistrationViewState
                                                       ),
                                                   items: relationItems,
                                                   onChanged: (val) {
-                                                    if (val != null)
+                                                    if (val != null) {
                                                       vm.updateField(
                                                         relationshipType: val,
                                                       );
+                                                    }
                                                   },
                                                 ),
                                           ),
@@ -2620,8 +2621,9 @@ class _PatientRegistrationViewState
                                       selected: isNone,
                                       selectedColor: const Color(0xFFF1F5F9),
                                       onSelected: (selected) {
-                                        if (selected)
+                                        if (selected) {
                                           vm.setTreatmentLevel(null);
+                                        }
                                       },
                                     ),
                                     ChoiceChip(

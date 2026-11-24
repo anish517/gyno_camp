@@ -57,12 +57,14 @@ class FakeLookupRepository implements ILookupRepository {
     return items.where((i) {
       if (i.category != category) return false;
       if (activeOnly && !i.isActive) return false;
-      if (campId != null && i.campId != null && i.campId != campId)
+      if (campId != null && i.campId != null && i.campId != campId) {
         return false;
+      }
       if (allowedCampIds != null &&
           i.campId != null &&
-          !allowedCampIds.contains(i.campId))
+          !allowedCampIds.contains(i.campId)) {
         return false;
+      }
       return true;
     }).toList();
   }
