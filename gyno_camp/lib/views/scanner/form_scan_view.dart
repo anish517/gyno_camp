@@ -808,7 +808,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           isDense: true,
                           filled: true,
                           fillColor: Colors.white,
-                          labelText: 'Optional Token ID (e.g. KTM01-0012)',
+                          labelText: 'Optional 5-digit Token ID (e.g. 00012)',
                           labelStyle: TextStyle(fontSize: 11.5),
                           border: OutlineInputBorder(),
                         ),
@@ -3786,7 +3786,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           horizontal: 12,
                           vertical: 10,
                         ),
-                        hintText: 'Leave blank to auto-generate sequentially (e.g. 00042 or GC-DHN-2026-00042)',
+                        hintText: 'Leave blank to auto-generate 5-digit ID (e.g. 00042)',
                         hintStyle: const TextStyle(
                           fontSize: 11.5,
                           color: Colors.grey,

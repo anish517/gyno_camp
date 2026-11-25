@@ -3833,7 +3833,9 @@ class PdfReportService {
                                     maxBoxes: preprintedTokenId.length,
                                     boxSize: preprintedTokenId.length > 18
                                         ? 9.2
-                                        : (preprintedTokenId.length > 16 ? 10.2 : 11.0),
+                                        : (preprintedTokenId.length > 16
+                                            ? 10.2
+                                            : (preprintedTokenId.length <= 6 ? 12.0 : 11.0)),
                                   ),
                                   pw.SizedBox(width: 5),
                                   pw.BarcodeWidget(
@@ -3844,25 +3846,13 @@ class PdfReportService {
                                   ),
                                 ],
                               )
-                            : () {
-                                final String blankTokenPrefix = camp?.campCode != null
-                                    ? 'GC-${camp!.campCode.trim().toUpperCase()}-${camp.startDate.year}-'
-                                    : 'GC-□□□□-${DateTime.now().year}-';
-                                final int blankTokenTotalBoxes = blankTokenPrefix.length + 5;
-                                final double blankTokenBoxSize = blankTokenTotalBoxes > 24
-                                    ? 8.5
-                                    : (blankTokenTotalBoxes > 20
-                                        ? 9.5
-                                        : (blankTokenTotalBoxes > 18 ? 10.5 : 11.5));
-                                final double blankTokenBoxMargin = blankTokenTotalBoxes > 22 ? 0.8 : 1.0;
-                                return buildCharBoxes(
-                                  blankTokenPrefix,
-                                  minBoxes: blankTokenTotalBoxes,
-                                  maxBoxes: blankTokenTotalBoxes,
-                                  boxSize: blankTokenBoxSize,
-                                  boxMargin: blankTokenBoxMargin,
-                                );
-                              }(),
+                            : buildCharBoxes(
+                                '',
+                                minBoxes: 5,
+                                maxBoxes: 5,
+                                boxSize: 12.0,
+                                boxMargin: 1.5,
+                              ),
                         pw.SizedBox(height: 2),
                         pw.Text(
                           'Date: ${dateFormatter.format(DateTime.now())}',
@@ -4496,26 +4486,10 @@ class PdfReportService {
     final gray = PdfColor.fromHex('CBD5E1');
     const boxBg = PdfColors.white;
 
-    final String dynamicCampCode =
-        (camp?.campCode != null && camp!.campCode.trim().isNotEmpty)
-        ? camp.campCode.trim().toUpperCase()
-        : (patient?.campCode.trim().isNotEmpty == true
-              ? patient!.campCode.trim().toUpperCase()
-              : '');
-    final int dynamicYear =
-        (patient?.intakeDate ?? camp?.startDate ?? DateTime.now()).year;
-    final String dynamicTokenPrefix = dynamicCampCode.isNotEmpty
-        ? 'GC-$dynamicCampCode-$dynamicYear-'
-        : 'GC-□□□□-$dynamicYear-';
-    final int dynamicTokenTotalBoxes = dynamicTokenPrefix.length + 5;
-    final double dynamicTokenBoxSize = dynamicTokenTotalBoxes > 28
-        ? 8.2
-        : (dynamicTokenTotalBoxes > 23
-            ? 9.2
-            : (dynamicTokenTotalBoxes > 19
-                ? 10.2
-                : (dynamicTokenTotalBoxes > 17 ? 11.2 : 12.0)));
-    final double dynamicTokenBoxMargin = dynamicTokenTotalBoxes > 22 ? 0.8 : 1.0;
+    const String dynamicTokenPrefix = '';
+    const int dynamicTokenTotalBoxes = 5;
+    const double dynamicTokenBoxSize = 13.0;
+    const double dynamicTokenBoxMargin = 1.5;
 
     // ── Resolve Doctor Information ──
     final bool showDoctor = camp?.showDoctorOnForms ?? true;
@@ -8095,9 +8069,11 @@ class PdfReportService {
                                   maxBoxes: preprintedPatientId.length,
                                   boxSize: preprintedPatientId.length > 18
                                       ? 9.8
-                                      : (preprintedPatientId.length > 16 ? 10.6 : 11.4),
-                                  boxHeight: 15.0,
-                                  boxMargin: 1.0,
+                                      : (preprintedPatientId.length > 16
+                                          ? 10.6
+                                          : (preprintedPatientId.length <= 6 ? 12.5 : 11.4)),
+                                  boxHeight: 15.5,
+                                  boxMargin: preprintedPatientId.length <= 6 ? 1.5 : 1.0,
                                 ),
                               ],
                             ),
@@ -8347,7 +8323,7 @@ class PdfReportService {
   }
 
   /// Generates a batch PDF containing 1-page blank Follow-Up Encounter Slips
-  /// sequentially pre-printed with Token IDs (e.g., GC-DHN-2026-00001 to GC-DHN-2026-00050).
+  /// sequentially pre-printed with 5-digit Token IDs (e.g., 00001 to 00050).
   Future<Uint8List> generatePreNumberedBlankFollowUpSlipsPdf({
     required CampModel camp,
     required int startSequence,

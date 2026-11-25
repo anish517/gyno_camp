@@ -158,14 +158,13 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
     final camp = targetCamp ?? _selectedCamp;
     if (camp == null) return;
     try {
-      final patients = await ref.read(patientRepositoryProvider).getPatientsByCamp(camp.id);
+      // Global continuous 5-digit sequence across all camps (ignoring historical GC-... records)
+      final patients = await ref.read(patientRepositoryProvider).getPatientsByCamp();
       int highestSeq = 0;
       for (final p in patients) {
-        final pid = p.patientId.toUpperCase();
-        final lastHyphen = pid.lastIndexOf('-');
-        if (lastHyphen != -1 && lastHyphen < pid.length - 1) {
-          final seqPart = pid.substring(lastHyphen + 1);
-          final num = int.tryParse(seqPart);
+        final pid = p.patientId.trim();
+        if (RegExp(r'^\d+$').hasMatch(pid)) {
+          final num = int.tryParse(pid);
           if (num != null && num > highestSeq) {
             highestSeq = num;
           }
@@ -1316,7 +1315,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Universal forms feature fillable open character boxes: GC-[ ][ ][ ][ ]-2026-[ ][ ][ ][ ][ ] for on-site token assignment. To generate pre-numbered sequential token barcodes, switch to a specific camp above.',
+                    'Universal forms feature 5 clean character boxes: [ ][ ][ ][ ][ ] (e.g. 00001) for on-site token assignment. To generate pre-numbered sequential token barcodes, switch to a specific camp above.',
                     style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B), height: 1.3),
                   ),
                 ],

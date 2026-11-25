@@ -90,6 +90,32 @@ class PatientRepository implements IPatientRepository {
   })  : _databaseService = databaseService ?? DatabaseService(),
         _auditRepository = auditRepository ?? AuditRepository();
 
+  /// Computes the next available global 5-digit numeric sequence across all camps,
+  /// ignoring historical 'GC-...' records so numbering continues seamlessly (e.g., 00001 -> 00121).
+  Future<int> getNextAvailableSequenceNumber() async {
+    final db = await _databaseService.database;
+    final maxVal = Sqflite.firstIntValue(await db.rawQuery(
+      "SELECT MAX(CAST(patient_id AS INTEGER)) FROM ${DatabaseTables.tablePatients} "
+      "WHERE patient_id GLOB '[0-9]*' AND patient_id NOT GLOB '*[^0-9]*'",
+    ));
+    int nextSeq = (maxVal ?? 0) + 1;
+    if (nextSeq < 1) nextSeq = 1;
+    while (true) {
+      final candidateId = PatientModel.generatePatientId(sequenceNumber: nextSeq);
+      final existing = await db.query(
+        DatabaseTables.tablePatients,
+        columns: ['id'],
+        where: 'UPPER(patient_id) = ?',
+        whereArgs: [candidateId.toUpperCase()],
+        limit: 1,
+      );
+      if (existing.isEmpty) {
+        return nextSeq;
+      }
+      nextSeq++;
+    }
+  }
+
   @override
   Future<bool> isPatientIdTaken(String patientId) async {
     final clean = patientId.trim().toUpperCase();
@@ -137,31 +163,13 @@ class PatientRepository implements IPatientRepository {
         throw Exception('Patient Token ID "$finalPatientId" is already registered to $prevName. Please verify token or leave blank to auto-generate.');
       }
     } else {
-      // Auto-generate formatted unique sequential Patient ID
-      final countResult = Sqflite.firstIntValue(await db.rawQuery(
-        'SELECT COUNT(*) FROM ${DatabaseTables.tablePatients} WHERE camp_id = ?',
-        [patient.campId],
-      ));
-      int nextSeq = (countResult ?? 0) + 1;
-      while (true) {
-        final candidateId = PatientModel.generatePatientId(
-          campCode: patient.campCode,
-          sequenceNumber: nextSeq,
-          year: patient.intakeDate.year,
-        );
-        final existing = await db.query(
-          DatabaseTables.tablePatients,
-          columns: ['id'],
-          where: 'patient_id = ?',
-          whereArgs: [candidateId],
-          limit: 1,
-        );
-        if (existing.isEmpty) {
-          finalPatientId = candidateId;
-          break;
-        }
-        nextSeq++;
-      }
+      // Auto-generate globally unique continuous 5-digit Patient ID across all camps
+      final nextSeq = await getNextAvailableSequenceNumber();
+      finalPatientId = PatientModel.generatePatientId(
+        campCode: patient.campCode,
+        sequenceNumber: nextSeq,
+        year: patient.intakeDate.year,
+      );
     }
 
     final newPatient = patient.copyWith(
@@ -357,6 +365,40 @@ class PatientRepository implements IPatientRepository {
       if (response.success) {
         final db = await _databaseService.database;
         final syncedAtIso = DateTime.now().toIso8601String();
+        if (response.reassignedPatientIds.isNotEmpty) {
+          for (final entry in response.reassignedPatientIds.entries) {
+            final patUuid = entry.key.trim();
+            final newTokenId = entry.value.trim();
+            if (patUuid.isEmpty || newTokenId.isEmpty) continue;
+            final prevRows = await db.query(
+              DatabaseTables.tablePatients,
+              columns: ['patient_id'],
+              where: 'id = ?',
+              whereArgs: [patUuid],
+              limit: 1,
+            );
+            final oldTokenId = prevRows.isNotEmpty
+                ? (prevRows.first['patient_id']?.toString().trim() ?? '')
+                : '';
+            await db.rawUpdate(
+              'UPDATE ${DatabaseTables.tablePatients} SET patient_id = ? WHERE id = ?',
+              [newTokenId, patUuid],
+            );
+            if (oldTokenId.isNotEmpty &&
+                oldTokenId.toLowerCase() != newTokenId.toLowerCase()) {
+              await db.rawUpdate(
+                'UPDATE ${DatabaseTables.tableClinicalVisits} SET patient_id = ? WHERE patient_id = ? COLLATE NOCASE OR patient_id = ?',
+                [newTokenId, oldTokenId, patUuid],
+              );
+              try {
+                await db.rawUpdate(
+                  'UPDATE ${DatabaseTables.tableOfflineScanQueue} SET committed_patient_id = ?, patient_token_hint = ? WHERE committed_patient_uuid = ? OR LOWER(committed_patient_id) = LOWER(?)',
+                  [newTokenId, newTokenId, patUuid, oldTokenId],
+                );
+              } catch (_) {}
+            }
+          }
+        }
         for (final patientId in response.syncedPatientIds) {
           await db.rawUpdate(
             'UPDATE ${DatabaseTables.tablePatients} SET is_synced = 1, synced_at = ? WHERE id = ?',
@@ -448,6 +490,11 @@ class PatientRepository implements IPatientRepository {
 
   @override
   Future<PatientModel?> getPatientByPatientId(String patientId) async {
+    final trimmed = patientId.trim();
+    if (trimmed.isEmpty) return null;
+    final paddedCandidate = RegExp(r'^\d{1,8}$').hasMatch(trimmed)
+        ? trimmed.padLeft(5, '0')
+        : trimmed;
     final db = await _databaseService.database;
     final maps = await db.rawQuery('''
       SELECT p.*,
@@ -489,9 +536,9 @@ class PatientRepository implements IPatientRepository {
           WHERE cv2.patient_id = cv1.patient_id
         )
       ) cv ON cv.patient_id = p.patient_id COLLATE NOCASE OR cv.patient_id = p.id
-      WHERE p.patient_id = ? COLLATE NOCASE OR p.id = ?
+      WHERE p.patient_id = ? COLLATE NOCASE OR p.patient_id = ? COLLATE NOCASE OR p.id = ?
       LIMIT 1
-    ''', [patientId, patientId]);
+    ''', [trimmed, paddedCandidate, trimmed]);
     if (maps.isEmpty) return null;
     return PatientModel.fromMap(maps.first);
   }

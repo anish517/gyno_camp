@@ -317,5 +317,88 @@ void main() {
       expect(sanitized, contains('"World"'));
       expect(sanitized, contains("- Test..."));
     });
+
+    test('Offline multi-tablet Sync Auto-Bump preserves both patients and cascades clinical visits on Token ID collision', () async {
+      // Tablet B locally registered "Sita" offline as '00121' (is_synced = 0)
+      await testDb.insert(DatabaseTables.tablePatients, {
+        'id': 'uuid-tablet-b-sita',
+        'patient_id': '00121',
+        'camp_id': 'camp-ktm-01',
+        'camp_code': 'KTM01',
+        'intake_date': DateTime(2026, 3, 1).toIso8601String(),
+        'first_name': 'Sita',
+        'surname': 'Gurung',
+        'age': 34,
+        'ward': '04',
+        'mobile': '9841000121',
+        'is_synced': 0,
+        'created_at': DateTime.now().toIso8601String(),
+        'created_by_user_id': 'usr-datataker-01',
+        'created_by_device_id': 'dev-tablet-b',
+      });
+      await testDb.insert(DatabaseTables.tableClinicalVisits, {
+        'id': 'vis-tablet-b-sita',
+        'patient_id': '00121',
+        'camp_id': 'camp-ktm-01',
+        'visit_date': DateTime(2026, 3, 1).toIso8601String(),
+        'highest_pop_stage': 2,
+        'is_synced': 0,
+        'created_at': DateTime.now().toIso8601String(),
+        'created_by_user_id': 'usr-datataker-01',
+      });
+
+      // Central server already has Tablet A's "Kamala" registered as '00121'
+      final remoteKamala = PatientModel(
+        id: 'uuid-tablet-a-kamala',
+        patientId: '00121',
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        intakeDate: DateTime(2026, 3, 1),
+        firstName: 'Kamala',
+        surname: 'Thapa',
+        age: 42,
+        ward: '02',
+        mobile: '9841000222',
+        createdAt: DateTime.now(),
+        createdByUserId: 'usr-datataker-01',
+        createdByDeviceId: 'dev-tablet-a',
+        isSynced: true,
+      );
+
+      final mockApi = _MockCentralApiService(
+        mockPatients: [remoteKamala],
+        mockVisits: const [],
+      );
+      final syncRepo = SyncRepository(
+        databaseService: dbService,
+        auditRepository: auditRepo,
+        centralApiService: mockApi,
+      );
+
+      await syncRepo.pullDelta(deviceId: 'dev-tablet-b', userId: 'usr-datataker-01');
+
+      final kamalaRow = await testDb.query(
+        DatabaseTables.tablePatients,
+        where: 'id = ?',
+        whereArgs: ['uuid-tablet-a-kamala'],
+      );
+      final sitaRow = await testDb.query(
+        DatabaseTables.tablePatients,
+        where: 'id = ?',
+        whereArgs: ['uuid-tablet-b-sita'],
+      );
+      final sitaVisitRow = await testDb.query(
+        DatabaseTables.tableClinicalVisits,
+        where: 'id = ?',
+        whereArgs: ['vis-tablet-b-sita'],
+      );
+
+      expect(kamalaRow.single['patient_id'], '00121');
+      expect(kamalaRow.single['first_name'], 'Kamala');
+      expect(sitaRow.single['patient_id'], '00122');
+      expect(sitaRow.single['first_name'], 'Sita');
+      expect(sitaRow.single['is_synced'], 0);
+      expect(sitaVisitRow.single['patient_id'], '00122');
+    });
   });
 }

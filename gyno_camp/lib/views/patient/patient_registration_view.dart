@@ -1192,7 +1192,7 @@ class _PatientRegistrationViewState
                                           ),
                                       labelText:
                                           'Pre-assigned Token / Blank Form ID',
-                                      hintText: 'Leave empty to auto-generate sequentially (e.g. 00042 or GC-DHN-2026-00042)',
+                                      hintText: 'Leave empty to auto-generate 5-digit ID (e.g. 00042)',
                                       hintStyle: const TextStyle(
                                         fontSize: 11.5,
                                         color: Colors.grey,

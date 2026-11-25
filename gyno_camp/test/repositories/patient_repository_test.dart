@@ -60,7 +60,7 @@ void main() {
         deviceId: 'dev-field-1',
       );
 
-      expect(registered1.patientId, 'GC-KTM-2026-00001');
+      expect(registered1.patientId, '00001');
       expect(registered1.fullName, 'Sunita Shrestha');
 
       // Second patient in same camp gets next sequence number
@@ -78,7 +78,7 @@ void main() {
         deviceId: 'dev-field-1',
       );
 
-      expect(registered2.patientId, 'GC-KTM-2026-00002');
+      expect(registered2.patientId, '00002');
 
       // Verify camp total patients updated
       final campRows = await testDb.query(
@@ -311,6 +311,114 @@ void main() {
       final visits = await patientRepo.getClinicalVisits('GC-0007-2026-00099');
       expect(visits.length, 1);
       expect(visits.first.patientId, 'GC-0007-2026-00099');
+    });
+
+    test('Global continuous 5-digit counter continues across camps while leaving historical GC-* patients untouched', () async {
+      // Seed a second camp so cross-camp sequence continuation can be tested
+      await testDb.insert(DatabaseTables.tableCamps, {
+        'id': 'camp-gorkha-02',
+        'camp_code': 'GRK02',
+        'name': 'Gorkha Camp',
+        'district': 'Gorkha',
+        'municipality': 'Gorkha',
+        'ward': '01',
+        'venue': 'Health Post',
+        'start_date': DateTime(2026, 4, 1).toIso8601String(),
+        'end_date': DateTime(2026, 4, 3).toIso8601String(),
+        'status': 'open',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      // Historical patient with GC-* ID already in DB (must NOT be altered or shift 5-digit start)
+      final historical = await patientRepo.registerPatient(
+        PatientModel(
+          id: 'pat-legacy-012',
+          patientId: 'GC-0007-2026-00012',
+          campId: 'camp-ktm-01',
+          campCode: '0007',
+          intakeDate: DateTime(2026, 2, 1),
+          firstName: 'Legacy',
+          surname: 'Patient',
+          age: 50,
+          mobile: '',
+          ward: '02',
+          createdAt: DateTime.now(),
+          createdByUserId: 'usr-1',
+          createdByDeviceId: 'dev-1',
+        ),
+        createdByUserId: 'usr-1',
+        createdByUserName: 'Staff',
+        createdByUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+      expect(historical.patientId, 'GC-0007-2026-00012');
+
+      // Camp 1 auto-generated patients: 00001, 00002
+      final c1p1 = await patientRepo.registerPatient(
+        PatientModel(
+          id: '',
+          patientId: '',
+          campId: 'camp-ktm-01',
+          campCode: 'KTM',
+          intakeDate: DateTime(2026, 3, 15),
+          firstName: 'Kamala',
+          surname: 'Thapa',
+          age: 41,
+          mobile: '',
+          ward: '03',
+          createdAt: DateTime.now(),
+          createdByUserId: 'usr-1',
+          createdByDeviceId: 'dev-1',
+        ),
+        createdByUserId: 'usr-1',
+        createdByUserName: 'Staff',
+        createdByUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+      final c1p2 = await patientRepo.registerPatient(
+        c1p1.copyWith(id: '', patientId: '', firstName: 'Sita'),
+        createdByUserId: 'usr-1',
+        createdByUserName: 'Staff',
+        createdByUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+      expect(c1p1.patientId, '00001');
+      expect(c1p2.patientId, '00002');
+
+      // Camp 2 auto-generated patient continues at 00003 instead of resetting to 00001
+      final c2p1 = await patientRepo.registerPatient(
+        PatientModel(
+          id: '',
+          patientId: '',
+          campId: 'camp-gorkha-02',
+          campCode: 'GRK02',
+          intakeDate: DateTime(2026, 4, 1),
+          firstName: 'Mina',
+          surname: 'Gurung',
+          age: 37,
+          mobile: '',
+          ward: '05',
+          createdAt: DateTime.now(),
+          createdByUserId: 'usr-1',
+          createdByDeviceId: 'dev-1',
+        ),
+        createdByUserId: 'usr-1',
+        createdByUserName: 'Staff',
+        createdByUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+      expect(c2p1.patientId, '00003');
+      expect(await patientRepo.getNextAvailableSequenceNumber(), 4);
+
+      // Lookup by short number ('3') finds '00003', and historical 'GC-0007-2026-00012' stays intact
+      final foundShort = await patientRepo.getPatientByPatientId('3');
+      expect(foundShort?.id, c2p1.id);
+      final foundLegacy = await patientRepo.getPatientByPatientId('GC-0007-2026-00012');
+      expect(foundLegacy?.id, 'pat-legacy-012');
     });
   });
 }

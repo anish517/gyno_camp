@@ -169,7 +169,7 @@ class SyncRepository implements ISyncRepository {
             whereArgs: [id],
             limit: 1,
           );
-          if (activeMatch.isEmpty && !id.toUpperCase().startsWith('GC-')) {
+          if (activeMatch.isEmpty && !PatientModel.isHumanTokenId(id)) {
             deletedPatientIds.add(id);
           }
         }
@@ -206,11 +206,45 @@ class SyncRepository implements ISyncRepository {
     // 7. Send delta to central server (single path for all platforms)
     final response = await _centralApiService.pushDelta(payload);
 
-    // 8. Update local SQLite records to synced
+    // 8. Update local SQLite records to synced (and cascade any server-reassigned Token IDs)
     if (response.success) {
       final syncIso = response.serverTimestamp.toIso8601String();
       await db.transaction((txn) async {
         final batch = txn.batch();
+
+        if (response.reassignedPatientIds.isNotEmpty) {
+          for (final entry in response.reassignedPatientIds.entries) {
+            final patUuid = entry.key.trim();
+            final newTokenId = entry.value.trim();
+            if (patUuid.isEmpty || newTokenId.isEmpty) continue;
+            final prevRows = await txn.query(
+              DatabaseTables.tablePatients,
+              columns: ['patient_id'],
+              where: 'id = ?',
+              whereArgs: [patUuid],
+              limit: 1,
+            );
+            final oldTokenId = prevRows.isNotEmpty
+                ? (prevRows.first['patient_id']?.toString().trim() ?? '')
+                : '';
+            batch.rawUpdate(
+              'UPDATE ${DatabaseTables.tablePatients} SET patient_id = ? WHERE id = ?',
+              [newTokenId, patUuid],
+            );
+            if (oldTokenId.isNotEmpty &&
+                oldTokenId.toLowerCase() != newTokenId.toLowerCase()) {
+              batch.rawUpdate(
+                'UPDATE ${DatabaseTables.tableClinicalVisits} SET patient_id = ? WHERE patient_id = ? COLLATE NOCASE OR patient_id = ?',
+                [newTokenId, oldTokenId, patUuid],
+              );
+              batch.rawUpdate(
+                'UPDATE ${DatabaseTables.tableOfflineScanQueue} SET committed_patient_id = ?, patient_token_hint = ? WHERE committed_patient_uuid = ? OR LOWER(committed_patient_id) = LOWER(?)',
+                [newTokenId, newTokenId, patUuid, oldTokenId],
+              );
+            }
+          }
+        }
+
         for (final pId in response.syncedPatientIds) {
           batch.rawUpdate(
             'UPDATE ${DatabaseTables.tablePatients} SET is_synced = 1, synced_at = ? WHERE id = ?',
@@ -545,14 +579,35 @@ class SyncRepository implements ISyncRepository {
           );
         }
 
-        // Track active patient Token IDs after upserts
-        final activeTokenIds = <String>{
-          for (final r in existingPatientsById.values)
-            if ((r['patient_id']?.toString().trim().isNotEmpty ?? false))
-              r['patient_id']!.toString().trim().toLowerCase(),
-        };
+        // Track active patient Token IDs and highest numeric 5-digit sequence for offline collision auto-bump
+        final activeTokenIds = <String>{};
+        final existingByTokenLower = <String, Map<String, Object?>>{};
+        int maxNumericSeq = 0;
 
-        // 5. Upsert patients from central cloud (R1 fix: guard local unsynced edits, skip deleted camps & deleted patients)
+        for (final r in existingPatientsById.values) {
+          final tok = r['patient_id']?.toString().trim() ?? '';
+          if (tok.isNotEmpty) {
+            final lower = tok.toLowerCase();
+            activeTokenIds.add(lower);
+            existingByTokenLower[lower] = r;
+            if (RegExp(r'^\d+$').hasMatch(tok)) {
+              final seq = int.tryParse(tok) ?? 0;
+              if (seq > maxNumericSeq) maxNumericSeq = seq;
+            }
+          }
+        }
+        for (final remotePat in response.patients) {
+          final tok = remotePat.patientId.trim();
+          if (tok.isNotEmpty) {
+            activeTokenIds.add(tok.toLowerCase());
+            if (RegExp(r'^\d+$').hasMatch(tok)) {
+              final seq = int.tryParse(tok) ?? 0;
+              if (seq > maxNumericSeq) maxNumericSeq = seq;
+            }
+          }
+        }
+
+        // 5. Upsert patients from central cloud (R1 fix: guard local unsynced edits, auto-bump offline token collisions)
         for (final patient in response.patients) {
           if (allDeletedCampIds.contains(patient.campId)) continue;
           if (locallyDeletedPatientIds.contains(patient.id)) continue;
@@ -561,6 +616,59 @@ class SyncRepository implements ISyncRepository {
           if (existingPat != null && (existingPat['is_synced'] as int? ?? 1) == 0) {
             // Local record has unsynced modifications: do not overwrite with remote copy
             continue;
+          }
+
+          final incomingTokenTrimmed = patient.patientId.trim();
+          if (incomingTokenTrimmed.isNotEmpty) {
+            final incomingTokenLower = incomingTokenTrimmed.toLowerCase();
+            final conflictingLocal = existingByTokenLower[incomingTokenLower];
+
+            // Offline multi-tablet collision guard:
+            // If another local patient UUID holds this Token ID unsynced, auto-bump the local unsynced patient
+            // to the next free 5-digit ID BEFORE inserting the authoritative remote patient!
+            if (conflictingLocal != null &&
+                conflictingLocal['id']?.toString() != patient.id) {
+              final conflictUuid = conflictingLocal['id']?.toString() ?? '';
+              final conflictIsUnsynced = (conflictingLocal['is_synced'] as int? ?? 1) == 0;
+              if (conflictUuid.isNotEmpty && conflictIsUnsynced) {
+                String bumpedToken;
+                do {
+                  maxNumericSeq++;
+                  bumpedToken = PatientModel.generatePatientId(sequenceNumber: maxNumericSeq);
+                } while (activeTokenIds.contains(bumpedToken.toLowerCase()));
+                activeTokenIds.add(bumpedToken.toLowerCase());
+                existingByTokenLower.remove(incomingTokenLower);
+                existingByTokenLower[bumpedToken.toLowerCase()] = {
+                  ...conflictingLocal,
+                  'patient_id': bumpedToken,
+                };
+
+                batch.rawUpdate(
+                  'UPDATE ${DatabaseTables.tablePatients} SET patient_id = ? WHERE id = ?',
+                  [bumpedToken, conflictUuid],
+                );
+                batch.rawUpdate(
+                  'UPDATE ${DatabaseTables.tableClinicalVisits} SET patient_id = ?, is_synced = 0 WHERE patient_id = ? COLLATE NOCASE OR patient_id = ?',
+                  [bumpedToken, incomingTokenTrimmed, conflictUuid],
+                );
+                batch.rawUpdate(
+                  'UPDATE ${DatabaseTables.tableOfflineScanQueue} SET committed_patient_id = ?, patient_token_hint = ? WHERE committed_patient_uuid = ? OR LOWER(committed_patient_id) = LOWER(?)',
+                  [bumpedToken, bumpedToken, conflictUuid, incomingTokenTrimmed],
+                );
+              }
+            }
+
+            // If this same patient UUID's Token ID was updated/bumped on the server, cascade to local visits
+            if (existingPat != null) {
+              final prevLocalToken = existingPat['patient_id']?.toString().trim() ?? '';
+              if (prevLocalToken.isNotEmpty &&
+                  prevLocalToken.toLowerCase() != incomingTokenLower) {
+                batch.rawUpdate(
+                  'UPDATE ${DatabaseTables.tableClinicalVisits} SET patient_id = ? WHERE patient_id = ? COLLATE NOCASE OR patient_id = ?',
+                  [incomingTokenTrimmed, prevLocalToken, patient.id],
+                );
+              }
+            }
           }
 
           final patientMap = patient.toMap();
@@ -576,8 +684,8 @@ class SyncRepository implements ISyncRepository {
             }
           }
 
-          if (patient.patientId.trim().isNotEmpty) {
-            activeTokenIds.add(patient.patientId.trim().toLowerCase());
+          if (incomingTokenTrimmed.isNotEmpty) {
+            activeTokenIds.add(incomingTokenTrimmed.toLowerCase());
           }
 
           batch.insert(

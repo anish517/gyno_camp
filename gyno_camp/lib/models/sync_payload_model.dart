@@ -107,6 +107,7 @@ class SyncPushResponse {
   final List<String> syncedAuditLogIds;
   final List<String> syncedLookupIds;
   final List<String> conflictEntityIds;
+  final Map<String, String> reassignedPatientIds;
   final List<String>? deletedPatientIds;
   final List<String>? deletedVisitIds;
   final String? message;
@@ -119,6 +120,7 @@ class SyncPushResponse {
     this.syncedAuditLogIds = const [],
     this.syncedLookupIds = const [],
     this.conflictEntityIds = const [],
+    this.reassignedPatientIds = const {},
     this.deletedPatientIds,
     this.deletedVisitIds,
     this.message,
@@ -133,6 +135,7 @@ class SyncPushResponse {
       'synced_audit_log_ids': syncedAuditLogIds,
       'synced_lookup_ids': syncedLookupIds,
       'conflict_entity_ids': conflictEntityIds,
+      if (reassignedPatientIds.isNotEmpty) 'reassigned_patient_ids': reassignedPatientIds,
       if (deletedPatientIds != null) 'deleted_patient_ids': deletedPatientIds,
       if (deletedVisitIds != null) 'deleted_visit_ids': deletedVisitIds,
       'message': message,
@@ -140,6 +143,15 @@ class SyncPushResponse {
   }
 
   factory SyncPushResponse.fromMap(Map<String, dynamic> map) {
+    final rawReassigned = map['reassigned_patient_ids'];
+    final parsedReassigned = <String, String>{};
+    if (rawReassigned is Map) {
+      rawReassigned.forEach((k, v) {
+        if (k != null && v != null) {
+          parsedReassigned[k.toString()] = v.toString();
+        }
+      });
+    }
     return SyncPushResponse(
       success: map['success'] as bool? ?? false,
       serverTimestamp: DateTime.tryParse(map['server_timestamp'] as String? ?? '') ?? DateTime.now(),
@@ -148,6 +160,7 @@ class SyncPushResponse {
       syncedAuditLogIds: List<String>.from(map['synced_audit_log_ids'] as List? ?? []),
       syncedLookupIds: List<String>.from(map['synced_lookup_ids'] as List? ?? []),
       conflictEntityIds: List<String>.from(map['conflict_entity_ids'] as List? ?? []),
+      reassignedPatientIds: parsedReassigned,
       deletedPatientIds: map['deleted_patient_ids'] != null
           ? List<String>.from(map['deleted_patient_ids'] as List)
           : null,

@@ -3880,17 +3880,24 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           void checkMatch(String query) {
-            final trimmed = query.trim().toUpperCase();
-            if (trimmed.isEmpty) {
+            final rawTrimmed = query.trim();
+            if (rawTrimmed.isEmpty) {
               setDialogState(() => matchedPatient = null);
               return;
             }
+            final baseQuery = rawTrimmed.contains('|')
+                ? rawTrimmed.split('|').first.trim()
+                : rawTrimmed;
+            final trimmedUpper = baseQuery.toUpperCase();
+            final normalizedToken = PatientModel.normalizePatientId(rawInput: baseQuery);
             try {
               final found = existingPatients.firstWhere(
                 (p) =>
-                    p.patientId.toUpperCase() == trimmed ||
-                    p.id == trimmed ||
-                    p.mobile == trimmed,
+                    p.patientId.toUpperCase() == trimmedUpper ||
+                    (normalizedToken.isNotEmpty &&
+                        p.patientId.toUpperCase() == normalizedToken.toUpperCase()) ||
+                    p.id.toUpperCase() == trimmedUpper ||
+                    p.mobile == baseQuery,
               );
               setDialogState(() => matchedPatient = found);
             } catch (_) {
@@ -4033,14 +4040,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                                 final filename = image.name.toLowerCase();
                                 PatientModel? matched;
                                 for (final p in existingPatients) {
-                                  if (filename.contains(
-                                        p.patientId.toLowerCase(),
-                                      ) ||
-                                      filename.contains(
-                                        p.patientId
-                                            .replaceAll('-', '')
-                                            .toLowerCase(),
-                                      ) ||
+                                  final pidLower = p.patientId.trim().toLowerCase();
+                                  final isPureDigits = RegExp(r'^\d+$').hasMatch(pidLower);
+                                  final matchesToken = pidLower.isNotEmpty &&
+                                      (isPureDigits
+                                          ? RegExp('(?<!\\d)${RegExp.escape(pidLower)}(?!\\d)')
+                                              .hasMatch(filename)
+                                          : (filename.contains(pidLower) ||
+                                              filename.contains(pidLower.replaceAll('-', ''))));
+                                  if (matchesToken ||
                                       filename.contains(
                                         p.fullName.toLowerCase(),
                                       )) {
@@ -4117,7 +4125,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                       autofocus: true,
                       decoration: InputDecoration(
                         labelText: 'Scanned Token / Barcode (हार्डवेयर वा क्यामेरा टोकन)',
-                        hintText: 'e.g. GC-KTM01-2026-00001',
+                        hintText: 'e.g. 00001',
                         prefixIcon: const Icon(
                           Icons.qr_code,
                           color: AppTheme.primaryTeal,

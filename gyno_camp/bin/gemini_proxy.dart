@@ -269,7 +269,7 @@ FORM STRUCTURE BY PAGE:
 
 PAGE 1 (FRONT) — PATIENT REGISTRATION & ANAMNESIS:
 1. Header:
-   - "PATIENT TOKEN ID / बिरामी टोकन नं." (or Token: G C - 1 1 - 2 0 2 6 - 0 0 0 1 7) -> patientTokenId
+   - "PATIENT TOKEN ID / बिरामी टोकन नं." (5 digit boxes at top-right: Token: [ ][ ][ ][ ][ ], e.g. 00017 or 42; or legacy GC-...-00017 on older forms; return null if the Token boxes are empty) -> patientTokenId
    - "Date / मिति" -> intakeDate (format YYYY-MM-DD, e.g. 2083-07-06; inspect individual boxes [YYYY] - [MM] - [DD] BS carefully)
    - "Level of Treatment / उपचारको तह" (2 checkboxes: [ ] Council level / काउन्सिलिङ तह, [ ] Full check up / पूर्ण जाँच) -> treatmentLevel: "counseling" or "gyno_checkup"
 2. Section A: Patient Demographics / बिरामी विवरण:
@@ -319,7 +319,7 @@ PAGE 1 (FRONT) — PATIENT REGISTRATION & ANAMNESIS:
 
 PAGE 2 (BACK) — CLINICAL ASSESSMENT & EXAMINATION (STATIONS 2-6):
 0. Header (if written on Page 2 top margin/header):
-   - If a Patient Token / Registration ID or Date is written or stamped at the top of Page 2, also extract it into demographics.patientTokenId and intakeDate / examDate.
+   - If a 5-digit Patient Token ID (e.g. 00017) or legacy GC-... Token ID or Date is written or pre-printed at the top of Page 2, also extract it into demographics.patientTokenId and intakeDate / examDate (return null for patientTokenId if the 5 Token boxes are empty).
 1. Station 2: POP & Physical Examination / शारीरिक जाँच तथा पाठेघर खस्ने अवस्था:
    - "Examination Date:" -> examDate (format YYYY-MM-DD from boxes [YYYY]-[MM]-[DD] BS, e.g. 2083-07-06)
    - "uterus inside:" (2 checkboxes: [ ] yes  [ ] no -> uterusInside: true if yes is ticked, false if no)
@@ -382,7 +382,7 @@ Extract the information accurately into this EXACT JSON structure:
   "treatmentDate": "Treatment/Station 5 date in YYYY-MM-DD format or null",
   "outtakeDate": "Outtake/Station 6 date in YYYY-MM-DD format or null",
   "demographics": {
-    "patientTokenId": "Token or registration ID (e.g. GC-KTM01-2026-001 or KTM01-0001) or null",
+    "patientTokenId": "5-digit numeric Token ID from the header Token boxes (e.g. 00017) or legacy GC-... ID, or null if blank",
     "firstName": "First name of patient (e.g. MAYA) or null",
     "surname": "Surname (e.g. TAMANG) or null",
     "age": number or null,

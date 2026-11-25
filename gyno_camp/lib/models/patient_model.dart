@@ -291,23 +291,34 @@ class PatientModel {
     );
   }
 
-  /// Generates the standard human-readable Patient ID
+  /// Generates the standard 5-digit numeric Patient ID (e.g., '00001').
+  /// Optional [campCode] and [year] parameters are retained for call-site compatibility.
   static String generatePatientId({
-    required String campCode,
+    String campCode = '',
     required int sequenceNumber,
     int? year,
   }) {
-    final yr = year ?? DateTime.now().year;
-    final seqFormatted = sequenceNumber.toString().padLeft(5, '0');
-    final code = campCode.trim().isEmpty ? 'CAMP' : campCode.trim().toUpperCase();
-    return 'GC-$code-$yr-$seqFormatted';
+    final safeSeq = sequenceNumber < 1 ? 1 : sequenceNumber;
+    return safeSeq.toString().padLeft(5, '0');
   }
 
-  /// Checks if a string conforms to a valid Patient ID format: GC-[CAMP]-[YEAR]-[5 DIGITS] or non-empty GC-* token
+  /// Returns true when [id] is a human-readable Patient Token ID (5-digit numeric or legacy GC-*)
+  /// rather than an internal record UUID.
+  static bool isHumanTokenId(String id) {
+    final trimmed = id.trim();
+    if (trimmed.isEmpty) return false;
+    return RegExp(r'^\d{1,8}$').hasMatch(trimmed) ||
+        trimmed.toUpperCase().startsWith('GC-');
+  }
+
+  /// Checks if a string conforms to a valid Patient ID format:
+  /// - 5+ digit numeric ID (e.g., '00001', '100000'), OR
+  /// - Legacy historical GC-[CAMP]-[YEAR]-[5 DIGITS] / GC-* token
   static bool isValidPatientIdFormat(String id) {
     final trimmed = id.trim();
     if (trimmed.isEmpty) return false;
-    return RegExp(r'^GC-[A-Za-z0-9_-]+-\d{4}-\d{5}$', caseSensitive: false).hasMatch(trimmed) ||
+    return RegExp(r'^\d{5,}$').hasMatch(trimmed) ||
+        RegExp(r'^GC-[A-Za-z0-9_-]+-\d{4}-\d{5}$', caseSensitive: false).hasMatch(trimmed) ||
         RegExp(r'^GC-[A-Za-z0-9_-]{2,}$', caseSensitive: false).hasMatch(trimmed);
   }
 
@@ -321,114 +332,114 @@ class PatientModel {
     return out;
   }
 
-  /// Normalizes raw input from OCR or manual entry into standard format.
-  /// - Returns '' if input is blank (signaling automatic sequential generation).
-  /// - Converts numeric sequence (e.g., '42' or '00042') into 'GC-[campCode]-[year]-00042'.
-  /// - Normalizes 2-part strings like 'KTM01-0001' into 'GC-KTM01-[year]-00001'.
-  /// - Normalizes standard strings like 'gc-dhn-2026-42' into 'GC-DHN-2026-00042'.
+  /// Normalizes raw input from OCR or manual entry into canonical 5-digit format ('00042'),
+  /// while preserving existing historical 'GC-...' IDs untouched.
+  /// - Returns '' if input is blank or unfilled boxes (signaling automatic sequential generation).
+  /// - Converts numeric sequence (e.g., '42', '00042', '४२', '0 0 0 4 2') into '00042'.
+  /// - Preserves valid historical 'GC-[CODE]-[YEAR]-[SEQ]' strings as 'GC-[CODE]-[YEAR]-[5-DIGIT-SEQ]'.
   static String normalizePatientId({
     required String rawInput,
-    required String campCode,
+    String campCode = '',
     int? year,
   }) {
     var clean = _devanagariToAscii(rawInput).trim();
     if (clean.isEmpty || clean.toLowerCase() == 'null' || clean == '—' || clean == '-') return '';
 
-    // Strip common OCR label prefixes like "Token No:", "Patient ID:", "Reg #", etc.
+    // Strip unfilled character box glyphs (□, ☐, [ ])
+    clean = clean.replaceAll(RegExp(r'[□☐▣▢]+|\[\s*\]'), '').trim();
+    if (clean.isEmpty) return '';
+
+    // Strip optional "|visitDate" suffix from Encounter Slip QR codes (e.g. "00042|2026-11-25")
+    if (clean.contains('|')) {
+      clean = clean.split('|').first.trim();
+    }
+
+    // Strip common OCR/form label prefixes like "Token No:", "Patient ID:", "बिरामी टोकन नं:", etc.
     clean = clean.replaceFirst(
-      RegExp(r'^(patient\s*token\s*id|patient\s*id|token\s*no\.?|token\s*id|reg\.?\s*no\.?|id|no\.?|#)\s*[:#\-]?\s*', caseSensitive: false),
+      RegExp(
+        r'^(encounter\s*token\s*id|patient\s*token\s*id|patient\s*id|token\s*no\.?|token\s*id|token|reg\.?\s*no\.?|बिरामी\s*टोकन\s*(?:नं\.?)?|टोकन\s*(?:नं\.?)?|id|no\.?|#)\s*[:#\-]?\s*',
+        caseSensitive: false,
+      ),
       '',
     ).trim();
     if (clean.isEmpty) return '';
+
+    // Reject accidental YYYY-MM-DD BS/AD date reads (e.g. '2083-07-19' or '2026-11-25')
+    if (RegExp(r'^20\d{2}[\s/\-]\d{1,2}[\s/\-]\d{1,2}(\s*BS)?$', caseSensitive: false).hasMatch(clean)) {
+      return '';
+    }
+
+    // Collapse spaced pure digits from segmented boxes (e.g., '0 0 0 4 2' -> '00042')
+    if (RegExp(r'^\d(\s+\d){1,7}$').hasMatch(clean)) {
+      clean = clean.replaceAll(RegExp(r'\s+'), '');
+    }
 
     // Normalize slashes and spaces around separators into hyphens
     var upper = clean.toUpperCase().replaceAll(RegExp(r'[\s/\\]+'), '-').replaceAll(RegExp(r'-+'), '-');
     upper = upper.replaceAll(RegExp(r'^-+|-+$'), '');
     if (upper.isEmpty) return '';
 
-    final effectiveYear = year ?? DateTime.now().year;
-    final cleanCampCode = campCode.trim().isEmpty ? 'CAMP' : campCode.trim().toUpperCase();
+    // 1. Preserve historical 'GC-...' records untouched when explicitly prefixed with 'GC-'
+    if (upper.startsWith('GC-')) {
+      // Unfilled template prefix like 'GC-KTM01-2026' or 'GC-2026' with no sequence -> treat as blank
+      if (RegExp(r'^GC-([A-Za-z0-9_]+-)?20\d{2}$').hasMatch(upper)) {
+        return '';
+      }
+      // Short 'GC-42' -> normalize to 5-digit '00042'
+      final gcDigitsOnly = RegExp(r'^GC-(\d{1,8})$').firstMatch(upper);
+      if (gcDigitsOnly != null) {
+        final seq = int.tryParse(gcDigitsOnly.group(1)!) ?? 1;
+        return generatePatientId(sequenceNumber: seq);
+      }
+      // Full historical 'GC-[CODE]-[YEAR]-[SEQ]' -> keep canonical 'GC-...' without migrating
+      final effectiveYear = year ?? DateTime.now().year;
+      final matchHistorical = RegExp(r'^GC-([A-Za-z0-9_]+)-(\d{2,4})-(\d{1,6})$').firstMatch(upper);
+      if (matchHistorical != null) {
+        final code = matchHistorical.group(1)!;
+        var yr = int.tryParse(matchHistorical.group(2)!) ?? effectiveYear;
+        if (yr < 100) {
+          yr = 2000 + yr;
+        }
+        final seqNum = int.tryParse(matchHistorical.group(3)!) ?? 1;
+        return 'GC-$code-$yr-${seqNum.toString().padLeft(5, '0')}';
+      }
+      return upper;
+    }
 
-    // 1. If input is pure digits (e.g., '42', '00042')
+    // 2. Pure numeric input (e.g., '42', '00042', '100000') -> 5-digit zero-padded string
     final digitsOnly = upper.replaceAll(RegExp(r'[^0-9]'), '');
-    if (upper == digitsOnly && digitsOnly.isNotEmpty && digitsOnly.length <= 6) {
-      final seq = int.tryParse(digitsOnly);
-      if (seq != null) {
-        return generatePatientId(
-          campCode: cleanCampCode,
-          sequenceNumber: seq,
-          year: effectiveYear,
-        );
+    if (upper == digitsOnly && digitsOnly.isNotEmpty) {
+      // Guard against 10-digit mobile phone numbers (97xxxxxxxx / 98xxxxxxxx)
+      if (digitsOnly.length == 10 && (digitsOnly.startsWith('97') || digitsOnly.startsWith('98'))) {
+        return '';
+      }
+      if (digitsOnly.length <= 8) {
+        final seq = int.tryParse(digitsOnly);
+        if (seq != null && seq > 0) {
+          return generatePatientId(sequenceNumber: seq);
+        }
+        if (seq == 0) return '';
       }
     }
 
-    // 1b. If input is 'GC-42' (prefix + pure digits)
-    final gcDigitsMatch = RegExp(r'^GC-(\d{1,6})$').firstMatch(upper);
-    if (gcDigitsMatch != null) {
-      final seq = int.tryParse(gcDigitsMatch.group(1)!) ?? 1;
-      return generatePatientId(
-        campCode: cleanCampCode,
-        sequenceNumber: seq,
-        year: effectiveYear,
-      );
-    }
-
-    // 2. If missing the 'GC-' prefix, prepend 'GC-'
-    final withPrefix = upper.startsWith('GC-') ? upper : 'GC-$upper';
-
-    // 3. Match 'GC-[CODE]-[YEAR]-[SEQ]' (4-digit or 2-digit year)
-    final match3 = RegExp(r'^GC-([A-Za-z0-9_]+)-(\d{2,4})-(\d{1,6})$').firstMatch(withPrefix);
-    if (match3 != null) {
-      final code = match3.group(1)!;
-      var yr = int.tryParse(match3.group(2)!) ?? effectiveYear;
-      if (yr < 100) {
-        yr = yr >= 70 ? (2000 + yr) : (2000 + yr);
+    // 3. Partial camp/year + sequence without 'GC-' (e.g., 'KTM01-0012' or '2026-0015') -> extract 5-digit sequence
+    final matchTrailingSeq = RegExp(r'^[A-Za-z0-9_]+-(\d{1,8})$').firstMatch(upper);
+    if (matchTrailingSeq != null) {
+      final seqNum = int.tryParse(matchTrailingSeq.group(1)!);
+      if (seqNum != null && seqNum > 0) {
+        return generatePatientId(sequenceNumber: seqNum);
       }
-      final seqNum = int.tryParse(match3.group(3)!) ?? 1;
-      return generatePatientId(
-        campCode: code,
-        sequenceNumber: seqNum,
-        year: yr,
-      );
     }
 
-    // 4. Match 2-part 'GC-[YEAR]-[SEQ]' (e.g., '2083-0015' or '2026-001')
-    final matchYearSeq = RegExp(r'^GC-(20\d{2})-(\d{1,6})$').firstMatch(withPrefix);
-    if (matchYearSeq != null) {
-      final yr = int.tryParse(matchYearSeq.group(1)!) ?? effectiveYear;
-      final seqNum = int.tryParse(matchYearSeq.group(2)!) ?? 1;
-      return generatePatientId(
-        campCode: cleanCampCode,
-        sequenceNumber: seqNum,
-        year: yr,
-      );
+    final matchLeadingSeq = RegExp(r'^(\d{1,8})-20\d{2}$').firstMatch(upper);
+    if (matchLeadingSeq != null) {
+      final seqNum = int.tryParse(matchLeadingSeq.group(1)!);
+      if (seqNum != null && seqNum > 0) {
+        return generatePatientId(sequenceNumber: seqNum);
+      }
     }
 
-    // 5. Match 2-part 'GC-[SEQ]-[YEAR]' (e.g., '015-2083')
-    final matchSeqYear = RegExp(r'^GC-(\d{1,6})-(20\d{2})$').firstMatch(withPrefix);
-    if (matchSeqYear != null) {
-      final seqNum = int.tryParse(matchSeqYear.group(1)!) ?? 1;
-      final yr = int.tryParse(matchSeqYear.group(2)!) ?? effectiveYear;
-      return generatePatientId(
-        campCode: cleanCampCode,
-        sequenceNumber: seqNum,
-        year: yr,
-      );
-    }
-
-    // 6. Match 2-part 'GC-[CAMP_CODE]-[SEQ]' (e.g., 'KTM01-0001' or 'GC-KTM01-17')
-    final matchCodeSeq = RegExp(r'^GC-([A-Za-z0-9_]+)-(\d{1,6})$').firstMatch(withPrefix);
-    if (matchCodeSeq != null) {
-      final code = matchCodeSeq.group(1)!;
-      final seqNum = int.tryParse(matchCodeSeq.group(2)!) ?? 1;
-      return generatePatientId(
-        campCode: code,
-        sequenceNumber: seqNum,
-        year: effectiveYear,
-      );
-    }
-
-    return withPrefix;
+    return upper;
   }
 
   Map<String, dynamic> toMap() {

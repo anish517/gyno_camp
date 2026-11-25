@@ -255,7 +255,7 @@ Surname: T A M A N G
       expect(res.demographics['patientId'], 'GC-DHN-2026-00042');
     });
 
-    test('Extracts token sequence digits following Nepali label', () {
+    test('Extracts token sequence digits following Nepali label or 5-digit spaced boxes', () {
       const text = '''
 बिरामी टोकन नं: 00015
 First Name: Sita
@@ -263,6 +263,27 @@ Surname: Sharma
 ''';
       final res = service.parseFormText(text, pageNumber: 1);
       expect(res.demographics['patientId'], '00015');
+
+      const spaced5Boxes = '''
+Token: 0 0 0 4 2
+Date: 2083-07-19 BS
+First Name: Maya
+Surname: Tamang
+''';
+      final resSpaced = service.parseFormText(spaced5Boxes, pageNumber: 1);
+      expect(resSpaced.demographics['patientId'], '00042');
+    });
+
+    test('Ignores blank 5-box placeholders and dates when extracting token', () {
+      const blankBoxes = '''
+Token: □ □ □ □ □
+Date: 2083-07-19 BS
+First Name: Sita
+Surname: Sharma
+Mobile: 9841234567
+''';
+      final res = service.parseFormText(blankBoxes, pageNumber: 1);
+      expect(res.demographics['patientId'], isNull);
     });
 
     test('Leaves patientId empty when no token header exists (triggers auto-generation)', () {

@@ -79,7 +79,7 @@ void main() {
       );
 
       // Verify Patient in SQLite
-      expect(patient.patientId, startsWith('GC-KTM01-2026-'));
+      expect(patient.patientId, '00001');
       expect(patient.fullName, 'Maya Tamang');
       expect(patient.ward, '04');
 
@@ -179,8 +179,8 @@ void main() {
       expect(merged.patientId, 'KTM01-०१५');
       expect(merged.intakeDate, '२०८३/०८/०१');
 
-      // Normalize patient ID with Devanagari digits
-      final expectedNormId = 'GC-KTM01-${DateTime.now().year}-00015';
+      // Normalize patient ID with Devanagari digits -> 5-digit '00015'
+      const expectedNormId = '00015';
       final normId = PatientModel.normalizePatientId(
         rawInput: merged.patientId!,
         campCode: 'KTM01',

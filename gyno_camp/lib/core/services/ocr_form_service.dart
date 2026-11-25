@@ -367,27 +367,30 @@ class OcrFormService {
       final seq = fullTokenMatch.group(3)!.padLeft(5, '0');
       extractedTokenId = 'GC-$code-$yr-$seq';
     } else {
-      // 2. Search for Token ID label followed by sequence digits or code
+      // 2. Search for Token ID label followed by 5-digit sequence or legacy code
       final rawTokenVal = findValueForLabel([
-        'encounter token id', 'patient token id', 'patient token', 'token id', 'token no', 'token number',
+        'encounter token id', 'patient token id', 'patient token', 'patient id',
+        'token id', 'token no', 'token number',
         'बिरामी टोकन नं', 'बिरामी टोकन', 'टोकन नं', 'टोकन', 'token',
       ], multiLine: false);
 
       if (rawTokenVal != null && rawTokenVal.isNotEmpty) {
-        final compactToken = rawTokenVal.replaceAll(RegExp(r'\s+'), '');
-        final isUnfilledPrefix = RegExp(
-          r'^GC-[A-Za-z0-9_□]+-\d{4}-?$',
-          caseSensitive: false,
-        ).hasMatch(compactToken);
-        if (!isUnfilledPrefix) {
+        final strippedBoxes = rawTokenVal.replaceAll(RegExp(r'[□☐▣▢]+|\[\s*\]'), '').trim();
+        final compactToken = strippedBoxes.replaceAll(RegExp(r'\s+'), '');
+        final isDateValue = RegExp(r'^20\d{2}[-/]\d{1,2}[-/]\d{1,2}', caseSensitive: false).hasMatch(compactToken);
+        final isUnfilledPrefix = compactToken.isEmpty ||
+            RegExp(r'^GC-[A-Za-z0-9_□]+-\d{4}-?$', caseSensitive: false).hasMatch(compactToken);
+        if (!isDateValue && !isUnfilledPrefix) {
           if (RegExp(r'GC-[A-Za-z0-9_-]+-\d{4}-\d{1,6}', caseSensitive: false).hasMatch(compactToken)) {
             final m = RegExp(r'GC-([A-Za-z0-9_-]+)-(\d{4})-(\d{1,6})', caseSensitive: false).firstMatch(compactToken);
             if (m != null) {
               extractedTokenId = 'GC-${m.group(1)!.toUpperCase()}-${m.group(2)}-${m.group(3)!.padLeft(5, "0")}';
             }
           } else if (!compactToken.toUpperCase().startsWith('GC-')) {
-            final digits = rawTokenVal.replaceAll(RegExp(r'[^0-9]'), '');
-            if (digits.isNotEmpty && digits.length <= 6) {
+            final digits = strippedBoxes.replaceAll(RegExp(r'[^0-9]'), '');
+            final isPhone = digits.length == 10 && (digits.startsWith('97') || digits.startsWith('98'));
+            final parsedSeq = int.tryParse(digits);
+            if (!isPhone && digits.isNotEmpty && digits.length <= 8 && parsedSeq != null && parsedSeq > 0) {
               extractedTokenId = digits.padLeft(5, '0');
             }
           }
@@ -2552,8 +2555,11 @@ class OcrFormService {
       },
     );
     text = text.replaceAllMapped(
-      RegExp(r'\b(?:token(?:[ \t]*id|[ \t]*no)?|बिरामी[ \t]*टोकन(?:[ \t]*नं)?)[ \t]*[:\-]?[ \t]*(\d)[ \t]+(\d)[ \t]+(\d)(?:[ \t]+(\d))?(?:[ \t]+(\d))?', caseSensitive: false),
-      (m) => 'Token ID: ${m[1]}${m[2]}${m[3]}${m[4] ?? ""}${m[5] ?? ""}',
+      RegExp(
+        r'\b(?:patient[ \t]*id|token(?:[ \t]*id|[ \t]*no)?|बिरामी[ \t]*टोकन(?:[ \t]*नं)?|टोकन(?:[ \t]*नं)?)[ \t]*[:\-]?[ \t]*(\d)[ \t]+(\d)(?:[ \t]+(\d))?(?:[ \t]+(\d))?(?:[ \t]+(\d))?(?:[ \t]+(\d))?(?![ \t]*[-/][ \t]*\d)',
+        caseSensitive: false,
+      ),
+      (m) => 'Token ID: ${m[1]}${m[2]}${m[3] ?? ""}${m[4] ?? ""}${m[5] ?? ""}${m[6] ?? ""}',
     );
 
     // 0.8 Collapse spaced characters for BS dates: "2 0 8 3 - 0 6 - 0 6 BS" -> "2083-06-06 BS"

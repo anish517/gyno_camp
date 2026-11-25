@@ -170,7 +170,7 @@ void main() {
       // Allow unawaited push microtask/future to settle
       await Future.delayed(const Duration(milliseconds: 20));
 
-      expect(savedPatient.patientId, 'GC-KTM01-2026-00047');
+      expect(savedPatient.patientId, '00047');
       expect(recordingApi.recordedPushes.length, 1);
 
       final pushedPayload = recordingApi.recordedPushes.single;

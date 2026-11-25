@@ -494,7 +494,8 @@ class GeminiOcrService {
             parsedData['tokenNo'] ??
             '';
         final str = rawId.toString().trim();
-        return (str.toLowerCase() == 'null') ? '' : str;
+        if (str.isEmpty || str.toLowerCase() == 'null') return '';
+        return PatientModel.normalizePatientId(rawInput: str);
       }(),
       'patientTokenId': () {
         final rawId = rawDemo['patientId'] ??
@@ -509,7 +510,8 @@ class GeminiOcrService {
             parsedData['tokenNo'] ??
             '';
         final str = rawId.toString().trim();
-        return (str.toLowerCase() == 'null') ? '' : str;
+        if (str.isEmpty || str.toLowerCase() == 'null') return '';
+        return PatientModel.normalizePatientId(rawInput: str);
       }(),
     };
 

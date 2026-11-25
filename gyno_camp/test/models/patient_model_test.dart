@@ -3,20 +3,23 @@ import 'package:gyno_camp/models/patient_model.dart';
 
 void main() {
   group('PatientModel & Duplicate Detection Tests', () {
-    test('generatePatientId creates standard formatted ID', () {
+    test('generatePatientId creates 5-digit numeric ID', () {
       final id1 = PatientModel.generatePatientId(
         campCode: 'KTM01',
         sequenceNumber: 1,
         year: 2026,
       );
-      expect(id1, 'GC-KTM01-2026-00001');
+      expect(id1, '00001');
 
       final id42 = PatientModel.generatePatientId(
         campCode: 'DHN02',
         sequenceNumber: 42,
         year: 2026,
       );
-      expect(id42, 'GC-DHN02-2026-00042');
+      expect(id42, '00042');
+
+      final id100k = PatientModel.generatePatientId(sequenceNumber: 100000);
+      expect(id100k, '100000');
     });
 
     test('Duplicate detector flags duplicate if mobile number matches', () {
@@ -94,28 +97,39 @@ void main() {
       expect(notDup, isFalse);
     });
 
-    test('normalizePatientId correctly handles empty, digits, and full formats', () {
-      // 1. Empty raw input preserves empty string (signals auto-generation fallback)
+    test('normalizePatientId handles 5-digit numbers, Devanagari, blank boxes, and preserves historical GC-* IDs', () {
+      // 1. Empty or unfilled boxes preserve empty string (signals auto-generation fallback)
       expect(PatientModel.normalizePatientId(rawInput: '', campCode: 'DHN', year: 2026), '');
       expect(PatientModel.normalizePatientId(rawInput: '   ', campCode: 'DHN', year: 2026), '');
+      expect(PatientModel.normalizePatientId(rawInput: '□□□□□', campCode: 'DHN', year: 2026), '');
+      expect(PatientModel.normalizePatientId(rawInput: '2083-07-19', campCode: 'DHN', year: 2026), '');
+      expect(PatientModel.normalizePatientId(rawInput: '9841234567', campCode: 'DHN', year: 2026), '');
 
-      // 2. Pure digits (short or padded) auto-resolve with camp prefix and padded sequence
+      // 2. Pure digits, Devanagari digits, and spaced boxes resolve to 5-digit numeric IDs
       expect(
         PatientModel.normalizePatientId(rawInput: '42', campCode: 'DHN', year: 2026),
-        'GC-DHN-2026-00042',
+        '00042',
       );
       expect(
         PatientModel.normalizePatientId(rawInput: '00042', campCode: 'DHN', year: 2026),
-        'GC-DHN-2026-00042',
+        '00042',
+      );
+      expect(
+        PatientModel.normalizePatientId(rawInput: '४२', campCode: 'DHN', year: 2026),
+        '00042',
+      );
+      expect(
+        PatientModel.normalizePatientId(rawInput: 'Token: 0 0 0 4 2', campCode: 'DHN', year: 2026),
+        '00042',
+      );
+      expect(
+        PatientModel.normalizePatientId(rawInput: 'KTM01-00015', campCode: 'KTM01', year: 2026),
+        '00015',
       );
 
-      // 3. Full standard IDs with lowercase or without GC- prefix normalize properly
+      // 3. Existing historical GC-* IDs are preserved without auto-migrating
       expect(
         PatientModel.normalizePatientId(rawInput: 'gc-dhn-2026-00042', campCode: 'DHN', year: 2026),
-        'GC-DHN-2026-00042',
-      );
-      expect(
-        PatientModel.normalizePatientId(rawInput: 'DHN-2026-00042', campCode: 'DHN', year: 2026),
         'GC-DHN-2026-00042',
       );
       expect(
@@ -124,10 +138,13 @@ void main() {
       );
     });
 
-    test('isValidPatientIdFormat validates format', () {
+    test('isValidPatientIdFormat validates both 5-digit IDs and historical GC-* IDs', () {
+      expect(PatientModel.isValidPatientIdFormat('00001'), isTrue);
+      expect(PatientModel.isValidPatientIdFormat('00042'), isTrue);
+      expect(PatientModel.isValidPatientIdFormat('100000'), isTrue);
       expect(PatientModel.isValidPatientIdFormat('GC-DHN-2026-00042'), isTrue);
       expect(PatientModel.isValidPatientIdFormat('gc-dhn-2026-00042'), isTrue);
-      expect(PatientModel.isValidPatientIdFormat('00042'), isFalse);
+      expect(PatientModel.isValidPatientIdFormat('42'), isFalse);
       expect(PatientModel.isValidPatientIdFormat('INVALID'), isFalse);
     });
   });

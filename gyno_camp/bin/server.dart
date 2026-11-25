@@ -474,6 +474,7 @@ class GynoCampSyncServer {
         DELETE FROM deleted_entities
         WHERE (entity_type = 'patient' AND (
             id LIKE 'GC-%'
+            OR id ~ '^[0-9]{1,8}\$'
             OR id IN (SELECT id FROM patients)
             OR id IN (SELECT patient_id FROM patients)
           ))
@@ -1092,20 +1093,55 @@ class GynoCampSyncServer {
     }
 
     // 3. Process Patients
+    final reassignedPatientIds = <String, String>{};
+    final tokenRemapInPush = <String, String>{};
+
     for (final p in patients) {
-      final map = p as Map<String, dynamic>;
+      final map = Map<String, dynamic>.from(p as Map<String, dynamic>);
       final id = map['id']?.toString() ?? '';
       final patientTokenId = map['patient_id']?.toString() ?? '';
-      _memPatients[id] = map;
-      _memDeletedEntities.remove(id);
-      if (patientTokenId.isNotEmpty) {
-        _memDeletedEntities.remove(patientTokenId);
-      }
+      var effectivePatientTokenId =
+          (patientTokenId.isNotEmpty ? patientTokenId : id);
 
       if (_isPgConnected && _connection != null) {
         try {
-          final effectivePatientTokenId =
-              (patientTokenId.isNotEmpty ? patientTokenId : id);
+          // Offline multi-tablet collision guard (Option 1 — Sync Auto-Bump):
+          // If another patient UUID already owns effectivePatientTokenId, auto-bump this incoming
+          // patient to the next available global 5-digit ID instead of failing on idx_patients_patient_id.
+          final ownerRows = await _connection!.execute(
+            Sql.named('SELECT id FROM patients WHERE LOWER(patient_id) = LOWER(@pid) LIMIT 1;'),
+            parameters: {'pid': effectivePatientTokenId},
+          );
+          if (ownerRows.isNotEmpty && ownerRows.first[0]?.toString() != id) {
+            final maxRows = await _connection!.execute(
+              "SELECT COALESCE(MAX(CAST(patient_id AS BIGINT)), 0) FROM patients WHERE patient_id ~ '^[0-9]+\$';",
+            );
+            int nextSeq =
+                ((maxRows.isNotEmpty ? (maxRows.first[0] as num?)?.toInt() : null) ?? 0) + 1;
+            while (true) {
+              final candidate = nextSeq.toString().padLeft(5, '0');
+              final check = await _connection!.execute(
+                Sql.named('SELECT 1 FROM patients WHERE LOWER(patient_id) = LOWER(@cand) LIMIT 1;'),
+                parameters: {'cand': candidate},
+              );
+              if (check.isEmpty) {
+                if (patientTokenId.isNotEmpty) {
+                  tokenRemapInPush[patientTokenId.toLowerCase()] = candidate;
+                }
+                effectivePatientTokenId = candidate;
+                reassignedPatientIds[id] = candidate;
+                map['patient_id'] = candidate;
+                break;
+              }
+              nextSeq++;
+            }
+          }
+
+          _memPatients[id] = map;
+          _memDeletedEntities.remove(id);
+          if (effectivePatientTokenId.isNotEmpty) {
+            _memDeletedEntities.remove(effectivePatientTokenId);
+          }
 
           // Check if this patient UUID previously had a different Token ID (patient_id)
           // so we can cascade the Token ID change to clinical_visits and avoid FK 23503 errors.
@@ -1231,6 +1267,43 @@ class GynoCampSyncServer {
           print('Error inserting patient $id: $e');
         }
       } else {
+        // In-memory mode collision auto-bump
+        final hasMemCollision = _memPatients.values.any(
+          (existing) =>
+              existing['id']?.toString() != id &&
+              (existing['patient_id']?.toString() ?? '').toLowerCase() ==
+                  effectivePatientTokenId.toLowerCase(),
+        );
+        if (hasMemCollision) {
+          int maxMemSeq = 0;
+          for (final existing in _memPatients.values) {
+            final tok = existing['patient_id']?.toString().trim() ?? '';
+            if (RegExp(r'^\d+$').hasMatch(tok)) {
+              final seq = int.tryParse(tok) ?? 0;
+              if (seq > maxMemSeq) maxMemSeq = seq;
+            }
+          }
+          int nextSeq = maxMemSeq + 1;
+          while (_memPatients.values.any(
+            (existing) =>
+                (existing['patient_id']?.toString() ?? '').toLowerCase() ==
+                nextSeq.toString().padLeft(5, '0').toLowerCase(),
+          )) {
+            nextSeq++;
+          }
+          final candidate = nextSeq.toString().padLeft(5, '0');
+          if (patientTokenId.isNotEmpty) {
+            tokenRemapInPush[patientTokenId.toLowerCase()] = candidate;
+          }
+          effectivePatientTokenId = candidate;
+          reassignedPatientIds[id] = candidate;
+          map['patient_id'] = candidate;
+        }
+        _memPatients[id] = map;
+        _memDeletedEntities.remove(id);
+        if (effectivePatientTokenId.isNotEmpty) {
+          _memDeletedEntities.remove(effectivePatientTokenId);
+        }
         syncedPatientIds.add(id);
       }
     }
@@ -1251,8 +1324,15 @@ class GynoCampSyncServer {
 
     // 4. Process Clinical Visits
     for (final v in visits) {
-      final map = v as Map<String, dynamic>;
+      final map = Map<String, dynamic>.from(v as Map<String, dynamic>);
       final id = map['id']?.toString() ?? '';
+      final rawVisitPid = map['patient_id']?.toString() ?? '';
+      if (rawVisitPid.isNotEmpty) {
+        final remappedPid = tokenRemapInPush[rawVisitPid.toLowerCase()];
+        if (remappedPid != null) {
+          map['patient_id'] = remappedPid;
+        }
+      }
       _memVisits[id] = map;
       _memDeletedEntities.remove(id);
 
@@ -1488,6 +1568,7 @@ class GynoCampSyncServer {
       'synced_lookup_ids': syncedLookupIds,
       'deleted_patient_ids': confirmedDeletedPatientIds,
       'deleted_visit_ids': confirmedDeletedVisitIds,
+      'reassigned_patient_ids': reassignedPatientIds,
       'conflict_entity_ids': [],
       'message': 'Successfully committed ${syncedPatientIds.length} patients, ${syncedVisitIds.length} visits, and ${syncedLookupIds.length} lookups to central cloud.',
     }));
@@ -1832,7 +1913,7 @@ class GynoCampSyncServer {
           if (type == 'camp') deletedCampIds.add(id);
           if (type == 'user') deletedUserIds.add(id);
           if (type == 'lookup') deletedLookupIds.add(id);
-          if (type == 'patient' && !id.toUpperCase().startsWith('GC-')) deletedPatientIds.add(id);
+          if (type == 'patient' && !_isHumanTokenId(id)) deletedPatientIds.add(id);
           if (type == 'clinical_visit') deletedVisitIds.add(id);
         }
       } catch (e) {
@@ -1844,7 +1925,7 @@ class GynoCampSyncServer {
       if (type == 'camp' && !deletedCampIds.contains(id)) deletedCampIds.add(id);
       if (type == 'user' && !deletedUserIds.contains(id)) deletedUserIds.add(id);
       if (type == 'lookup' && !deletedLookupIds.contains(id)) deletedLookupIds.add(id);
-      if (type == 'patient' && !id.toUpperCase().startsWith('GC-') && !deletedPatientIds.contains(id)) deletedPatientIds.add(id);
+      if (type == 'patient' && !_isHumanTokenId(id) && !deletedPatientIds.contains(id)) deletedPatientIds.add(id);
       if (type == 'clinical_visit' && !deletedVisitIds.contains(id)) deletedVisitIds.add(id);
     });
 
@@ -2440,11 +2521,18 @@ class GynoCampSyncServer {
     _broadcastSseEvent('sync_update', {'action': 'lookup_delete', 'lookup_id': id, 'timestamp': DateTime.now().toIso8601String()});
   }
 
+  static bool _isHumanTokenId(String id) {
+    final trimmed = id.trim();
+    if (trimmed.isEmpty) return false;
+    return trimmed.toUpperCase().startsWith('GC-') ||
+        RegExp(r'^\d{1,8}$').hasMatch(trimmed);
+  }
+
   /// Deletes a patient (and associated clinical visits + tombstone) in both
   /// in-memory store and PostgreSQL. Returns false only if PostgreSQL deletion fails.
   Future<bool> _deletePatientById(String delPid) async {
     if (delPid.isEmpty) return false;
-    final isTokenId = delPid.toUpperCase().startsWith('GC-');
+    final isTokenId = _isHumanTokenId(delPid);
     final memPat = _memPatients[delPid];
     final memTokenId = memPat?['patient_id']?.toString();
 

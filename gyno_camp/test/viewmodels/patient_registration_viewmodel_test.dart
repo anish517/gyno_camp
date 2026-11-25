@@ -116,9 +116,9 @@ void main() {
       );
 
       expect(registered, isNotNull);
-      expect(registered!.patientId, 'GC-KTM-2026-00001');
+      expect(registered!.patientId, '00001');
       expect(registered.fullName, 'Bina Basnet');
-      expect(vm.state.registeredPatient?.patientId, 'GC-KTM-2026-00001');
+      expect(vm.state.registeredPatient?.patientId, '00001');
       expect(vm.state.isSubmitting, isFalse);
     });
 
