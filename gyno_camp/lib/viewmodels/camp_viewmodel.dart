@@ -9,6 +9,7 @@ class CampState {
   final List<CampModel> camps;
   final CampModel? activeCamp; // Current open camp for data entry
   final CampModel? selectedCamp;
+  final DefaultCampRoster? defaultRoster;
   final bool isLoading;
   final String? errorMessage;
 
@@ -16,16 +17,23 @@ class CampState {
     this.camps = const [],
     this.activeCamp,
     this.selectedCamp,
+    this.defaultRoster,
     this.isLoading = false,
     this.errorMessage,
   });
 
   bool get hasActiveCamp => activeCamp != null;
 
+  /// Resolves the sticky default camp roster (explicitly persisted in metadata
+  /// or derived from the most recently created camp with doctors/nurses/staff).
+  DefaultCampRoster? get effectiveDefaultRoster =>
+      defaultRoster ?? DefaultCampRoster.deriveFromCamps(camps);
+
   CampState copyWith({
     List<CampModel>? camps,
     CampModel? activeCamp,
     CampModel? selectedCamp,
+    DefaultCampRoster? defaultRoster,
     bool? isLoading,
     String? errorMessage,
     bool clearActiveCamp = false,
@@ -35,6 +43,7 @@ class CampState {
       camps: camps ?? this.camps,
       activeCamp: clearActiveCamp ? null : (activeCamp ?? this.activeCamp),
       selectedCamp: selectedCamp ?? this.selectedCamp,
+      defaultRoster: defaultRoster ?? this.defaultRoster,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
@@ -48,12 +57,24 @@ class CampViewModel extends StateNotifier<CampState> {
     loadCamps();
   }
 
+  Future<DefaultCampRoster?> _resolveDefaultRoster(List<CampModel> camps) async {
+    final repo = _campRepository;
+    if (repo is IDefaultCampRosterRepository) {
+      final stored = await (repo as IDefaultCampRosterRepository).getDefaultCampRoster();
+      if (stored != null) {
+        return stored;
+      }
+    }
+    return DefaultCampRoster.deriveFromCamps(camps);
+  }
+
   Future<void> loadCamps({bool silent = false}) async {
     if (!silent) {
       state = state.copyWith(isLoading: true, clearError: true);
     }
     try {
       final camps = await _campRepository.getAllCamps();
+      final resolvedDefaultRoster = await _resolveDefaultRoster(camps);
 
       // ── Active camp resolution (stable across syncs) ───────────────────
       // Priority 1: the camp the user explicitly chose (saved in session).
@@ -92,6 +113,7 @@ class CampViewModel extends StateNotifier<CampState> {
         camps: camps,
         activeCamp: active,
         clearActiveCamp: active == null,
+        defaultRoster: resolvedDefaultRoster,
         selectedCamp: state.selectedCamp != null
             ? camps.firstWhere((c) => c.id == state.selectedCamp!.id, orElse: () => active ?? (camps.isNotEmpty ? camps.first : state.selectedCamp!))
             : (active ?? (camps.isNotEmpty ? camps.first : null)),
@@ -250,6 +272,10 @@ class CampViewModel extends StateNotifier<CampState> {
         if (c.id == savedCamp.id) return savedCamp;
         return c; // ← leave all other camps untouched
       }).toList();
+      final resolvedDefaultRoster = await _resolveDefaultRoster(updatedList);
+      if (!mounted) {
+        return true;
+      }
 
       final wasActive = state.activeCamp?.id == savedCamp.id;
       final newActive = savedCamp.status == CampStatus.open
@@ -261,6 +287,7 @@ class CampViewModel extends StateNotifier<CampState> {
         isLoading: false,
         activeCamp: newActive,
         clearActiveCamp: newActive == null,
+        defaultRoster: resolvedDefaultRoster,
         selectedCamp: state.selectedCamp?.id == savedCamp.id ? savedCamp : state.selectedCamp,
       );
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../core/constants/app_constants.dart';
 import 'doctor_profile.dart';
 import 'nurse_profile.dart';
@@ -292,5 +294,146 @@ class CampModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
+  }
+}
+
+/// Sticky default doctor, nurse, and staff roster carried forward to newly
+/// created camps until explicitly changed by an administrator.
+class DefaultCampRoster {
+  final List<String> doctorNames;
+  final bool showDoctorOnForms;
+  final List<String> nurseNames;
+  final bool showNurseOnForms;
+  final List<String> assignedStaffIds;
+  final String? sourceCampId;
+  final String? sourceCampCode;
+
+  const DefaultCampRoster({
+    this.doctorNames = const [],
+    this.showDoctorOnForms = true,
+    this.nurseNames = const [],
+    this.showNurseOnForms = false,
+    this.assignedStaffIds = const [],
+    this.sourceCampId,
+    this.sourceCampCode,
+  });
+
+  List<DoctorProfile> get doctorProfiles =>
+      doctorNames.map(DoctorProfile.parse).where((d) => d.isValid).toList();
+
+  List<NurseProfile> get nurseProfiles =>
+      nurseNames.map(NurseProfile.parse).where((n) => n.isValid).toList();
+
+  bool get hasDoctors => doctorProfiles.isNotEmpty;
+  bool get hasNurses => nurseProfiles.isNotEmpty;
+  bool get hasStaff => assignedStaffIds.isNotEmpty;
+
+  bool get hasAnyDefaults =>
+      hasDoctors ||
+      hasNurses ||
+      hasStaff ||
+      showNurseOnForms ||
+      !showDoctorOnForms;
+
+  DefaultCampRoster copyWith({
+    List<String>? doctorNames,
+    bool? showDoctorOnForms,
+    List<String>? nurseNames,
+    bool? showNurseOnForms,
+    List<String>? assignedStaffIds,
+    String? sourceCampId,
+    String? sourceCampCode,
+  }) {
+    return DefaultCampRoster(
+      doctorNames: doctorNames ?? this.doctorNames,
+      showDoctorOnForms: showDoctorOnForms ?? this.showDoctorOnForms,
+      nurseNames: nurseNames ?? this.nurseNames,
+      showNurseOnForms: showNurseOnForms ?? this.showNurseOnForms,
+      assignedStaffIds: assignedStaffIds ?? this.assignedStaffIds,
+      sourceCampId: sourceCampId ?? this.sourceCampId,
+      sourceCampCode: sourceCampCode ?? this.sourceCampCode,
+    );
+  }
+
+  factory DefaultCampRoster.fromCamp(CampModel camp) {
+    final docs = camp.doctorNames.isNotEmpty
+        ? List<String>.from(camp.doctorNames)
+        : (camp.doctorName.trim().isNotEmpty
+            ? [camp.doctorName.trim()]
+            : <String>[]);
+    return DefaultCampRoster(
+      doctorNames: docs,
+      showDoctorOnForms: camp.showDoctorOnForms,
+      nurseNames: List<String>.from(camp.nurseNames),
+      showNurseOnForms: camp.showNurseOnForms,
+      assignedStaffIds: List<String>.from(camp.assignedStaffIds),
+      sourceCampId: camp.id,
+      sourceCampCode: camp.campCode,
+    );
+  }
+
+  /// Fallback derivation when no explicit default metadata exists locally yet
+  /// (e.g. fresh browser session synced with PostgreSQL).
+  static DefaultCampRoster? deriveFromCamps(List<CampModel> camps) {
+    if (camps.isEmpty) {
+      return null;
+    }
+    final sorted = List<CampModel>.from(camps)
+      ..sort((a, b) => b.createdAt.toUtc().compareTo(a.createdAt.toUtc()));
+    for (final c in sorted) {
+      if (!c.status.isLocked &&
+          (c.hasDoctors || c.hasNurses || c.assignedStaffIds.isNotEmpty)) {
+        return DefaultCampRoster.fromCamp(c);
+      }
+    }
+    for (final c in sorted) {
+      if (c.hasDoctors || c.hasNurses || c.assignedStaffIds.isNotEmpty) {
+        return DefaultCampRoster.fromCamp(c);
+      }
+    }
+    return null;
+  }
+
+  String toJsonString() => jsonEncode({
+        'doctorNames': doctorNames,
+        'showDoctorOnForms': showDoctorOnForms,
+        'nurseNames': nurseNames,
+        'showNurseOnForms': showNurseOnForms,
+        'assignedStaffIds': assignedStaffIds,
+        'sourceCampId': sourceCampId,
+        'sourceCampCode': sourceCampCode,
+      });
+
+  static DefaultCampRoster? tryParseJson(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return null;
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return null;
+      }
+      List<String> readList(dynamic val) {
+        if (val is List) {
+          return val
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+        }
+        return const [];
+      }
+
+      return DefaultCampRoster(
+        doctorNames: readList(decoded['doctorNames']),
+        showDoctorOnForms: decoded['showDoctorOnForms'] as bool? ?? true,
+        nurseNames: readList(decoded['nurseNames']),
+        showNurseOnForms: decoded['showNurseOnForms'] as bool? ?? false,
+        assignedStaffIds: readList(decoded['assignedStaffIds']),
+        sourceCampId: decoded['sourceCampId'] as String?,
+        sourceCampCode: decoded['sourceCampCode'] as String?,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 }

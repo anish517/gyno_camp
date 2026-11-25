@@ -11,6 +11,9 @@ class DatabaseTables {
   static const String tableOfflineScanQueue = 'offline_scan_queue';
   static const String tableDeletedEntitiesQueue = 'deleted_entities_queue';
 
+  // Metadata keys
+  static const String metaKeyDefaultCampRoster = 'default_camp_roster_v1';
+
   // Users Table
   static const String createTableUsers = '''
     CREATE TABLE IF NOT EXISTS $tableUsers (

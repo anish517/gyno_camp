@@ -23,7 +23,14 @@ abstract class ICampRepository {
   Future<bool> assignStaff(String campId, List<String> staffIds, {required String adminUserId, required String deviceId});
 }
 
-class CampRepository implements ICampRepository {
+/// Optional capability implemented by repositories that persist sticky default
+/// doctor, nurse, and staff assignments across camp creations.
+abstract class IDefaultCampRosterRepository {
+  Future<DefaultCampRoster?> getDefaultCampRoster();
+  Future<void> saveDefaultCampRoster(DefaultCampRoster roster);
+}
+
+class CampRepository implements ICampRepository, IDefaultCampRosterRepository {
   final DatabaseService _databaseService;
   final AuditRepository _auditRepository;
   final bool enableCentralSync;
@@ -44,6 +51,109 @@ class CampRepository implements ICampRepository {
 
   Future<void> _removeDeletedCampId(Database db, String campId) =>
       _databaseService.removeDeletedCampId(db, campId);
+
+  Future<DefaultCampRoster?> _readStoredDefaultRoster(DatabaseExecutor db) async {
+    try {
+      final rows = await db.query(
+        DatabaseTables.tableMetadata,
+        columns: ['value'],
+        where: 'key = ?',
+        whereArgs: [DatabaseTables.metaKeyDefaultCampRoster],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        return null;
+      }
+      return DefaultCampRoster.tryParseJson(rows.first['value'] as String?);
+    } catch (e) {
+      debugPrint('[CampRepo] Read default roster error: $e');
+      return null;
+    }
+  }
+
+  Future<void> _writeStoredDefaultRoster(
+    DatabaseExecutor db,
+    DefaultCampRoster roster,
+  ) async {
+    try {
+      await db.insert(
+        DatabaseTables.tableMetadata,
+        {
+          'key': DatabaseTables.metaKeyDefaultCampRoster,
+          'value': roster.toJsonString(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      debugPrint('[CampRepo] Write default roster error: $e');
+    }
+  }
+
+  @override
+  Future<DefaultCampRoster?> getDefaultCampRoster() async {
+    final db = await _databaseService.database;
+    return _readStoredDefaultRoster(db);
+  }
+
+  @override
+  Future<void> saveDefaultCampRoster(DefaultCampRoster roster) async {
+    final db = await _databaseService.database;
+    await _writeStoredDefaultRoster(db, roster);
+  }
+
+  /// Synchronizes `users.assigned_camp_ids` in SQLite (and broadcasts updated
+  /// users to Central Cloud) so every staff member's RBAC profile immediately
+  /// reflects their assignment to [campId].
+  Future<void> _syncUsersForCampAssignment(
+    Database db, {
+    required String campId,
+    required List<String> staffIds,
+  }) async {
+    try {
+      final allUserMaps = await db.query(DatabaseTables.tableUsers);
+      final staffIdSet = staffIds.toSet();
+      final nowUtc = DateTime.now().toUtc();
+
+      for (final uMap in allUserMaps) {
+        final user = UserModel.fromMap(uMap);
+        final existingCamps = List<String>.from(user.assignedCampIds);
+        bool userChanged = false;
+
+        if (staffIdSet.contains(user.id)) {
+          if (!existingCamps.contains(campId)) {
+            existingCamps.add(campId);
+            userChanged = true;
+          }
+        } else {
+          if (existingCamps.contains(campId)) {
+            existingCamps.remove(campId);
+            userChanged = true;
+          }
+        }
+
+        if (userChanged) {
+          final updatedUser = user.copyWith(
+            assignedCampIds: existingCamps,
+            updatedAt: nowUtc,
+          );
+          await db.update(
+            DatabaseTables.tableUsers,
+            updatedUser.toMap(),
+            where: 'id = ?',
+            whereArgs: [user.id],
+          );
+          if (enableCentralSync) {
+            try {
+              await HttpCentralApiService().broadcastUser(updatedUser);
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[CampRepo] User camp assignment sync error: $e');
+    }
+  }
 
   @override
   Future<List<CampModel>> getAllCamps({String? tenantId}) async {
@@ -331,6 +441,13 @@ class CampRepository implements ICampRepository {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
 
+    // Update sticky default roster for subsequent camps
+    final existingDefault = await _readStoredDefaultRoster(db);
+    final candidateDefault = DefaultCampRoster.fromCamp(newCamp);
+    if (existingDefault != null || candidateDefault.hasAnyDefaults) {
+      await _writeStoredDefaultRoster(db, candidateDefault);
+    }
+
     await _auditRepository.logActivity(
       userId: createdByUserId,
       userName: 'Super Admin',
@@ -346,6 +463,15 @@ class CampRepository implements ICampRepository {
       try {
         await HttpCentralApiService().broadcastCamp(newCamp);
       } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
+    }
+
+    // Keep users.assigned_camp_ids in sync when staff are assigned at creation time
+    if (newCamp.assignedStaffIds.isNotEmpty) {
+      await _syncUsersForCampAssignment(
+        db,
+        campId: newCamp.id,
+        staffIds: newCamp.assignedStaffIds,
+      );
     }
 
     // Ensure standard clinical formulary is seeded so this new camp inherits all defaults
@@ -501,6 +627,28 @@ class CampRepository implements ICampRepository {
       whereArgs: [camp.id],
     );
 
+    // Update sticky default doctor/nurse roster when editing an active/upcoming camp
+    // (Closed/Archived historical edits do not overwrite the current default team).
+    if (!updated.status.isLocked) {
+      final existingDefault = await _readStoredDefaultRoster(db);
+      final updatedDocs = updated.doctorNames.isNotEmpty
+          ? List<String>.from(updated.doctorNames)
+          : (updated.doctorName.trim().isNotEmpty
+              ? [updated.doctorName.trim()]
+              : <String>[]);
+      final mergedDefault = (existingDefault ?? DefaultCampRoster.fromCamp(updated)).copyWith(
+        doctorNames: updatedDocs,
+        showDoctorOnForms: updated.showDoctorOnForms,
+        nurseNames: List<String>.from(updated.nurseNames),
+        showNurseOnForms: updated.showNurseOnForms,
+        sourceCampId: updated.id,
+        sourceCampCode: updated.campCode,
+      );
+      if (existingDefault != null || mergedDefault.hasAnyDefaults) {
+        await _writeStoredDefaultRoster(db, mergedDefault);
+      }
+    }
+
     await _auditRepository.logActivity(
       userId: adminUserId,
       userName: 'Super Admin',
@@ -611,6 +759,19 @@ class CampRepository implements ICampRepository {
       whereArgs: [campId],
     );
 
+    // Update sticky default staff assignment when updating an active/upcoming camp
+    if (!camp.status.isLocked) {
+      final existingDefault = await _readStoredDefaultRoster(db);
+      final mergedDefault = (existingDefault ?? DefaultCampRoster.fromCamp(updated)).copyWith(
+        assignedStaffIds: List<String>.from(staffIds),
+        sourceCampId: updated.id,
+        sourceCampCode: updated.campCode,
+      );
+      if (existingDefault != null || mergedDefault.hasAnyDefaults) {
+        await _writeStoredDefaultRoster(db, mergedDefault);
+      }
+    }
+
     // 1. Broadcast the updated camp to Central Cloud
     if (enableCentralSync) {
       try {
@@ -619,49 +780,11 @@ class CampRepository implements ICampRepository {
     }
 
     // 2. Synchronize ALL users in SQLite and Central Cloud with this camp's staff list
-    try {
-      final allUserMaps = await db.query(DatabaseTables.tableUsers);
-      final staffIdSet = staffIds.toSet();
-      final nowUtc = DateTime.now().toUtc();
-
-      for (final uMap in allUserMaps) {
-        final user = UserModel.fromMap(uMap);
-        final existingCamps = List<String>.from(user.assignedCampIds);
-        bool userChanged = false;
-
-        if (staffIdSet.contains(user.id)) {
-          // Staff member is assigned to this camp
-          if (!existingCamps.contains(campId)) {
-            existingCamps.add(campId);
-            userChanged = true;
-          }
-        } else {
-          // Staff member is unassigned from this camp
-          if (existingCamps.contains(campId)) {
-            existingCamps.remove(campId);
-            userChanged = true;
-          }
-        }
-
-        if (userChanged) {
-          final updatedUser = user.copyWith(
-            assignedCampIds: existingCamps,
-            updatedAt: nowUtc,
-          );
-          await db.update(
-            DatabaseTables.tableUsers,
-            updatedUser.toMap(),
-            where: 'id = ?',
-            whereArgs: [user.id],
-          );
-          if (enableCentralSync) {
-            try {
-              await HttpCentralApiService().broadcastUser(updatedUser);
-            } catch (_) {}
-          }
-        }
-      }
-    } catch (e) { debugPrint('[CampRepo] Central sync error: $e'); }
+    await _syncUsersForCampAssignment(
+      db,
+      campId: campId,
+      staffIds: staffIds,
+    );
 
     await _auditRepository.logActivity(
       userId: adminUserId,

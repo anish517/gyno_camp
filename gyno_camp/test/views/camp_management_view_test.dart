@@ -1,14 +1,19 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:gyno_camp/core/database/database_service.dart';
+import 'package:gyno_camp/core/database/database_tables.dart';
 import 'package:gyno_camp/core/theme/app_theme.dart';
 import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/user_model.dart';
+import 'package:gyno_camp/repositories/audit_repository.dart';
 import 'package:gyno_camp/repositories/camp_repository.dart';
 import 'package:gyno_camp/viewmodels/camp_viewmodel.dart';
 import 'package:gyno_camp/views/admin/camp_management_view.dart';
 
-class FakeCampRepository implements ICampRepository {
+class FakeCampRepository implements ICampRepository, IDefaultCampRosterRepository {
+  DefaultCampRoster? _defaultRoster;
   List<CampModel> camps = [
     CampModel(
       id: 'c1',
@@ -62,9 +67,22 @@ class FakeCampRepository implements ICampRepository {
   }
 
   @override
+  Future<DefaultCampRoster?> getDefaultCampRoster() async => _defaultRoster;
+
+  @override
+  Future<void> saveDefaultCampRoster(DefaultCampRoster roster) async {
+    _defaultRoster = roster;
+  }
+
+  @override
   Future<CampModel> createCamp(CampModel camp, {required String createdByUserId, required String deviceId}) async {
-    camps.add(camp);
-    return camp;
+    final saved = camp.id.isEmpty ? camp.copyWith(id: 'camp-${camps.length + 1}') : camp;
+    camps.add(saved);
+    final candidate = DefaultCampRoster.fromCamp(saved);
+    if (_defaultRoster != null || candidate.hasAnyDefaults) {
+      _defaultRoster = candidate;
+    }
+    return saved;
   }
 
   @override
@@ -102,7 +120,22 @@ class FakeCampRepository implements ICampRepository {
   @override
   Future<CampModel> updateCamp(CampModel camp, {required String adminUserId, required String deviceId}) async {
     final idx = camps.indexWhere((c) => c.id == camp.id);
-    if (idx != -1) camps[idx] = camp;
+    if (idx != -1) {
+      camps[idx] = camp;
+    }
+    if (!camp.status.isLocked) {
+      final candidate = (_defaultRoster ?? DefaultCampRoster.fromCamp(camp)).copyWith(
+        doctorNames: camp.doctorNames,
+        showDoctorOnForms: camp.showDoctorOnForms,
+        nurseNames: camp.nurseNames,
+        showNurseOnForms: camp.showNurseOnForms,
+        sourceCampId: camp.id,
+        sourceCampCode: camp.campCode,
+      );
+      if (_defaultRoster != null || candidate.hasAnyDefaults) {
+        _defaultRoster = candidate;
+      }
+    }
     return camp;
   }
 
@@ -116,7 +149,18 @@ class FakeCampRepository implements ICampRepository {
   Future<bool> assignStaff(String campId, List<String> staffIds, {required String adminUserId, required String deviceId}) async {
     final idx = camps.indexWhere((c) => c.id == campId);
     if (idx != -1) {
-      camps[idx] = camps[idx].copyWith(assignedStaffIds: staffIds);
+      final updated = camps[idx].copyWith(assignedStaffIds: staffIds);
+      camps[idx] = updated;
+      if (!updated.status.isLocked) {
+        final candidate = (_defaultRoster ?? DefaultCampRoster.fromCamp(updated)).copyWith(
+          assignedStaffIds: List<String>.from(staffIds),
+          sourceCampId: updated.id,
+          sourceCampCode: updated.campCode,
+        );
+        if (_defaultRoster != null || candidate.hasAnyDefaults) {
+          _defaultRoster = candidate;
+        }
+      }
       return true;
     }
     return false;
@@ -404,5 +448,241 @@ void main() {
     expect(tester.widget<Switch>(switches.at(1)).value, isTrue);
     expect(find.widgetWithText(TextField, 'Nurse Name'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'NNC No. (optional)'), findsOneWidget);
+  });
+
+  testWidgets('Default doctor and staff assignments carry over to every new camp until changed, preserving staff roles', (tester) async {
+    tester.view.physicalSize = const Size(1280, 1100);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final fakeRepo = FakeCampRepository()..camps = [];
+    const multiRoleStaff = [
+      UserModel(
+        id: 'u-dt',
+        name: 'Bikash Adhikari',
+        email: 'bikash@example.com',
+        phone: '9800000001',
+        role: UserRole.dataTaker,
+      ),
+      UserModel(
+        id: 'u-coord',
+        name: 'Mina Gurung',
+        email: 'mina@example.com',
+        phone: '9800000002',
+        role: UserRole.staff,
+        grantedRoles: {UserRole.staff, UserRole.dataAnalyst},
+      ),
+      UserModel(
+        id: 'u-extra',
+        name: 'Ramesh Thapa',
+        email: 'ramesh@example.com',
+        phone: '9800000003',
+        role: UserRole.dataAnalyst,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          campRepositoryProvider.overrideWithValue(fakeRepo),
+          staffUsersProvider.overrideWith((ref) async => multiRoleStaff),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const CampManagementView(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Create First Camp (CAMP01): starts empty, assign Dr. Anita Sharma (NMC 14256) + Bikash & Mina
+    await tester.tap(find.text('New Camp').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Optional (0 selected)'), findsOneWidget);
+    expect(find.text('Starts empty — select staff explicitly:'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Camp Code *'), 'CAMP01');
+    await tester.enterText(find.widgetWithText(TextField, 'Doctor Name'), 'Anita Sharma');
+    await tester.enterText(find.widgetWithText(TextField, 'NMC No.'), '14256');
+    await tester.tap(find.byIcon(Icons.add_rounded).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dr. Anita Sharma'), findsOneWidget);
+    expect(find.text('NMC: 14256'), findsOneWidget);
+
+    // Select Bikash (Data Taker) and Mina (Staff Coordinator, Data Analyst)
+    final bikashRow = find.text('Bikash Adhikari');
+    await tester.ensureVisible(bikashRow);
+    await tester.tap(bikashRow);
+    await tester.pumpAndSettle();
+    final minaRow = find.text('Mina Gurung');
+    await tester.ensureVisible(minaRow);
+    await tester.tap(minaRow);
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 Assigned'), findsOneWidget);
+
+    await tester.tap(find.text('Schedule Camp'));
+    await tester.pumpAndSettle();
+
+    final camp1 = fakeRepo.camps.firstWhere((c) => c.campCode == 'CAMP01');
+    expect(camp1.doctorNames, ['Dr. Anita Sharma (NMC: 14256)']);
+    expect(camp1.assignedStaffIds, containsAll(['u-dt', 'u-coord']));
+    expect(camp1.assignedStaffIds.length, 2);
+
+    // 2. Open New Camp for Second Camp (CAMP02): Dr. Anita Sharma + Bikash & Mina (with roles) are pre-filled!
+    await tester.tap(find.text('New Camp').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dr. Anita Sharma'), findsOneWidget);
+    expect(find.text('NMC: 14256'), findsOneWidget);
+    expect(find.text('2 Assigned'), findsOneWidget);
+    expect(find.text('Default team pre-selected (same roles) — adjust anytime:'), findsOneWidget);
+    expect(find.text('Reset Default'), findsOneWidget);
+    // Role badges are preserved on the pre-selected staff rows
+    expect(find.text('Data Taker'), findsOneWidget);
+    expect(find.text('Staff Coordinator, Data Analyst'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Camp Code *'), 'CAMP02');
+    await tester.tap(find.text('Schedule Camp'));
+    await tester.pumpAndSettle();
+
+    final camp2 = fakeRepo.camps.firstWhere((c) => c.campCode == 'CAMP02');
+    expect(camp2.doctorNames, ['Dr. Anita Sharma (NMC: 14256)']);
+    expect(camp2.assignedStaffIds, containsAll(['u-dt', 'u-coord']));
+    expect(camp2.assignedStaffIds.length, 2);
+
+    // 3. Change Doctor & Staff on Third Camp (CAMP03) -> updates sticky default for Fourth Camp (CAMP04)
+    await tester.tap(find.text('New Camp').first);
+    await tester.pumpAndSettle();
+
+    // Remove Dr. Anita Sharma chip (close icon inside doctor chip) and add Dr. Ram Karki (NMC 55112)
+    await tester.tap(find.byIcon(Icons.close_rounded).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Dr. Anita Sharma'), findsNothing);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Doctor Name'), 'Ram Karki');
+    await tester.enterText(find.widgetWithText(TextField, 'NMC No.'), '55112');
+    await tester.tap(find.byIcon(Icons.add_rounded).first);
+    await tester.pumpAndSettle();
+
+    // Clear default staff and select only Ramesh Thapa (Data Analyst)
+    await tester.ensureVisible(find.text('Clear'));
+    await tester.tap(find.text('Clear'));
+    await tester.pumpAndSettle();
+    expect(find.text('Optional (0 selected)'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Ramesh Thapa'));
+    await tester.tap(find.text('Ramesh Thapa'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 Assigned'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Camp Code *'), 'CAMP03');
+    await tester.tap(find.text('Schedule Camp'));
+    await tester.pumpAndSettle();
+
+    // 4. Open New Camp for Fourth Camp (CAMP04): now pre-fills Dr. Ram Karki (NMC 55112) + Ramesh Thapa (1 Assigned)!
+    await tester.tap(find.text('New Camp').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dr. Anita Sharma'), findsNothing);
+    expect(find.text('Dr. Ram Karki'), findsOneWidget);
+    expect(find.text('NMC: 55112'), findsOneWidget);
+    expect(find.text('1 Assigned'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+  });
+
+  test('CampRepository SQLite integration persists default roster, syncs users.assigned_camp_ids on createCamp, and protects against closed-camp overwrites', () async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    final db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
+    addTearDown(() async => db.close());
+
+    final dbService = DatabaseService();
+    await dbService.initializeTestDb(db);
+    final auditRepo = AuditRepository(databaseService: dbService);
+    final campRepo = CampRepository(
+      databaseService: dbService,
+      auditRepository: auditRepo,
+      enableCentralSync: false,
+    );
+
+    const staff1 = UserModel(
+      id: 'usr-s1',
+      name: 'Sita Nurse',
+      email: 'sita@camp.org',
+      phone: '9800000011',
+      role: UserRole.dataTaker,
+    );
+    const staff2 = UserModel(
+      id: 'usr-s2',
+      name: 'Hari Coord',
+      email: 'hari@camp.org',
+      phone: '9800000022',
+      role: UserRole.staff,
+    );
+    await db.insert(DatabaseTables.tableUsers, staff1.toMap());
+    await db.insert(DatabaseTables.tableUsers, staff2.toMap());
+
+    // Create Camp 1 with doctor + staff1
+    final created1 = await campRepo.createCamp(
+      CampModel(
+        id: '',
+        campCode: 'C001',
+        name: 'First Camp',
+        district: 'Kathmandu',
+        municipality: 'Budhanilkantha',
+        ward: '',
+        venue: 'Health Post',
+        startDate: DateTime(2026, 11, 25),
+        endDate: DateTime(2026, 11, 27),
+        status: CampStatus.scheduled,
+        doctorName: 'Dr. Anita Sharma (NMC: 14256)',
+        doctorNames: const ['Dr. Anita Sharma (NMC: 14256)'],
+        assignedStaffIds: const ['usr-s1'],
+        createdAt: DateTime.now(),
+      ),
+      createdByUserId: 'admin',
+      deviceId: 'dev-1',
+    );
+
+    // Verify SQLite users.assigned_camp_ids immediately received created1.id
+    final s1Row = (await db.query(DatabaseTables.tableUsers, where: 'id = ?', whereArgs: ['usr-s1'])).first;
+    expect(UserModel.fromMap(s1Row).assignedCampIds, [created1.id]);
+
+    // Verify default roster saved
+    var def = await campRepo.getDefaultCampRoster();
+    expect(def, isNotNull);
+    expect(def!.doctorNames, ['Dr. Anita Sharma (NMC: 14256)']);
+    expect(def.assignedStaffIds, ['usr-s1']);
+
+    // Post-creation assignStaff adds usr-s2 -> updates default staff while preserving default doctor
+    await campRepo.assignStaff(
+      created1.id,
+      ['usr-s1', 'usr-s2'],
+      adminUserId: 'admin',
+      deviceId: 'dev-1',
+    );
+    def = await campRepo.getDefaultCampRoster();
+    expect(def!.doctorNames, ['Dr. Anita Sharma (NMC: 14256)']);
+    expect(def.assignedStaffIds, ['usr-s1', 'usr-s2']);
+
+    // Closing Camp 1 and editing it while CLOSED must NOT overwrite the active default roster
+    await campRepo.closeCamp(created1.id, adminUserId: 'admin', deviceId: 'dev-1');
+    final closedCamp1 = (await campRepo.getCampById(created1.id))!;
+    await campRepo.updateCamp(
+      closedCamp1.copyWith(
+        doctorName: 'Dr. Historical Typo Fix',
+        doctorNames: const ['Dr. Historical Typo Fix'],
+      ),
+      adminUserId: 'admin',
+      deviceId: 'dev-1',
+    );
+    def = await campRepo.getDefaultCampRoster();
+    expect(def!.doctorNames, ['Dr. Anita Sharma (NMC: 14256)']);
+    expect(def.assignedStaffIds, ['usr-s1', 'usr-s2']);
   });
 }

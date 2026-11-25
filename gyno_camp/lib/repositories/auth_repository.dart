@@ -581,21 +581,52 @@ class AuthRepository implements IAuthRepository {
           }
         }
         if (changed) {
+          final nowUtc = DateTime.now().toUtc();
           await db.update(
             DatabaseTables.tableCamps,
             {
               'assigned_staff_ids': rawStaff.join(','),
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
+              'updated_at': nowUtc.toIso8601String(),
             },
             where: 'id = ?',
             whereArgs: [cId],
           );
+          final campObj = CampModel.fromMap(r).copyWith(
+            assignedStaffIds: rawStaff.toList(),
+            updatedAt: nowUtc,
+          );
+          if (!campObj.status.isLocked) {
+            final metaRows = await db.query(
+              DatabaseTables.tableMetadata,
+              columns: ['value'],
+              where: 'key = ?',
+              whereArgs: [DatabaseTables.metaKeyDefaultCampRoster],
+              limit: 1,
+            );
+            final existingDefault = metaRows.isNotEmpty
+                ? DefaultCampRoster.tryParseJson(metaRows.first['value'] as String?)
+                : null;
+            if (existingDefault == null || existingDefault.sourceCampId == cId) {
+              final nextDefault = (existingDefault ?? DefaultCampRoster.fromCamp(campObj)).copyWith(
+                assignedStaffIds: rawStaff.toList(),
+                sourceCampId: cId,
+                sourceCampCode: campObj.campCode,
+              );
+              if (existingDefault != null || nextDefault.hasAnyDefaults) {
+                await db.insert(
+                  DatabaseTables.tableMetadata,
+                  {
+                    'key': DatabaseTables.metaKeyDefaultCampRoster,
+                    'value': nextDefault.toJsonString(),
+                    'updated_at': nowUtc.toIso8601String(),
+                  },
+                  conflictAlgorithm: ConflictAlgorithm.replace,
+                );
+              }
+            }
+          }
           if (enableCentralSync) {
             try {
-              final campObj = CampModel.fromMap(r).copyWith(
-                assignedStaffIds: rawStaff.toList(),
-                updatedAt: DateTime.now().toUtc(),
-              );
               await HttpCentralApiService().broadcastCamp(campObj);
             } catch (_) {}
           }

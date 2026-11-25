@@ -2888,16 +2888,21 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
 
   void _showCreateCampDialog(BuildContext context, {CampStatus initialStatus = CampStatus.scheduled}) {
     final codeCtrl = TextEditingController();
-    // Doctor & NMC roster state
+    final defaultRoster = ref.read(campStateProvider).effectiveDefaultRoster;
+    final defaultDoctors = defaultRoster?.doctorProfiles ?? const <DoctorProfile>[];
+    final defaultNurses = defaultRoster?.nurseProfiles ?? const <NurseProfile>[];
+    final defaultStaffIdList = defaultRoster?.assignedStaffIds ?? const <String>[];
+
+    // Doctor & NMC roster state — pre-populated from sticky default roster
     final docNameCtrl = TextEditingController();
     final docNmcCtrl = TextEditingController();
-    final assignedDoctors = <DoctorProfile>[];
-    bool showDoctorOnForms = true;
-    // Nurse roster state (camp-level, not login based)
+    final assignedDoctors = List<DoctorProfile>.from(defaultDoctors);
+    bool showDoctorOnForms = defaultRoster?.showDoctorOnForms ?? true;
+    // Nurse roster state (camp-level, not login based) — pre-populated from sticky default roster
     final nurseNameCtrl = TextEditingController();
     final nurseRegCtrl = TextEditingController();
-    final assignedNurses = <NurseProfile>[];
-    bool showNurseOnForms = false;
+    final assignedNurses = List<NurseProfile>.from(defaultNurses);
+    bool showNurseOnForms = defaultRoster?.showNurseOnForms ?? false;
     String selectedProvince = 'Bagmati';
     String selectedDistrict = 'Kathmandu';
     final initialPalikas = NepalGeodata.palikasFor(selectedDistrict);
@@ -2915,8 +2920,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     DateTime startDate = DateTime.now();
     DateTime endDate = DateTime.now().add(const Duration(days: 2));
     CampStatus selectedStatus = initialStatus;
-    // Staff assignment starts completely empty by default so admin chooses explicitly
-    final selectedStaffIds = <String>{};
+    // Pre-populated from sticky default roster (starts empty on very first camp)
+    final selectedStaffIds = Set<String>.from(defaultStaffIdList);
     // ✅ Tracks in-flight save: declared in outer scope so it persists across
     //    StatefulBuilder rebuilds (inside the builder it would reset to false on every call).
     bool isSubmitting = false;
@@ -2937,6 +2942,14 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
               builder: (innerCtx, setDialogState) {
                 final durationDays = endDate.difference(startDate).inDays + 1;
                 final isDateValid = !endDate.isBefore(startDate);
+                final loadedStaffList = staffAsync.asData?.value;
+                if (loadedStaffList != null) {
+                  final validEligibleIds = loadedStaffList
+                      .where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin && u.isActive)
+                      .map((u) => u.id)
+                      .toSet();
+                  selectedStaffIds.removeWhere((id) => !validEligibleIds.contains(id));
+                }
 
                 void syncAutoCampName({bool force = false}) {
                   final autoName = _buildAutoCampName(
@@ -3570,7 +3583,13 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   loading: () => const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator())),
                                   error: (e, _) => Text('Error loading staff: $e', style: const TextStyle(color: AppTheme.dangerRose, fontSize: 12)),
                                   data: (staffList) {
-                                    final eligibleStaff = staffList.where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin).toList();
+                                    final eligibleStaff = staffList
+                                        .where((u) => !u.isSuperAdmin && u.role != UserRole.superAdmin && u.isActive)
+                                        .toList();
+                                    final validDefaultStaffIds = eligibleStaff
+                                        .map((u) => u.id)
+                                        .where((id) => defaultStaffIdList.contains(id))
+                                        .toSet();
                                     if (eligibleStaff.isEmpty) {
                                       return Container(
                                         padding: const EdgeInsets.all(14),
@@ -3605,15 +3624,49 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                             child: Row(
                                               children: [
-                                                const Icon(Icons.info_outline, size: 14, color: Color(0xFF64748B)),
+                                                Icon(
+                                                  validDefaultStaffIds.isNotEmpty
+                                                      ? Icons.verified_outlined
+                                                      : Icons.info_outline,
+                                                  size: 14,
+                                                  color: validDefaultStaffIds.isNotEmpty
+                                                      ? AppTheme.primaryTeal
+                                                      : const Color(0xFF64748B),
+                                                ),
                                                 const SizedBox(width: 6),
-                                                const Expanded(
+                                                Expanded(
                                                   child: Text(
-                                                    'Starts empty — select staff explicitly:',
-                                                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                                    validDefaultStaffIds.isNotEmpty
+                                                        ? 'Default team pre-selected (same roles) — adjust anytime:'
+                                                        : 'Starts empty — select staff explicitly:',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: validDefaultStaffIds.isNotEmpty
+                                                          ? AppTheme.primaryTeal
+                                                          : const Color(0xFF64748B),
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
                                                     overflow: TextOverflow.ellipsis,
                                                   ),
                                                 ),
+                                                if (validDefaultStaffIds.isNotEmpty) ...[
+                                                  const SizedBox(width: 4),
+                                                  TextButton(
+                                                    style: TextButton.styleFrom(
+                                                      visualDensity: VisualDensity.compact,
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                      foregroundColor: AppTheme.brandPurple,
+                                                    ),
+                                                    onPressed: () {
+                                                      setDialogState(() {
+                                                        selectedStaffIds
+                                                          ..clear()
+                                                          ..addAll(validDefaultStaffIds);
+                                                      });
+                                                    },
+                                                    child: const Text('Reset Default', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                  ),
+                                                ],
                                                 const SizedBox(width: 6),
                                                 TextButton(
                                                   style: TextButton.styleFrom(
@@ -4015,6 +4068,10 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     // ✅ Pop dialog only after confirmed result — context is still valid here
     if (ctx.mounted) Navigator.pop(ctx);
 
+    if (assignedStaffIds.isNotEmpty) {
+      ref.invalidate(allUsersProvider);
+      ref.invalidate(staffUsersProvider);
+    }
     await ref.read(campStateProvider.notifier).loadCamps();
     if (mounted) {
       final statusLabel = status == CampStatus.draft ? 'saved as Draft' : 'scheduled';
