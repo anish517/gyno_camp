@@ -6221,37 +6221,14 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     }
 
     Widget buildOptionRow(String label, int count, {bool isBold = false}) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-                color: const Color(0xFF1E293B),
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(
-              color: count > 0 ? const Color(0xFFE0F2FE) : const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: count > 0 ? const Color(0xFF0284C7) : const Color(0xFF94A3B8),
-              ),
-            ),
-          ),
-        ],
+      return Text(
+        label,
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+          color: const Color(0xFF1E293B),
+        ),
+        overflow: TextOverflow.ellipsis,
       );
     }
 

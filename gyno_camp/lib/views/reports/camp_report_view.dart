@@ -319,31 +319,6 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     return 0;
   }
 
-  int _getPopStageCount(String stageKey, CampReportSummaryModel? summary) {
-    if (summary == null) return 0;
-    if (summary.visits.isNotEmpty) {
-      final matchingVisits = summary.visits.where((v) {
-        if (stageKey == '0') return v.highestPopStage == 0;
-        if (stageKey == '1') return v.highestPopStage == 1;
-        if (stageKey == '2') return v.highestPopStage == 2;
-        if (stageKey == '3') return v.highestPopStage == 3;
-        if (stageKey == '4') return v.highestPopStage == 4;
-        if (stageKey == '2+') return v.highestPopStage >= 2;
-        if (stageKey == '3+') return v.highestPopStage >= 3;
-        return true;
-      });
-      return matchingVisits.map((v) => v.patientId.trim().toLowerCase()).toSet().length;
-    }
-    if (stageKey == '0') return summary.highestPopStages[0] ?? 0;
-    if (stageKey == '1') return summary.highestPopStages[1] ?? 0;
-    if (stageKey == '2') return summary.highestPopStages[2] ?? 0;
-    if (stageKey == '3') return summary.highestPopStages[3] ?? 0;
-    if (stageKey == '4') return summary.highestPopStages[4] ?? 0;
-    if (stageKey == '2+') return summary.significantPopCount;
-    if (stageKey == '3+') return (summary.highestPopStages[3] ?? 0) + (summary.highestPopStages[4] ?? 0);
-    return 0;
-  }
-
   int _getTreatmentCount(String txKey, CampReportSummaryModel? summary) {
     if (summary == null) return 0;
     if (summary.visits.isNotEmpty) {
@@ -394,94 +369,6 @@ class _CampReportViewState extends ConsumerState<CampReportView>
       }
     }
     return 0;
-  }
-
-  int _getTotalDoctorsPatientsCount(CampReportSummaryModel? summary) {
-    if (summary == null) return 0;
-    final ids = <String>{};
-    for (final v in summary.visits) {
-      if ((v.primaryDoctorName != null && v.primaryDoctorName!.trim().isNotEmpty) ||
-          v.attendingDoctorNames.any((d) => d.trim().isNotEmpty)) {
-        ids.add(v.patientId.trim().toLowerCase());
-      }
-    }
-    for (final p in summary.patients) {
-      if ((p.primaryDoctorName != null && p.primaryDoctorName!.trim().isNotEmpty) ||
-          p.attendingDoctorNames.any((d) => d.trim().isNotEmpty)) {
-        ids.add(p.patientId.trim().toLowerCase());
-      }
-    }
-    return ids.length;
-  }
-
-  int _getTotalNursesPatientsCount(CampReportSummaryModel? summary) {
-    if (summary == null) return 0;
-    final ids = <String>{};
-    for (final v in summary.visits) {
-      if ((v.primaryNurseName != null && v.primaryNurseName!.trim().isNotEmpty) ||
-          v.attendingNurseNames.any((n) => n.trim().isNotEmpty)) {
-        ids.add(v.patientId.trim().toLowerCase());
-      }
-    }
-    for (final p in summary.patients) {
-      if ((p.primaryNurseName != null && p.primaryNurseName!.trim().isNotEmpty) ||
-          p.attendingNurseNames.any((n) => n.trim().isNotEmpty)) {
-        ids.add(p.patientId.trim().toLowerCase());
-      }
-    }
-    return ids.length;
-  }
-
-  int _getTotalDiagnosesPatientsCount(CampReportSummaryModel? summary) {
-    if (summary == null) return 0;
-    final ids = summary.visits
-        .where((v) => v.diagnoses.any((d) => d.trim().isNotEmpty))
-        .map((v) => v.patientId.trim().toLowerCase())
-        .toSet();
-    if (ids.isNotEmpty) return ids.length;
-    return summary.diagnosisCounts.isNotEmpty ? summary.totalVisitsRecorded : 0;
-  }
-
-  int _getTotalTreatmentsPatientsCount(CampReportSummaryModel? summary) {
-    if (summary == null) return 0;
-    final ids = summary.visits.where((v) {
-      final hasPessary = (v.pessaryType != null && v.pessaryType!.trim().isNotEmpty) ||
-          (v.pessarySize != null && v.pessarySize!.trim().isNotEmpty);
-      final hasSurgery = (v.surgicalReferral != null && v.surgicalReferral!.trim().isNotEmpty) || v.surgeryDone == true;
-      final hasCounseling = v.counseling.isNotEmpty;
-      final hasMeds = v.medications.isNotEmpty || (v.customMedication != null && v.customMedication!.trim().isNotEmpty);
-      return hasPessary || hasSurgery || hasCounseling || hasMeds;
-    }).map((v) => v.patientId.trim().toLowerCase()).toSet();
-    if (ids.isNotEmpty) return ids.length;
-    if (summary.totalPessariesInserted > 0 ||
-        summary.totalSurgicalReferrals > 0 ||
-        summary.pelvicFloorCounselingCount > 0 ||
-        summary.totalPrescriptionsCount > 0) {
-      return summary.totalVisitsRecorded;
-    }
-    return 0;
-  }
-
-  int _getTotalVisitReasonsPatientsCount(CampReportSummaryModel? summary) {
-    if (summary == null) return 0;
-    return summary.patients.where((p) => p.reasonsForVisit.any((r) => r.trim().isNotEmpty)).length;
-  }
-
-  int _getTotalComplaintsPatientsCount(CampReportSummaryModel? summary) {
-    if (summary == null) return 0;
-    return summary.visits.where((v) {
-      final list = (v.anamnesisComplaints['clinicalComplaints'] as List?)
-              ?.map((e) => e.toString().trim())
-              .where((e) => e.isNotEmpty)
-              .toList() ??
-          const [];
-      final reasons = (v.anamnesisComplaints['reasons'] as List?)
-              ?.map((e) => e.toString().trim())
-              .where((e) => e.isNotEmpty)
-              .toList() ??
-          const [];
-      return list.isNotEmpty || reasons.isNotEmpty || v.anamnesisComplaints.isNotEmpty;
-    }).map((v) => v.patientId.trim().toLowerCase()).toSet().length;
   }
 
   int _getVisitReasonCount(String reasonKey, CampReportSummaryModel? summary) {
@@ -1693,15 +1580,6 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         (_selectedComplaint != null ? 1 : 0) +
         (_selectedTreatmentLevel != null ? 1 : 0);
     final hasActiveFilter = activeFiltersCount > 0;
-    final baseSummary = reportState.unfilteredSummary ?? reportState.summary;
-    final totalPatients = baseSummary?.totalPatientsRegistered ?? 0;
-    final totalExamined = baseSummary?.totalVisitsRecorded ?? 0;
-    final totalDoctorsPatients = _getTotalDoctorsPatientsCount(baseSummary);
-    final totalNursesPatients = _getTotalNursesPatientsCount(baseSummary);
-    final totalDiagnosesPatients = _getTotalDiagnosesPatientsCount(baseSummary);
-    final totalVisitReasonsPatients = _getTotalVisitReasonsPatientsCount(baseSummary);
-    final totalTreatmentsPatients = _getTotalTreatmentsPatientsCount(baseSummary);
-    final totalComplaintsPatients = _getTotalComplaintsPatientsCount(baseSummary);
 
     return Card(
       elevation: 2,
@@ -1916,57 +1794,21 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Doctors', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'All Doctors',
-                              style: TextStyle(fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text('$totalDoctorsPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
-                          ),
-                        ],
+                      child: Text(
+                        'All Doctors',
+                        style: TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     ...allDoctors.map((doc) {
-                      final count = _getDoctorCount(doc, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: doc,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                DoctorProfile.parse(doc).formattedLabel,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$count',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600,
-                                ),
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          DoctorProfile.parse(doc).formattedLabel,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       );
                     }),
@@ -2008,57 +1850,21 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Nurses', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'All Nurses',
-                              style: TextStyle(fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text('$totalNursesPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
-                          ),
-                        ],
+                      child: Text(
+                        'All Nurses',
+                        style: TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     ...allNurses.map((nurse) {
-                      final count = _getNurseCount(nurse, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: nurse,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                nurse,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: count > 0 ? const Color(0xFFFDF2F8) : Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$count',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: count > 0 ? const Color(0xFFDB2777) : Colors.grey.shade600,
-                                ),
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          nurse,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       );
                     }),
@@ -2100,52 +1906,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Diagnoses', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'All Diagnoses',
-                              style: TextStyle(fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text('$totalDiagnosesPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
-                          ),
-                        ],
+                      child: Text(
+                        'All Diagnoses',
+                        style: TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     ...sortedDiagnoses.map((dx) {
-                      final count = _getDiagnosisCount(dx, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: dx,
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(dx, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$count',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: Text(dx, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -2186,18 +1958,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All POP Stages (Highest)', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
-                      child: Row(
-                        children: [
-                          const Expanded(child: Text('All POP Stages (Highest)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
-                            child: Text('$totalExamined', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
-                          ),
-                        ],
-                      ),
+                      child: Text('All POP Stages (Highest)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
                     ...[
                       {'key': '0', 'label': 'Stage 0 (Normal / No Prolapse)'},
@@ -2208,25 +1971,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       {'key': '2+', 'label': 'Stage >= 2 (Significant Prolapse)'},
                       {'key': '3+', 'label': 'Stage 3-4 (Severe / Procidentia)'},
                     ].map((item) {
-                      final count = _getPopStageCount(item['key']!, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: item['key'],
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$count',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -2267,39 +2014,14 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Visit Reasons', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
-                      child: Row(
-                        children: [
-                          const Expanded(child: Text('All Visit Reasons', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
-                            child: Text('$totalVisitReasonsPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
-                          ),
-                        ],
-                      ),
+                      child: Text('All Visit Reasons', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
                     ...dynamicVisitReasons.map((item) {
-                      final count = _getVisitReasonCount(item['key']!, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: item['key'],
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$count',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -2340,39 +2062,14 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Treatments', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
-                      child: Row(
-                        children: [
-                          const Expanded(child: Text('All Treatments', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
-                            child: Text('$totalTreatmentsPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
-                          ),
-                        ],
-                      ),
+                      child: Text('All Treatments', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
                     ...dynamicTreatments.map((item) {
-                      final count = _getTreatmentCount(item['key']!, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: item['key'],
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$count',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -2413,39 +2110,14 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Complaints', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
-                      child: Row(
-                        children: [
-                          const Expanded(child: Text('All Complaints', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
-                            child: Text('$totalComplaintsPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
-                          ),
-                        ],
-                      ),
+                      child: Text('All Complaints', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
                     ...dynamicComplaints.map((item) {
-                      final count = _getComplaintCount(item['key']!, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: item['key'],
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: count > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '$count',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: count > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -2489,76 +2161,22 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isDense: true,
                   isExpanded: true,
                   hint: const Text('All Consultations', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  items: [
+                  items: const [
                     DropdownMenuItem<String?>(
                       value: null,
-                      child: Row(
-                        children: [
-                          const Expanded(child: Text('All Consultations (सबै परामर्श)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
-                            child: Text('$totalPatients', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
-                          ),
-                        ],
-                      ),
+                      child: Text('All Consultations (सबै परामर्श)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
                     DropdownMenuItem<String?>(
                       value: 'counseling',
-                      child: Row(
-                        children: [
-                          const Expanded(child: Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: (baseSummary?.councilLevelCount ?? 0) > 0 ? const Color(0xFF7C3AED).withValues(alpha: 0.12) : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${baseSummary?.councilLevelCount ?? 0}',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: (baseSummary?.councilLevelCount ?? 0) > 0 ? const Color(0xFF7C3AED) : Colors.grey.shade600),
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: Text('Counseling (काउन्सिलिङ)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
                     DropdownMenuItem<String?>(
                       value: 'gyno_checkup',
-                      child: Row(
-                        children: [
-                          const Expanded(child: Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: (baseSummary?.fullCheckUpCount ?? 0) > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.12) : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${baseSummary?.fullCheckUpCount ?? 0}',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: (baseSummary?.fullCheckUpCount ?? 0) > 0 ? AppTheme.primaryTeal : Colors.grey.shade600),
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: Text('Gynocheckup (गाइनो जाँच)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
                     DropdownMenuItem<String?>(
                       value: 'none',
-                      child: Row(
-                        children: [
-                          const Expanded(child: Text('Unassigned / Routine (तोकिएको छैन)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: (baseSummary?.unassignedTreatmentLevelCount ?? 0) > 0 ? Colors.blueGrey.withValues(alpha: 0.12) : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${baseSummary?.unassignedTreatmentLevelCount ?? 0}',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: (baseSummary?.unassignedTreatmentLevelCount ?? 0) > 0 ? Colors.blueGrey.shade700 : Colors.grey.shade600),
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: Text('Unassigned / Routine (तोकिएको छैन)', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                     ),
                   ],
                   onChanged: (val) {
@@ -2646,15 +2264,6 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         (_selectedComplaint != null ? 1 : 0) +
         (_selectedTreatmentLevel != null ? 1 : 0);
     final hasActiveFilter = activeFiltersCount > 0;
-    final baseSummary = reportState.unfilteredSummary ?? reportState.summary;
-    final totalPatients = baseSummary?.totalPatientsRegistered ?? 0;
-    final totalExamined = baseSummary?.totalVisitsRecorded ?? 0;
-    final totalDoctorsPatients = _getTotalDoctorsPatientsCount(baseSummary);
-    final totalNursesPatients = _getTotalNursesPatientsCount(baseSummary);
-    final totalDiagnosesPatients = _getTotalDiagnosesPatientsCount(baseSummary);
-    final totalVisitReasonsPatients = _getTotalVisitReasonsPatientsCount(baseSummary);
-    final totalTreatmentsPatients = _getTotalTreatmentsPatientsCount(baseSummary);
-    final totalComplaintsPatients = _getTotalComplaintsPatientsCount(baseSummary);
 
     return Card(
       elevation: 0,
@@ -2759,19 +2368,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     ],
                   ),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        'All Doctors ($totalDoctorsPatients)',
-                        style: const TextStyle(fontSize: 12),
+                        'All Doctors',
+                        style: TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     ...allDoctors.map((doc) {
-                      final count = _getDoctorCount(doc, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: doc,
-                        child: Text('${DoctorProfile.parse(doc).formattedLabel} ($count)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                        child: Text(DoctorProfile.parse(doc).formattedLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -2811,19 +2419,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                     ],
                   ),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        'All Nurses ($totalNursesPatients)',
-                        style: const TextStyle(fontSize: 12),
+                        'All Nurses',
+                        style: TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     ...allNurses.map((nurse) {
-                      final count = _getNurseCount(nurse, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: nurse,
-                        child: Text('$nurse ($count)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                        child: Text(nurse, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -2850,19 +2457,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Diagnoses', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        'All Diagnoses ($totalDiagnosesPatients)',
-                        style: const TextStyle(fontSize: 12),
+                        'All Diagnoses',
+                        style: TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     ...sortedDiagnoses.map((dx) {
-                      final count = _getDiagnosisCount(dx, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: dx,
-                        child: Text('$dx ($count)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                        child: Text(dx, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -2889,11 +2495,11 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All POP Stages (Highest)', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        'All POP Stages (Highest) ($totalExamined)',
-                        style: const TextStyle(fontSize: 12),
+                        'All POP Stages (Highest)',
+                        style: TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -2906,10 +2512,9 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                       {'key': '2+', 'label': 'Stage >= 2'},
                       {'key': '3+', 'label': 'Stage 3-4'},
                     ].map((item) {
-                      final count = _getPopStageCount(item['key']!, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: item['key'],
-                        child: Text('${item['label']} ($count)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                        child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -2936,19 +2541,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Treatments', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        'All Treatments ($totalTreatmentsPatients)',
-                        style: const TextStyle(fontSize: 12),
+                        'All Treatments',
+                        style: TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     ...dynamicTreatments.map((item) {
-                      final count = _getTreatmentCount(item['key']!, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: item['key'],
-                        child: Text('${item['label']} ($count)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                        child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -2975,19 +2579,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Visit Reasons', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        'All Visit Reasons ($totalVisitReasonsPatients)',
-                        style: const TextStyle(fontSize: 12),
+                        'All Visit Reasons',
+                        style: TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     ...dynamicVisitReasons.map((item) {
-                      final count = _getVisitReasonCount(item['key']!, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: item['key'],
-                        child: Text('${item['label']} ($count)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                        child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -3014,19 +2617,18 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isExpanded: true,
                   hint: const Text('All Complaints', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   items: [
-                    DropdownMenuItem<String?>(
+                    const DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        'All Complaints ($totalComplaintsPatients)',
-                        style: const TextStyle(fontSize: 12),
+                        'All Complaints',
+                        style: TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     ...dynamicComplaints.map((item) {
-                      final count = _getComplaintCount(item['key']!, baseSummary);
                       return DropdownMenuItem<String?>(
                         value: item['key'],
-                        child: Text('${item['label']} ($count)', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                        child: Text(item['label']!, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
                       );
                     }),
                   ],
@@ -3056,36 +2658,36 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   isDense: true,
                   isExpanded: true,
                   hint: const Text('All Consultations', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  items: [
+                  items: const [
                     DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        'All Consultations ($totalPatients)',
-                        style: const TextStyle(fontSize: 12),
+                        'All Consultations',
+                        style: TextStyle(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     DropdownMenuItem<String?>(
                       value: 'counseling',
                       child: Text(
-                        'Counseling (${baseSummary?.councilLevelCount ?? 0})',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        'Counseling',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     DropdownMenuItem<String?>(
                       value: 'gyno_checkup',
                       child: Text(
-                        'Gynocheckup (${baseSummary?.fullCheckUpCount ?? 0})',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        'Gynocheckup',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     DropdownMenuItem<String?>(
                       value: 'none',
                       child: Text(
-                        'Unassigned (${baseSummary?.unassignedTreatmentLevelCount ?? 0})',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        'Unassigned',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
