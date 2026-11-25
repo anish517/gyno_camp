@@ -7676,7 +7676,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                       final items = [
                         {'val': null, 'label': 'None (छैन)'},
                         {'val': 'Scheer Memorial', 'label': 'Scheer Memorial'},
-                        {'val': 'Model Hosp', 'label': 'Model Hosp'},
+                        {'val': 'Model Hospital', 'label': 'Model Hospital'},
                         {
                           'val': 'loc government',
                           'label': 'Local Government (loc government)',

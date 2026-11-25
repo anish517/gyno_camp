@@ -602,7 +602,7 @@ void main() {
         pessaryType: 'ring with knob',
         pessarySize: '75',
         counseling: ['POP', 'weak pelvic floor'],
-        surgicalReferral: 'Model Hosp',
+        surgicalReferral: 'Model Hospital',
         medications: ['clobetasol'],
         treatmentLevel: 'gyno_checkup',
         followUpNeeded: true,

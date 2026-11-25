@@ -2364,7 +2364,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
                             DropdownMenuItem(value: 'all', child: Text('All / Any (सबै)', style: TextStyle(fontSize: 13))),
                             DropdownMenuItem(value: 'yes', child: Text('Referred for Surgery (सिफारिस)', style: TextStyle(fontSize: 13))),
                             DropdownMenuItem(value: 'scheer', child: Text('Scheer Memorial', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'model', child: Text('Model Hosp', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'model', child: Text('Model Hospital', style: TextStyle(fontSize: 13))),
                             DropdownMenuItem(value: 'government', child: Text('Local Government', style: TextStyle(fontSize: 13))),
                             DropdownMenuItem(value: 'no', child: Text('No Referral (सिफारिस नभएको)', style: TextStyle(fontSize: 13))),
                           ],

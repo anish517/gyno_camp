@@ -292,7 +292,11 @@ class GeminiOcrService {
         ? rawPessaryType.toLowerCase()
         : null;
 
-    final surgicalRef = parsedData['surgicalReferral']?.toString().trim();
+    final rawSurgicalRef = parsedData['surgicalReferral']?.toString().trim();
+    final surgicalRef = (rawSurgicalRef != null &&
+            rawSurgicalRef.toLowerCase().replaceAll('.', '').trim() == 'model hosp')
+        ? 'Model Hospital'
+        : rawSurgicalRef;
     final rawFollowUp = parsedData['followUpDestination']?.toString().trim();
     final rawFollowUpHospital = parsedData['followUpHospital']?.toString().trim();
     String? followUp;

@@ -6394,7 +6394,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
         ),
         DropdownMenuItem(
           value: 'model',
-          child: buildOptionRow('Model Hosp', surgeryModelCount),
+          child: buildOptionRow('Model Hospital', surgeryModelCount),
         ),
         DropdownMenuItem(
           value: 'government',

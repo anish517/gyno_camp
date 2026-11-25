@@ -84,7 +84,7 @@ class ClinicalConstants {
   // Referral Hospitals (Exact from Yellow Form Page 2)
   static const List<String> referralHospitals = [
     'Scheer Memorial',
-    'Model Hosp',
+    'Model Hospital',
     'loc government',
   ];
 

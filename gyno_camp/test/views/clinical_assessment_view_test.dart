@@ -652,9 +652,9 @@ void main() {
           LookupItemModel(
             id: 'h2',
             category: 'referral_hospital',
-            code: 'model_hosp',
-            labelEn: 'Model Hosp',
-            labelNe: 'Model Hosp',
+            code: 'model_hospital',
+            labelEn: 'Model Hospital',
+            labelNe: 'Model Hospital',
             isActive: true,
           ),
           LookupItemModel(
@@ -706,31 +706,31 @@ void main() {
         await tester.tap(find.text('5. Treatment'));
         await tester.pumpAndSettle();
 
-        // Surgical Referral Hospital must be blank by default (NOT Model Hosp)
-        expect(find.text('Model Hosp'), findsNothing);
+        // Surgical Referral Hospital must be blank by default (NOT Model Hospital)
+        expect(find.text('Model Hospital'), findsNothing);
         expect(find.text('Select referral hospital'), findsOneWidget);
 
-        // Select Model Hosp, then clear it back to blank
+        // Select Model Hospital, then clear it back to blank
         final referralDropdown = find.byKey(
           const ValueKey('surgical_referral_null'),
         );
         expect(referralDropdown, findsOneWidget);
         await tester.tap(referralDropdown);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Model Hosp').last);
+        await tester.tap(find.text('Model Hospital').last);
         await tester.pumpAndSettle();
-        expect(find.text('Model Hosp'), findsOneWidget);
+        expect(find.text('Model Hospital'), findsOneWidget);
 
         // Re-open dropdown and clear selection
         await tester.tap(
-          find.byKey(const ValueKey('surgical_referral_Model Hosp')),
+          find.byKey(const ValueKey('surgical_referral_Model Hospital')),
         );
         await tester.pumpAndSettle();
         await tester.tap(
           find.text('None / Clear Referral (कुनै सिफारिस छैन)').last,
         );
         await tester.pumpAndSettle();
-        expect(find.text('Model Hosp'), findsNothing);
+        expect(find.text('Model Hospital'), findsNothing);
 
         // Jump to Station 6 and save — both vitals and surgicalReferral must be saved as null
         await tester.tap(find.text('6. Outtake'));

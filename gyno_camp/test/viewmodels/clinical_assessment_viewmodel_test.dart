@@ -183,9 +183,9 @@ void main() {
     });
 
     test('loadPatientAssessment does not leak surgicalReferral or vitals across patients', () async {
-      // Save Patient A visit with Model Hosp + vitals
+      // Save Patient A visit with Model Hospital + vitals
       vm.setVitals(systolic: 120, diastolic: 80, pulse: 78, spo2: 98, glucose: 110);
-      vm.setSurgicalReferral('Model Hosp');
+      vm.setSurgicalReferral('Model Hospital');
       vm.setPessary(type: 'ring', size: '70');
       await vm.submitAssessment(
         patientId: 'GC-KTM-2026-00010',
@@ -205,7 +205,7 @@ void main() {
 
       // Load Patient A first, then switch to Patient B
       await vm.loadPatientAssessment('GC-KTM-2026-00010');
-      expect(vm.state.surgicalReferral, 'Model Hosp');
+      expect(vm.state.surgicalReferral, 'Model Hospital');
       expect(vm.state.systolicBp, 120);
 
       await vm.loadPatientAssessment('GC-KTM-2026-00011');
@@ -220,9 +220,9 @@ void main() {
 
     test('Clearing vitals and surgical referral resets state values to null', () {
       vm.setVitals(systolic: 120, diastolic: 80, pulse: 78, spo2: 98, glucose: 110);
-      vm.setSurgicalReferral('Model Hosp');
+      vm.setSurgicalReferral('Model Hospital');
       expect(vm.state.systolicBp, 120);
-      expect(vm.state.surgicalReferral, 'Model Hosp');
+      expect(vm.state.surgicalReferral, 'Model Hospital');
 
       vm.setVitals(
         clearSystolic: true,

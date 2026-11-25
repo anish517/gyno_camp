@@ -54,7 +54,7 @@ class ClinicalVisitModel {
   final List<String> counseling;
   final String? pessaryType; // 'ring', 'ring with support', 'ring with knob'
   final String? pessarySize;
-  final String? surgicalReferral; // 'Scheer Memorial', 'Model Hosp', 'loc government'
+  final String? surgicalReferral; // 'Scheer Memorial', 'Model Hospital', 'loc government'
   final List<String> medications;
   final String? customMedication;
   final String? treatmentLevel;

@@ -358,7 +358,7 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT & EXAMINATION (STATIONS 2-6):
    - "spec counseling" (5 checkboxes): "weak pelvic floor", "POP", "stress incontinence", "urge incontinence", "abdominal pain"
    - "pessary" (3 checkboxes): "ring", "ring with support", "ring with knob", "size: [   ]" mm
    - IMPORTANT: Pessary is a DEVICE fitting, NOT a dispensed medication. Do NOT include pessary in the medications list.
-   - "referral surgery" (3 checkboxes): "Scheer Memorial", "Model Hosp", "loc government"
+   - "referral surgery" (3 checkboxes): "Scheer Memorial", "Model Hospital" (or "Model Hosp" on older forms — always output "Model Hospital"), "loc government"
    - "medication" (10 checkboxes): "clotrimazol (canesten)", "estradiol crème", "metronidazol", "doxycycline", "azithromycin", "nitrofurantoine", "medroxyprogesterone", "ciproflox", "mirasin", "clobetasol", and handwritten text under "other medication:"
 5. Station 6: Discharge & Continuity of Care / अनुगमन तथा डिस्चार्ज:
    - "Outtake Date:" -> outtakeDate (format YYYY-MM-DD from boxes [YYYY]-[MM]-[DD] BS, e.g. 2083-07-06)
@@ -449,7 +449,7 @@ Extract the information accurately into this EXACT JSON structure:
   "followUpNeeded": true or false or null,
   "followUpDestination": "Health Post or GynaeSupport Nurse or Hospital or No follow up needed or null",
   "followUpHospital": "Handwritten hospital/center name written on the line next to Hospital: if Hospital is checked (e.g. 'GANDAKI PROVINCIAL HOSPITAL'), or null",
-  "surgicalReferral": "Scheer Memorial or Model Hosp or loc government or null",
+  "surgicalReferral": "Scheer Memorial or Model Hospital or loc government or null",
   "examiningDoctor": "Examining doctor name or checked doctor checkbox on Page 2 or null",
   "attendingDoctors": ["All checked or written doctor names on Page 2, empty list if none"],
   "examiningNurse": "Main attending nurse name (checked checkbox or handwritten) on Page 2 or null",

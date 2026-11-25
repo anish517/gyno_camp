@@ -580,7 +580,7 @@ class GynoCampSyncServer {
       if ((hospRow.first[0] as int? ?? 0) == 0) {
         final defaultHospitals = [
           'Scheer Memorial',
-          'Model Hosp',
+          'Model Hospital',
           'loc government',
         ];
         int idx = 0;
@@ -731,8 +731,9 @@ class GynoCampSyncServer {
       ''');
 
       await _connection!.execute("UPDATE lookup_items SET label_en = 'Scheer Memorial' WHERE category = 'referral_hospital' AND LOWER(label_en) IN ('scheer memorial hospital');");
-      await _connection!.execute("UPDATE lookup_items SET label_en = 'Model Hosp' WHERE category = 'referral_hospital' AND LOWER(label_en) IN ('model hospital');");
+      await _connection!.execute("UPDATE lookup_items SET label_en = 'Model Hospital', label_ne = CASE WHEN LOWER(TRIM(COALESCE(label_ne, ''))) IN ('', 'model hosp', 'model hosp.') THEN 'Model Hospital' ELSE label_ne END, code = CASE WHEN LOWER(TRIM(COALESCE(code, ''))) = 'model_hosp' THEN 'model_hospital' ELSE code END WHERE category = 'referral_hospital' AND LOWER(TRIM(label_en)) IN ('model hosp', 'model hosp.');");
       await _connection!.execute("UPDATE lookup_items SET label_en = 'loc government' WHERE category = 'referral_hospital' AND LOWER(label_en) IN ('local government hospital');");
+      await _connection!.execute("UPDATE clinical_visits SET surgical_referral = 'Model Hospital' WHERE LOWER(TRIM(COALESCE(surgical_referral, ''))) IN ('model hosp', 'model hosp.');");
 
       await _connection!.execute('''
         DELETE FROM lookup_items a USING lookup_items b

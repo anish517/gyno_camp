@@ -7422,7 +7422,7 @@ class PdfReportService {
                     boxSize: 10.2,
                   ),
                   cb(
-                    'Model Hosp',
+                    'Model Hospital',
                     (visit?.surgicalReferral ?? '').toLowerCase().contains(
                       'model',
                     ),

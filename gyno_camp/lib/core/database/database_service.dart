@@ -350,6 +350,66 @@ class DatabaseService {
         );
       }
     } catch (_) {}
+
+    // One-time migration: rename abbreviated 'Model Hosp' to full 'Model Hospital'
+    // across lookup_items and saved clinical_visits.
+    try {
+      final renameMeta = await db.query(
+        DatabaseTables.tableMetadata,
+        where: 'key = ?',
+        whereArgs: ['model_hospital_rename_v1'],
+      );
+      if (renameMeta.isEmpty) {
+        await db.rawUpdate('''
+          UPDATE ${DatabaseTables.tableLookupItems}
+          SET label_en = 'Model Hospital',
+              label_ne = CASE
+                WHEN LOWER(TRIM(COALESCE(label_ne, ''))) IN ('', 'model hosp', 'model hosp.')
+                THEN 'Model Hospital'
+                ELSE label_ne
+              END,
+              code = CASE
+                WHEN LOWER(TRIM(COALESCE(code, ''))) = 'model_hosp'
+                THEN 'model_hospital'
+                ELSE code
+              END
+          WHERE category = 'referral_hospital'
+            AND LOWER(TRIM(label_en)) IN ('model hosp', 'model hosp.');
+        ''');
+
+        await db.rawUpdate('''
+          UPDATE ${DatabaseTables.tableClinicalVisits}
+          SET surgical_referral = 'Model Hospital'
+          WHERE LOWER(TRIM(COALESCE(surgical_referral, ''))) IN ('model hosp', 'model hosp.');
+        ''');
+
+        // Deduplicate if both 'Model Hosp' (now renamed) and 'Model Hospital' existed
+        final hospRows = await db.query(
+          DatabaseTables.tableLookupItems,
+          where: "category = 'referral_hospital' AND LOWER(TRIM(label_en)) = 'model hospital'",
+          orderBy: 'sort_order ASC, id ASC',
+        );
+        if (hospRows.length > 1) {
+          for (var i = 1; i < hospRows.length; i++) {
+            await db.delete(
+              DatabaseTables.tableLookupItems,
+              where: 'id = ?',
+              whereArgs: [hospRows[i]['id']],
+            );
+          }
+        }
+
+        await db.insert(
+          DatabaseTables.tableMetadata,
+          {
+            'key': 'model_hospital_rename_v1',
+            'value': 'true',
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    } catch (_) {}
   }
 
 
