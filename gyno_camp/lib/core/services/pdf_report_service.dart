@@ -3568,7 +3568,7 @@ class PdfReportService {
     final cyanBg = PdfColor.fromHex('F5F3FF'); // Soft Violet Tint
     final dark = PdfColor.fromHex('1E293B');
     final gray = PdfColor.fromHex('CBD5E1');
-    final boxBg = PdfColor.fromHex('FAFAFA');
+    const boxBg = PdfColors.white;
 
     final bool showDoctor = camp?.showDoctorOnForms ?? true;
     final bool showNurse = camp?.showNurseOnForms ?? (nurse != null);
@@ -4494,7 +4494,7 @@ class PdfReportService {
     final inkMuted = PdfColor.fromHex('334155');
     final lineRuleColor = PdfColor.fromHex('64748B');
     final gray = PdfColor.fromHex('CBD5E1');
-    final boxBg = PdfColor.fromHex('FAFAFA');
+    const boxBg = PdfColors.white;
 
     final String dynamicCampCode =
         (camp?.campCode != null && camp!.campCode.trim().isNotEmpty)
