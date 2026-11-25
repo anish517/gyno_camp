@@ -32,7 +32,9 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Scan & Auto-Fill Yellow Form'), findsOneWidget);
+      expect(find.text('Scan & Auto-Fill Yellow Form'), findsNothing);
+      expect(find.textContaining('FILLED IN BLOCK LETTERS'), findsNothing);
+      expect(find.text('Clinical Quality Standards & Digitization Protocols'), findsNothing);
       expect(find.text('Page 1 (Front Page)'), findsOneWidget);
       expect(find.text('Page 2 (Back Page)'), findsOneWidget);
       expect(find.text('Select Both Images at Once (Multi-Select)'), findsOneWidget);
@@ -146,7 +148,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // We should now be back on the dual-slot capture prompt
-      expect(find.text('Scan & Auto-Fill Yellow Form'), findsOneWidget);
+      expect(find.text('Scan & Auto-Fill Yellow Form'), findsNothing);
+      expect(find.textContaining('FILLED IN BLOCK LETTERS'), findsNothing);
+      expect(find.text('Clinical Quality Standards & Digitization Protocols'), findsNothing);
       expect(find.text('Page 1 (Front Page)'), findsOneWidget);
       expect(find.text('Page 2 (Back Page)'), findsOneWidget);
     });
@@ -676,7 +680,7 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('form_scan_appbar_back_btn')));
         await tester.pumpAndSettle();
 
-        expect(find.text('Scan & Auto-Fill Yellow Form'), findsOneWidget);
+        expect(find.text('Page 1 (Front Page)'), findsOneWidget);
         expect(find.text('Dashboard Launch Scanner'), findsNothing);
         expect(find.text('Slot Empty'), findsNWidgets(2));
         expect(container.read(ocrScanProvider).isReviewingCommittedScan, isFalse);
@@ -723,7 +727,7 @@ void main() {
         }
 
         // 1. Initial capture prompt
-        expect(find.text('Scan & Auto-Fill Yellow Form'), findsOneWidget);
+        expect(find.text('Page 1 (Front Page)'), findsOneWidget);
         expectNoVendorBranding();
 
         // 2. Active scanning / processing overlay
