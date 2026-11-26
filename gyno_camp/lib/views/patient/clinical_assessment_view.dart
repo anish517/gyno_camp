@@ -388,8 +388,8 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 popMiddleStage: state.popMiddleStage,
                 popPosteriorStage: state.popPosteriorStage,
                 highestPopStage: state.highestPopStage,
-                urineTest: state.urineTest ?? state.savedVisit?.urineTest ?? 'normal',
-                pregnancyTest: state.pregnancyTest ?? state.savedVisit?.pregnancyTest ?? 'neg',
+                urineTest: state.urineTest ?? state.savedVisit?.urineTest,
+                pregnancyTest: state.pregnancyTest ?? state.savedVisit?.pregnancyTest,
                 systolicBp: state.systolicBp ?? state.savedVisit?.systolicBp,
                 diastolicBp: state.diastolicBp ?? state.savedVisit?.diastolicBp,
                 pulse: state.pulse ?? state.savedVisit?.pulse,
@@ -1407,7 +1407,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                         color: state.uterusInside == true ? AppTheme.primaryTeal : const Color(0xFF334155),
                         fontWeight: state.uterusInside == true ? FontWeight.bold : FontWeight.normal,
                       ),
-                      onSelected: (_) => vm.updateExam(uterusInside: true),
+                      onSelected: (sel) => vm.updateExam(
+                        uterusInside: sel ? true : null,
+                        clearUterusInside: !sel,
+                      ),
                     ),
                     ChoiceChip(
                       label: const Text('No'),
@@ -1417,7 +1420,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                         color: state.uterusInside == false ? Colors.red.shade900 : const Color(0xFF334155),
                         fontWeight: state.uterusInside == false ? FontWeight.bold : FontWeight.normal,
                       ),
-                      onSelected: (_) => vm.updateExam(uterusInside: false),
+                      onSelected: (sel) => vm.updateExam(
+                        uterusInside: sel ? false : null,
+                        clearUterusInside: !sel,
+                      ),
                     ),
                   ],
                 ),
@@ -1437,7 +1443,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                         color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
-                      onSelected: (_) => vm.updateExam(pelvicFloorTone: tone),
+                      onSelected: (sel) => vm.updateExam(
+                        pelvicFloorTone: sel ? tone : null,
+                        clearPelvicFloorTone: !sel,
+                      ),
                     );
                   }).toList(),
                 ),
@@ -1654,11 +1663,15 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryTeal,
+                        color: state.highestPopStage != null
+                            ? AppTheme.primaryTeal
+                            : const Color(0xFF64748B),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        'Highest POP: Stage ${state.highestPopStage}',
+                        state.highestPopStage != null
+                            ? 'Highest POP: Stage ${state.highestPopStage}'
+                            : 'Highest POP: Not Recorded',
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ),
@@ -1671,7 +1684,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   title: 'POP Anterior Wall (अगाडिको भित्ता):',
                   maxStage: 3,
                   currentStage: state.popAnteriorStage,
-                  onSelect: (stg) => vm.setPopStages(anterior: stg),
+                  onSelect: (stg) => vm.setPopStages(anterior: stg, clearAnterior: stg == null),
                 ),
                 const SizedBox(height: 10),
 
@@ -1680,7 +1693,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   title: 'POP Middle Part (बीचको भाग - Uterine):',
                   maxStage: 4,
                   currentStage: state.popMiddleStage,
-                  onSelect: (stg) => vm.setPopStages(middle: stg),
+                  onSelect: (stg) => vm.setPopStages(middle: stg, clearMiddle: stg == null),
                 ),
                 const SizedBox(height: 10),
 
@@ -1689,7 +1702,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                   title: 'POP Posterior Wall (पछाडिको भित्ता):',
                   maxStage: 3,
                   currentStage: state.popPosteriorStage,
-                  onSelect: (stg) => vm.setPopStages(posterior: stg),
+                  onSelect: (stg) => vm.setPopStages(posterior: stg, clearPosterior: stg == null),
                 ),
               ],
             ),
@@ -1702,8 +1715,8 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
   Widget _buildPopStageSelector({
     required String title,
     required int maxStage,
-    required int currentStage,
-    required Function(int) onSelect,
+    required int? currentStage,
+    required ValueChanged<int?> onSelect,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1724,7 +1737,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                 color: isSelected ? AppTheme.primaryTeal : const Color(0xFF334155),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
-              onSelected: (_) => onSelect(index),
+              onSelected: (sel) => onSelect(sel ? index : null),
             );
           }),
         ),
@@ -1768,9 +1781,9 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     const SizedBox(height: 6),
                     Builder(
                       builder: (context) {
-                        final currentUrine = (state.urineTest ?? 'normal').toLowerCase();
-                        final isNormal = currentUrine == 'normal' || currentUrine.isEmpty;
-                        final isPos = !isNormal && (currentUrine.contains('pos') || currentUrine.contains('+') || currentUrine.contains('protein') || currentUrine.contains('glucose') || currentUrine.contains('blood'));
+                        final currentUrine = (state.urineTest ?? '').trim().toLowerCase();
+                        final isNormal = currentUrine == 'normal';
+                        final isPos = !isNormal && currentUrine.isNotEmpty && (currentUrine.contains('pos') || currentUrine.contains('+') || currentUrine.contains('protein') || currentUrine.contains('glucose') || currentUrine.contains('blood'));
 
                         return Wrap(
                           spacing: 8,
@@ -1785,7 +1798,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                                 fontWeight: isNormal ? FontWeight.bold : FontWeight.normal,
                                 fontSize: 11.5,
                               ),
-                              onSelected: (_) => vm.setVitals(urineTest: 'normal'),
+                              onSelected: (sel) => vm.setVitals(
+                                urineTest: sel ? 'normal' : null,
+                                clearUrineTest: !sel,
+                              ),
                             ),
                             ChoiceChip(
                               label: const Text('Positive (पोजिटिभ)'),
@@ -1796,7 +1812,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                                 fontWeight: isPos ? FontWeight.bold : FontWeight.normal,
                                 fontSize: 11.5,
                               ),
-                              onSelected: (_) => vm.setVitals(urineTest: 'pos'),
+                              onSelected: (sel) => vm.setVitals(
+                                urineTest: sel ? 'pos' : null,
+                                clearUrineTest: !sel,
+                              ),
                             ),
                           ],
                         );
@@ -1811,11 +1830,14 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                       children: [
                         {'val': 'neg', 'label': 'Negative (नेगेटिभ)'},
                         {'val': 'pos', 'label': 'Positive (पोजिटिभ)'},
+                        {'val': 'not_done', 'label': 'Not Done (जाँच नगरिएको)'},
                       ].map((item) {
-                        final rawPreg = (state.pregnancyTest ?? 'neg').toLowerCase().trim();
-                        final isSelected = rawPreg == item['val'] ||
-                            (item['val'] == 'neg' && (rawPreg == 'negative' || rawPreg.startsWith('neg'))) ||
-                            (item['val'] == 'pos' && (rawPreg == 'positive' || rawPreg.startsWith('pos')));
+                        final rawPreg = (state.pregnancyTest ?? '').toLowerCase().trim();
+                        final isSelected = rawPreg.isNotEmpty &&
+                            (rawPreg == item['val'] ||
+                                (item['val'] == 'neg' && (rawPreg == 'negative' || rawPreg.startsWith('neg'))) ||
+                                (item['val'] == 'pos' && (rawPreg == 'positive' || rawPreg.startsWith('pos'))) ||
+                                (item['val'] == 'not_done' && (rawPreg.contains('not') || rawPreg.contains('done'))));
                         return ChoiceChip(
                           label: Text(item['label']!),
                           selected: isSelected,
@@ -1825,7 +1847,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             fontSize: 11.5,
                           ),
-                          onSelected: (_) => vm.setVitals(pregnancyTest: item['val']),
+                          onSelected: (sel) => vm.setVitals(
+                            pregnancyTest: sel ? item['val'] : null,
+                            clearPregnancyTest: !sel,
+                          ),
                         );
                       }).toList(),
                     ),
@@ -2062,7 +2087,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                         final isSelected = _ecgController.text.trim().toLowerCase() == tag.toLowerCase() ||
                             (tag == 'Normal Sinus' && (_ecgController.text.toLowerCase().contains('normal') || _ecgController.text.toLowerCase().contains('sinus'))) ||
                             (tag == 'Abnormal' && _ecgController.text.toLowerCase().contains('abnormal')) ||
-                            (tag == 'Not Done' && (_ecgController.text.toLowerCase().contains('not done') || (_ecgController.text.trim().isEmpty && tag == 'Not Done')));
+                            (tag == 'Not Done' && _ecgController.text.toLowerCase().contains('not done'));
                         return ChoiceChip(
                           label: Text(item['label']!, style: const TextStyle(fontSize: 11.5)),
                           selected: isSelected,
@@ -2197,7 +2222,7 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Highest POP Stage (अधिकतम स्टेज): Stage ${state.highestPopStage}',
+                        'Highest POP Stage (अधिकतम स्टेज): ${state.highestPopStage != null ? "Stage ${state.highestPopStage}" : "Not Recorded"}',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryDark),
                       ),
                     ),
@@ -2218,7 +2243,10 @@ class _ClinicalAssessmentViewState extends ConsumerState<ClinicalAssessmentView>
                         color: isSel ? Colors.white : const Color(0xFF334155),
                         fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
                       ),
-                      onSelected: (_) => vm.setPopStages(highest: stg),
+                      onSelected: (sel) => vm.setPopStages(
+                        highest: sel ? stg : null,
+                        clearHighest: !sel,
+                      ),
                     );
                   }),
                 ),

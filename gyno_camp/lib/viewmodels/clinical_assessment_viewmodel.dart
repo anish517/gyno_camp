@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/constants/clinical_constants.dart';
 import '../core/services/clinical_validation_service.dart';
 import '../models/clinical_visit_model.dart';
 import '../repositories/patient_repository.dart';
@@ -15,16 +14,16 @@ class ClinicalAssessmentState {
   final Map<String, dynamic> complaints;
 
   // Station 2: Exam & POP
-  final bool uterusInside;
+  final bool? uterusInside;
   final String? vulvaRemarks;
   final String? vaginaRemarks;
   final String? cervixRemarks;
   final String? uterusRemarks;
-  final String pelvicFloorTone;
-  final int popAnteriorStage;
-  final int popMiddleStage;
-  final int popPosteriorStage;
-  final int highestPopStage;
+  final String? pelvicFloorTone;
+  final int? popAnteriorStage;
+  final int? popMiddleStage;
+  final int? popPosteriorStage;
+  final int? highestPopStage;
 
   // Station 3: Lab & Vitals
   final String? urineTest;
@@ -95,18 +94,18 @@ class ClinicalAssessmentState {
     this.livingChildren,
     this.abortions,
     this.complaints = const {},
-    this.uterusInside = true,
+    this.uterusInside,
     this.vulvaRemarks,
     this.vaginaRemarks,
     this.cervixRemarks,
     this.uterusRemarks,
-    this.pelvicFloorTone = ClinicalConstants.pelvicFloorNormal,
-    this.popAnteriorStage = 0,
-    this.popMiddleStage = 0,
-    this.popPosteriorStage = 0,
-    this.highestPopStage = 0,
-    this.urineTest = 'normal',
-    this.pregnancyTest = 'neg',
+    this.pelvicFloorTone,
+    this.popAnteriorStage,
+    this.popMiddleStage,
+    this.popPosteriorStage,
+    this.highestPopStage,
+    this.urineTest,
+    this.pregnancyTest,
     this.systolicBp,
     this.diastolicBp,
     this.pulse,
@@ -162,6 +161,7 @@ class ClinicalAssessmentState {
     bool clearAbortions = false,
     Map<String, dynamic>? complaints,
     bool? uterusInside,
+    bool clearUterusInside = false,
     String? vulvaRemarks,
     bool clearVulvaRemarks = false,
     String? vaginaRemarks,
@@ -171,12 +171,19 @@ class ClinicalAssessmentState {
     String? uterusRemarks,
     bool clearUterusRemarks = false,
     String? pelvicFloorTone,
+    bool clearPelvicFloorTone = false,
     int? popAnteriorStage,
+    bool clearPopAnteriorStage = false,
     int? popMiddleStage,
+    bool clearPopMiddleStage = false,
     int? popPosteriorStage,
+    bool clearPopPosteriorStage = false,
     int? highestPopStage,
+    bool clearHighestPopStage = false,
     String? urineTest,
+    bool clearUrineTest = false,
     String? pregnancyTest,
+    bool clearPregnancyTest = false,
     int? systolicBp,
     bool clearSystolicBp = false,
     int? diastolicBp,
@@ -259,18 +266,18 @@ class ClinicalAssessmentState {
       livingChildren: clearLivingChildren ? null : (livingChildren ?? this.livingChildren),
       abortions: clearAbortions ? null : (abortions ?? this.abortions),
       complaints: complaints ?? this.complaints,
-      uterusInside: uterusInside ?? this.uterusInside,
+      uterusInside: clearUterusInside ? null : (uterusInside ?? this.uterusInside),
       vulvaRemarks: clearVulvaRemarks ? null : (vulvaRemarks ?? this.vulvaRemarks),
       vaginaRemarks: clearVaginaRemarks ? null : (vaginaRemarks ?? this.vaginaRemarks),
       cervixRemarks: clearCervixRemarks ? null : (cervixRemarks ?? this.cervixRemarks),
       uterusRemarks: clearUterusRemarks ? null : (uterusRemarks ?? this.uterusRemarks),
-      pelvicFloorTone: pelvicFloorTone ?? this.pelvicFloorTone,
-      popAnteriorStage: popAnteriorStage ?? this.popAnteriorStage,
-      popMiddleStage: popMiddleStage ?? this.popMiddleStage,
-      popPosteriorStage: popPosteriorStage ?? this.popPosteriorStage,
-      highestPopStage: highestPopStage ?? this.highestPopStage,
-      urineTest: urineTest ?? this.urineTest,
-      pregnancyTest: pregnancyTest ?? this.pregnancyTest,
+      pelvicFloorTone: clearPelvicFloorTone ? null : (pelvicFloorTone ?? this.pelvicFloorTone),
+      popAnteriorStage: clearPopAnteriorStage ? null : (popAnteriorStage ?? this.popAnteriorStage),
+      popMiddleStage: clearPopMiddleStage ? null : (popMiddleStage ?? this.popMiddleStage),
+      popPosteriorStage: clearPopPosteriorStage ? null : (popPosteriorStage ?? this.popPosteriorStage),
+      highestPopStage: clearHighestPopStage ? null : (highestPopStage ?? this.highestPopStage),
+      urineTest: clearUrineTest ? null : (urineTest ?? this.urineTest),
+      pregnancyTest: clearPregnancyTest ? null : (pregnancyTest ?? this.pregnancyTest),
       systolicBp: clearSystolicBp ? null : (systolicBp ?? this.systolicBp),
       diastolicBp: clearDiastolicBp ? null : (diastolicBp ?? this.diastolicBp),
       pulse: clearPulse ? null : (pulse ?? this.pulse),
@@ -645,34 +652,55 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
   // --- Station 2: Exam & POP Staging ---
   void updateExam({
     bool? uterusInside,
+    bool clearUterusInside = false,
     String? vulvaRemarks,
     String? vaginaRemarks,
     String? cervixRemarks,
     String? uterusRemarks,
     String? pelvicFloorTone,
+    bool clearPelvicFloorTone = false,
   }) {
     state = state.copyWith(
       uterusInside: uterusInside,
+      clearUterusInside: clearUterusInside,
       vulvaRemarks: vulvaRemarks,
+      clearVulvaRemarks: vulvaRemarks != null && vulvaRemarks.trim().isEmpty,
       vaginaRemarks: vaginaRemarks,
+      clearVaginaRemarks: vaginaRemarks != null && vaginaRemarks.trim().isEmpty,
       cervixRemarks: cervixRemarks,
+      clearCervixRemarks: cervixRemarks != null && cervixRemarks.trim().isEmpty,
       uterusRemarks: uterusRemarks,
+      clearUterusRemarks: uterusRemarks != null && uterusRemarks.trim().isEmpty,
       pelvicFloorTone: pelvicFloorTone,
+      clearPelvicFloorTone: clearPelvicFloorTone,
     );
   }
 
-  void setPopStages({int? anterior, int? middle, int? posterior, int? highest}) {
-    final a = anterior ?? state.popAnteriorStage;
-    final m = middle ?? state.popMiddleStage;
-    final p = posterior ?? state.popPosteriorStage;
-    final computedHighest = ClinicalVisitModel.computeHighestPopStage(a, m, p);
-    final h = highest ?? computedHighest;
+  void setPopStages({
+    int? anterior,
+    bool clearAnterior = false,
+    int? middle,
+    bool clearMiddle = false,
+    int? posterior,
+    bool clearPosterior = false,
+    int? highest,
+    bool clearHighest = false,
+  }) {
+    final a = clearAnterior ? null : (anterior ?? state.popAnteriorStage);
+    final m = clearMiddle ? null : (middle ?? state.popMiddleStage);
+    final p = clearPosterior ? null : (posterior ?? state.popPosteriorStage);
+    final computedHighest = ClinicalVisitModel.computeHighestPopStageOrNull(a, m, p);
+    final h = clearHighest ? computedHighest : (highest ?? computedHighest);
 
     state = state.copyWith(
       popAnteriorStage: a,
+      clearPopAnteriorStage: a == null,
       popMiddleStage: m,
+      clearPopMiddleStage: m == null,
       popPosteriorStage: p,
+      clearPopPosteriorStage: p == null,
       highestPopStage: h,
+      clearHighestPopStage: h == null,
     );
   }
 
@@ -717,7 +745,9 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     int? glucose,
     bool clearGlucose = false,
     String? urineTest,
+    bool clearUrineTest = false,
     String? pregnancyTest,
+    bool clearPregnancyTest = false,
     String? ecgNotes,
     bool clearEcgNotes = false,
   }) {
@@ -744,8 +774,10 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
       clearSpo2: clearSpo2,
       glucose: g,
       clearGlucose: clearGlucose,
-      urineTest: urineTest ?? state.urineTest,
-      pregnancyTest: pregnancyTest ?? state.pregnancyTest,
+      urineTest: clearUrineTest ? null : (urineTest ?? state.urineTest),
+      clearUrineTest: clearUrineTest,
+      pregnancyTest: clearPregnancyTest ? null : (pregnancyTest ?? state.pregnancyTest),
+      clearPregnancyTest: clearPregnancyTest,
       ecgNotes: clearEcgNotes ? null : (ecgNotes ?? state.ecgNotes),
       clearEcgNotes: clearEcgNotes,
       systolicValidation: sysVal,
@@ -893,18 +925,18 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
           livingChildren: visit.livingChildren,
           abortions: visit.abortions,
           complaints: visit.anamnesisComplaints,
-          uterusInside: visit.uterusInside ?? true,
+          uterusInside: visit.uterusInside,
           vulvaRemarks: visit.vulvaRemarks,
           vaginaRemarks: visit.vaginaRemarks,
           cervixRemarks: visit.cervixRemarks,
           uterusRemarks: visit.uterusRemarks,
-          pelvicFloorTone: visit.pelvicFloorTone ?? ClinicalConstants.pelvicFloorNormal,
-          popAnteriorStage: visit.popAnteriorStage ?? 0,
-          popMiddleStage: visit.popMiddleStage ?? 0,
-          popPosteriorStage: visit.popPosteriorStage ?? 0,
-          highestPopStage: visit.highestPopStage ?? 0,
-          urineTest: visit.urineTest ?? 'normal',
-          pregnancyTest: visit.pregnancyTest ?? 'neg',
+          pelvicFloorTone: visit.pelvicFloorTone,
+          popAnteriorStage: visit.popAnteriorStage,
+          popMiddleStage: visit.popMiddleStage,
+          popPosteriorStage: visit.popPosteriorStage,
+          highestPopStage: visit.highestPopStage,
+          urineTest: visit.urineTest,
+          pregnancyTest: visit.pregnancyTest,
           systolicBp: (visit.systolicBp != null && visit.systolicBp! > 0) ? visit.systolicBp : null,
           diastolicBp: (visit.diastolicBp != null && visit.diastolicBp! > 0) ? visit.diastolicBp : null,
           pulse: (visit.pulse != null && visit.pulse! > 0) ? visit.pulse : null,

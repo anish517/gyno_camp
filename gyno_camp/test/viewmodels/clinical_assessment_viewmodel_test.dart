@@ -56,8 +56,15 @@ void main() {
       expect(vm.state.currentStationIndex, 0);
     });
 
-    test('POP staging automatically computes highest POP stage from all 3 compartments', () {
-      expect(vm.state.highestPopStage, 0);
+    test('POP staging starts null and automatically computes highest POP stage from non-null compartments', () {
+      expect(vm.state.popAnteriorStage, isNull);
+      expect(vm.state.popMiddleStage, isNull);
+      expect(vm.state.popPosteriorStage, isNull);
+      expect(vm.state.highestPopStage, isNull);
+      expect(vm.state.uterusInside, isNull);
+      expect(vm.state.pelvicFloorTone, isNull);
+      expect(vm.state.urineTest, isNull);
+      expect(vm.state.pregnancyTest, isNull);
 
       // Anterior = 2
       vm.setPhysicalExam(popAnterior: 2);
@@ -70,6 +77,10 @@ void main() {
       // Posterior = 1 -> highest remains 3
       vm.setPhysicalExam(popPosterior: 1);
       expect(vm.state.highestPopStage, 3);
+
+      // Clearing all 3 compartments resets highestPopStage back to null
+      vm.setPopStages(clearAnterior: true, clearMiddle: true, clearPosterior: true);
+      expect(vm.state.highestPopStage, isNull);
     });
 
     test('Numeric vitals update triggers live validation for BP, Pulse, SpO2, and Glucose', () {

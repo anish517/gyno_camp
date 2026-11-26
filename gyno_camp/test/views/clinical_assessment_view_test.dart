@@ -628,7 +628,10 @@ void main() {
 
         // Verify custom Chief Complaint Aaa is dynamically rendered in Station 1
         expect(find.text('Aaa'), findsOneWidget);
-        expect(find.text('Pelvic & Abdominal'), findsWidgets);
+
+        // Expand Aaa complaint card so duration chips become visible
+        await tester.tap(find.text('Aaa'));
+        await tester.pumpAndSettle();
 
         // Verify duration chips on Aaa
         expect(find.text('< 1month'), findsWidgets);
@@ -741,6 +744,110 @@ void main() {
         expect(fakePatientRepo.lastSavedVisit, isNotNull);
         expect(fakePatientRepo.lastSavedVisit!.systolicBp, isNull);
         expect(fakePatientRepo.lastSavedVisit!.surgicalReferral, isNull);
+
+        await tester.binding.setSurfaceSize(null);
+      },
+    );
+
+    testWidgets(
+      'Reviewing an unfilled OCR-scanned visit in Clinical Intake leaves POP stages, Uterus Inside, Pelvic Floor, and Rapid Labs unselected (null) instead of Stage 0 / Yes / Normal',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1200, 1000));
+
+        // Simulate a blank OCR-scanned visit committed to SQLite (all exam/POP/lab fields are null)
+        fakePatientRepo.lastSavedVisit = ClinicalVisitModel(
+          id: 'vis-blank-ocr-01',
+          patientId: testPatient.patientId,
+          campId: testPatient.campId,
+          visitDate: DateTime(2026, 11, 26),
+          createdAt: DateTime(2026, 11, 26),
+          createdByUserId: 'usr-datataker',
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              patientRepositoryProvider.overrideWithValue(fakePatientRepo),
+              lookupRepositoryProvider.overrideWithValue(
+                FakeLookupRepository(),
+              ),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: ClinicalAssessmentView(patient: testPatient),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Jump to Station 2 (Exam & POP)
+        await tester.tap(find.text('2. Exam & POP'));
+        await tester.pumpAndSettle();
+
+        // Highest POP badge shows Not Recorded, NOT Stage 0
+        expect(find.text('Highest POP: Not Recorded'), findsOneWidget);
+        expect(find.text('Highest POP: Stage 0'), findsNothing);
+
+        // None of the Stage 0 chips are selected
+        final stage0Chips = tester
+            .widgetList<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Stage 0'))
+            .toList();
+        expect(stage0Chips.length, 3);
+        for (final chip in stage0Chips) {
+          expect(chip.selected, isFalse);
+        }
+
+        // Neither Yes nor No is selected for Uterus Inside
+        final yesChip = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, 'Yes'),
+        );
+        final noChip = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, 'No'),
+        );
+        expect(yesChip.selected, isFalse);
+        expect(noChip.selected, isFalse);
+
+        // Jump to Station 3 (Vitals & Lab)
+        await tester.tap(find.text('3. Vitals & Lab'));
+        await tester.pumpAndSettle();
+
+        // Urine Normal, UPT Negative, and ECG Not Done are all unselected
+        final urineNormal = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, 'Normal (सामान्य)'),
+        );
+        final pregNeg = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, 'Negative (नेगेटिभ)'),
+        );
+        final ecgNotDone = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, 'Not Done (जाँच नगरिएको)').last,
+        );
+        expect(urineNormal.selected, isFalse);
+        expect(pregNeg.selected, isFalse);
+        expect(ecgNotDone.selected, isFalse);
+
+        // Jump to Station 4 (Diagnoses)
+        await tester.tap(find.text('4. Diagnoses'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Highest POP Stage (अधिकतम स्टेज): Not Recorded'),
+          findsOneWidget,
+        );
+
+        // Jump to Station 6 and save without touching exam/labs — must stay null in DB
+        await tester.tap(find.text('6. Outtake'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Complete & Save Record'));
+        await tester.pumpAndSettle();
+
+        final saved = fakePatientRepo.lastSavedVisit!;
+        expect(saved.popAnteriorStage, isNull);
+        expect(saved.popMiddleStage, isNull);
+        expect(saved.popPosteriorStage, isNull);
+        expect(saved.highestPopStage, isNull);
+        expect(saved.uterusInside, isNull);
+        expect(saved.pelvicFloorTone, isNull);
+        expect(saved.urineTest, isNull);
+        expect(saved.pregnancyTest, isNull);
 
         await tester.binding.setSurfaceSize(null);
       },

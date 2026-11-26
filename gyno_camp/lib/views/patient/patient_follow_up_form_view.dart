@@ -57,11 +57,11 @@ class _PatientFollowUpFormViewState
   final Set<String> _selectedComplaints = {};
 
   // POP Staging & Pelvic Floor
-  int _anteriorStage = 0;
-  int _middleStage = 0;
-  int _posteriorStage = 0;
-  bool _uterusInside = true;
-  String _pelvicFloorTone = ClinicalConstants.pelvicFloorNormal;
+  int? _anteriorStage;
+  int? _middleStage;
+  int? _posteriorStage;
+  bool? _uterusInside;
+  String? _pelvicFloorTone;
 
   // Screening Labs (Station 3)
   String? _urineTest;
@@ -129,11 +129,11 @@ class _PatientFollowUpFormViewState
             _latestVisit = visits.first;
             // Pre-seed known ongoing diagnoses and baseline values
             _selectedDiagnoses.addAll(_latestVisit!.diagnoses);
-            _anteriorStage = _latestVisit!.popAnteriorStage ?? 0;
-            _middleStage = _latestVisit!.popMiddleStage ?? 0;
-            _posteriorStage = _latestVisit!.popPosteriorStage ?? 0;
-            _uterusInside = _latestVisit!.uterusInside ?? true;
-            _pelvicFloorTone = _latestVisit!.pelvicFloorTone ?? ClinicalConstants.pelvicFloorNormal;
+            _anteriorStage = _latestVisit!.popAnteriorStage;
+            _middleStage = _latestVisit!.popMiddleStage;
+            _posteriorStage = _latestVisit!.popPosteriorStage;
+            _uterusInside = _latestVisit!.uterusInside;
+            _pelvicFloorTone = _latestVisit!.pelvicFloorTone;
             _surgeryDone = _latestVisit!.surgeryDone;
             _selectedSurgeryType = _latestVisit!.surgeryType;
             final histSurgRef = _latestVisit!.surgicalReferral;
@@ -199,12 +199,12 @@ class _PatientFollowUpFormViewState
     }
   }
 
-  int get _calculatedHighestPopStage {
-    int highest = _anteriorStage;
-    if (_middleStage > highest) highest = _middleStage;
-    if (_posteriorStage > highest) highest = _posteriorStage;
-    return highest;
-  }
+  int? get _calculatedHighestPopStage =>
+      ClinicalVisitModel.computeHighestPopStageOrNull(
+        _anteriorStage,
+        _middleStage,
+        _posteriorStage,
+      );
 
   Future<void> _dlSlip(ClinicalVisitModel v, int i) async {
     setState(() => _dlSlipIdx.add(i));
@@ -269,9 +269,9 @@ class _PatientFollowUpFormViewState
       patientId: widget.patient.patientId,
       campId: widget.camp?.id ?? widget.patient.campId,
       visitDate: DateTime.now(),
-      deliveries: _latestVisit?.deliveries ?? 0,
-      livingChildren: _latestVisit?.livingChildren ?? 0,
-      abortions: _latestVisit?.abortions ?? 0,
+      deliveries: _latestVisit?.deliveries,
+      livingChildren: _latestVisit?.livingChildren,
+      abortions: _latestVisit?.abortions,
       uterusInside: _uterusInside,
       vulvaRemarks: _latestVisit?.vulvaRemarks,
       vaginaRemarks: _latestVisit?.vaginaRemarks,
@@ -1861,24 +1861,32 @@ class _PatientFollowUpFormViewState
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: _calculatedHighestPopStage >= 2
+                    color: (_calculatedHighestPopStage ?? 0) >= 2
                         ? AppTheme.warningAmber.withValues(alpha: 0.15)
-                        : AppTheme.primaryLight,
+                        : (_calculatedHighestPopStage != null
+                            ? AppTheme.primaryLight
+                            : const Color(0xFFF1F5F9)),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: _calculatedHighestPopStage >= 2
+                      color: (_calculatedHighestPopStage ?? 0) >= 2
                           ? AppTheme.warningAmber
-                          : AppTheme.primaryTeal,
+                          : (_calculatedHighestPopStage != null
+                              ? AppTheme.primaryTeal
+                              : const Color(0xFFCBD5E1)),
                     ),
                   ),
                   child: Text(
-                    'Overall: Stage $_calculatedHighestPopStage',
+                    _calculatedHighestPopStage != null
+                        ? 'Overall: Stage $_calculatedHighestPopStage'
+                        : 'Overall: Not Recorded',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
-                      color: _calculatedHighestPopStage >= 2
+                      color: (_calculatedHighestPopStage ?? 0) >= 2
                           ? Colors.brown
-                          : AppTheme.primaryDark,
+                          : (_calculatedHighestPopStage != null
+                              ? AppTheme.primaryDark
+                              : const Color(0xFF64748B)),
                     ),
                   ),
                 ),
@@ -1910,7 +1918,8 @@ class _PatientFollowUpFormViewState
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                     fontSize: 11.5,
                   ),
-                  onSelected: (_) => setState(() => _uterusInside = val),
+                  onSelected: (sel) =>
+                      setState(() => _uterusInside = sel ? val : null),
                 );
               }).toList(),
             ),
@@ -1934,7 +1943,7 @@ class _PatientFollowUpFormViewState
                     },
                   ].map((t) {
                     final isSelected =
-                        _pelvicFloorTone.toLowerCase() == t['key'];
+                        _pelvicFloorTone?.toLowerCase() == t['key'];
                     return ChoiceChip(
                       showCheckmark: false,
                       label: Text(t['label']!),
@@ -1947,8 +1956,9 @@ class _PatientFollowUpFormViewState
                             : FontWeight.w500,
                         fontSize: 11.5,
                       ),
-                      onSelected: (_) =>
-                          setState(() => _pelvicFloorTone = t['key']!),
+                      onSelected: (sel) => setState(
+                        () => _pelvicFloorTone = sel ? t['key'] : null,
+                      ),
                     );
                   }).toList(),
             ),
@@ -2029,9 +2039,9 @@ class _PatientFollowUpFormViewState
 
   Widget _buildStageSelector(
     String title,
-    int current,
+    int? current,
     List<int> allowed,
-    ValueChanged<int> onSelect,
+    ValueChanged<int?> onSelect,
   ) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2076,7 +2086,7 @@ class _PatientFollowUpFormViewState
                 ),
                 padding: EdgeInsets.zero,
                 labelPadding: EdgeInsets.zero,
-                onSelected: (_) => onSelect(stage),
+                onSelected: (sel) => onSelect(sel ? stage : null),
               ),
             ),
           );
