@@ -29,6 +29,7 @@ class PatientRegistrationState {
   final bool isSubmitting;
   final String? errorMessage;
   final PatientModel? registeredPatient;
+  final String? editingPatientUuid;
   final DateTime? intakeDate;
 
   const PatientRegistrationState({
@@ -56,6 +57,7 @@ class PatientRegistrationState {
     this.isSubmitting = false,
     this.errorMessage,
     this.registeredPatient,
+    this.editingPatientUuid,
   });
 
 
@@ -128,6 +130,8 @@ class PatientRegistrationState {
     String? errorMessage,
     PatientModel? registeredPatient,
     bool clearRegistered = false,
+    String? editingPatientUuid,
+    bool clearEditingPatientUuid = false,
   }) {
     return PatientRegistrationState(
       patientId: clearPatientId ? null : (patientId ?? this.patientId),
@@ -154,6 +158,7 @@ class PatientRegistrationState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       errorMessage: errorMessage,
       registeredPatient: clearRegistered ? null : (registeredPatient ?? this.registeredPatient),
+      editingPatientUuid: clearEditingPatientUuid ? null : (editingPatientUuid ?? this.editingPatientUuid),
     );
   }
 }
@@ -268,6 +273,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
         ward: state.ward,
         spouseOrFatherName: state.spouseOrFatherName,
         maritalStatus: state.maritalStatus,
+        excludePatientUuid: state.editingPatientUuid,
       );
 
       if (!mounted) return;
@@ -381,6 +387,7 @@ class PatientRegistrationViewModel extends StateNotifier<PatientRegistrationStat
       consentTreatment: patient.consentTreatment,
       consentStoreMedicalInfo: patient.consentStoreMedicalInfo,
       registeredPatient: patient,
+      editingPatientUuid: patient.id.trim().isNotEmpty ? patient.id : null,
     );
   }
 

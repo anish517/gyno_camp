@@ -184,6 +184,19 @@ void main() {
         spouseOrFatherName: 'Hari Bhandari',
       );
       expect(dupDemographic.isDuplicate, isTrue);
+
+      // Same patient excluded by UUID should not flag self-duplicate
+      final excludedSelf = await patientRepo.checkDuplicate(
+        campId: 'camp-ktm-01',
+        firstName: 'Laxmi',
+        surname: 'Bhandari',
+        age: 40,
+        mobile: '9841000000',
+        ward: '07',
+        spouseOrFatherName: 'Hari Bhandari',
+        excludePatientUuid: p.id,
+      );
+      expect(excludedSelf.isDuplicate, isFalse);
     });
 
     test('saveClinicalVisit stores comprehensive Yellow Form data and calculates highest POP', () async {

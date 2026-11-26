@@ -152,6 +152,37 @@ void main() {
 
       expect(result.isDuplicate, isFalse);
     });
+
+    test('Ignores self-record when excludePatientUuid matches during editing', () {
+      final result = DuplicateDetectionService.check(
+        existingPatients: existingPatients,
+        firstName: 'Sita',
+        surname: 'EditedSurname',
+        age: 32,
+        mobile: '9841234567', // Same mobile as pat-1
+        ward: '03',
+        spouseOrFatherName: 'Ram Sharma',
+        excludePatientUuid: 'pat-1',
+      );
+
+      expect(result.isDuplicate, isFalse);
+      expect(result.matchedPatient, isNull);
+    });
+
+    test('Still detects duplicate against other patients when excludePatientUuid is set', () {
+      final result = DuplicateDetectionService.check(
+        existingPatients: existingPatients,
+        firstName: 'Pooja',
+        surname: 'Tamang',
+        age: 18,
+        mobile: '9841234567', // Matches pat-1, while editing pat-2
+        ward: '05',
+        excludePatientUuid: 'pat-2',
+      );
+
+      expect(result.isDuplicate, isTrue);
+      expect(result.matchedPatient?.id, 'pat-1');
+    });
   });
 
   group('NepaliLocalizationService Tests', () {

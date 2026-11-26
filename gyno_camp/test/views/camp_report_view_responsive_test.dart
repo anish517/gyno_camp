@@ -128,7 +128,7 @@ class FakePatientRepoForReports implements IPatientRepository {
   @override
   Future<List<PatientModel>> searchPatients({required String campId, required String query}) async => patients;
   @override
-  Future<DuplicateCheckResult> checkDuplicate({required String campId, required String firstName, required String surname, required int age, required String mobile, required String ward, String? spouseOrFatherName, String? maritalStatus}) async =>
+  Future<DuplicateCheckResult> checkDuplicate({required String campId, required String firstName, required String surname, required int age, required String mobile, required String ward, String? spouseOrFatherName, String? maritalStatus, String? excludePatientUuid}) async =>
       const DuplicateCheckResult.none();
   @override
   Future<ClinicalVisitModel> saveClinicalVisit(ClinicalVisitModel visit, {required String createdByUserId, required String deviceId}) async => visit;

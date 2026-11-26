@@ -273,11 +273,12 @@ class _PatientRegistrationViewState
   }
 
   void _triggerLiveDuplicateCheck() {
-    final camp = ref.read(userActiveCampProvider);
-    if (camp != null) {
+    final campId =
+        widget.patientToEdit?.campId ?? ref.read(userActiveCampProvider)?.id;
+    if (campId != null && campId.isNotEmpty) {
       ref
           .read(patientRegistrationProvider.notifier)
-          .runLiveDuplicateCheck(camp.id);
+          .runLiveDuplicateCheck(campId);
     }
   }
 

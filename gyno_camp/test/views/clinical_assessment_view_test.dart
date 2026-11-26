@@ -188,6 +188,7 @@ class FakePatientRepository implements IPatientRepository {
     required String ward,
     String? spouseOrFatherName,
     String? maritalStatus,
+    String? excludePatientUuid,
   }) async => const DuplicateCheckResult.none();
 
   @override

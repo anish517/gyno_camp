@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:gyno_camp/core/database/database_service.dart';
 import 'package:gyno_camp/core/services/ocr_form_service.dart';
+import 'package:gyno_camp/models/patient_model.dart';
 import 'package:gyno_camp/repositories/audit_repository.dart';
 import 'package:gyno_camp/repositories/ocr_repository.dart';
 import 'package:gyno_camp/repositories/patient_repository.dart';
@@ -211,6 +212,55 @@ void main() {
       vm.setExaminingNurse(null);
       expect(vm.state.scanResult!.examiningNurse, isNull);
       expect(vm.state.scanResult!.attendingNurses, isEmpty);
+    });
+
+    test('runLiveDuplicateCheck ignores reviewingPatientUuid while still flagging other patients', () async {
+      await patientRepo.registerPatient(
+        PatientModel(
+          id: 'pat-other-ocr',
+          patientId: '00050',
+          campId: 'camp-ktm-01',
+          campCode: 'KTM01',
+          intakeDate: DateTime(2026, 3, 10),
+          firstName: 'Kamala',
+          surname: 'Rai',
+          age: 40,
+          mobile: '9800000111',
+          ward: '02',
+          createdAt: DateTime(2026, 3, 10),
+          createdByUserId: 'usr-1',
+          createdByDeviceId: 'dev-1',
+        ),
+        createdByUserId: 'usr-1',
+        createdByUserName: 'Nurse',
+        createdByUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+      );
+
+      final reviewVm = OcrScanViewModel(
+        repository: ocrRepo,
+        patientRepository: patientRepo,
+      );
+      await reviewVm.loadSample('full');
+      final committed = await reviewVm.confirmAndCommit(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        userId: 'usr-1',
+        userName: 'Sita Sharma',
+        deviceId: 'dev-1',
+      );
+      expect(committed, isNotNull);
+      expect(reviewVm.state.reviewingPatientUuid, committed!.id);
+
+      // Same patient currently under review must not flag duplicate against herself
+      await reviewVm.runLiveDuplicateCheck('camp-ktm-01');
+      expect(reviewVm.state.duplicateResult.hasDuplicate, isFalse);
+
+      // Changing mobile to match another registered patient must still flag duplicate
+      reviewVm.updateDemographic('mobile', '9800000111');
+      await reviewVm.runLiveDuplicateCheck('camp-ktm-01');
+      expect(reviewVm.state.duplicateResult.hasDuplicate, isTrue);
+      expect(reviewVm.state.duplicateResult.matchedPatient?.id, 'pat-other-ocr');
     });
   });
 }

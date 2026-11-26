@@ -420,6 +420,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         activeArchiveItemId: item.id,
         reviewingPatientUuid: resolvedPatientUuid,
         reviewingVisitId: resolvedVisitId,
+        duplicateResult: const DuplicateCheckResult.none(),
         clearPatientIdConflict: true,
         errorMessage: null,
         successMessage:
@@ -946,6 +947,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       ward: ward,
       spouseOrFatherName: spouseOrFather,
       maritalStatus: maritalStatus,
+      excludePatientUuid: state.reviewingPatientUuid,
     );
 
     if (!mounted) return;

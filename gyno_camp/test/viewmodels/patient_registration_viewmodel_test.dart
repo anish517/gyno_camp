@@ -298,6 +298,62 @@ void main() {
       expect(fromDb.ward, '05');
       expect(fromDb.spouseOrFatherName, 'HARI SHRESTHA');
     });
+
+    test('runLiveDuplicateCheck ignores edited patient own record but still flags other duplicates', () async {
+      // Register first patient (Sunita Tamang)
+      vm.updateField(
+        firstName: 'Sunita',
+        surname: 'Tamang',
+        age: 52,
+        mobile: '9800000099',
+        ward: '04',
+        district: 'Kathmandu',
+        municipality: 'Budhanilkantha',
+      );
+      final sunita = await vm.submitRegistration(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM',
+        staffUserId: 'usr-nurse',
+        staffUserName: 'Nurse Maya',
+        staffUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+      );
+      expect(sunita, isNotNull);
+
+      // Register second patient with a different mobile
+      vm.reset();
+      vm.updateField(
+        firstName: 'Rita',
+        surname: 'Gurung',
+        age: 38,
+        mobile: '9800000002',
+        ward: '01',
+      );
+      final rita = await vm.submitRegistration(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM',
+        staffUserId: 'usr-nurse',
+        staffUserName: 'Nurse Maya',
+        staffUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+      );
+      expect(rita, isNotNull);
+
+      // Edit Sunita (Page 1 edit mode)
+      final editVm = PatientRegistrationViewModel(patientRepo);
+      editVm.loadPatientForEditing(sunita!);
+      editVm.updateField(surname: 'FFF');
+
+      // Editing Sunita's surname while keeping her own mobile must NOT self-flag
+      await editVm.runLiveDuplicateCheck('camp-ktm-01');
+      expect(editVm.state.duplicateResult.hasDuplicate, isFalse);
+
+      // Changing Sunita's mobile to match Rita's mobile MUST still detect duplicate
+      editVm.updateField(mobile: '9800000002');
+      await editVm.runLiveDuplicateCheck('camp-ktm-01');
+      expect(editVm.state.duplicateResult.hasDuplicate, isTrue);
+      expect(editVm.state.duplicateResult.matchedPatient?.id, rita!.id);
+    });
   });
 }
 

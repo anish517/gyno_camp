@@ -34,7 +34,11 @@ class DuplicateCheckResult {
 }
 
 class DuplicateDetectionService {
-  /// Evaluates new patient input against a list of existing patients
+  /// Evaluates patient input against a list of existing patients.
+  ///
+  /// When editing an existing record, pass [excludePatientUuid] so the
+  /// patient's own persisted row is ignored instead of triggering a false-positive
+  /// self-duplicate match.
   static DuplicateCheckResult check({
     required List<PatientModel> existingPatients,
     required String firstName,
@@ -44,14 +48,20 @@ class DuplicateDetectionService {
     required String ward,
     String? spouseOrFatherName,
     String? maritalStatus,
+    String? excludePatientUuid,
   }) {
     final cleanPhone = mobile.trim();
     final cleanFirst = firstName.trim().toLowerCase();
     final cleanSur = surname.trim().toLowerCase();
     final cleanWard = ward.trim();
     final cleanSpouseOrFather = spouseOrFatherName?.trim().toLowerCase() ?? '';
+    final cleanExcludeUuid = excludePatientUuid?.trim() ?? '';
 
     for (final existing in existingPatients) {
+      if (cleanExcludeUuid.isNotEmpty && existing.id.trim() == cleanExcludeUuid) {
+        continue;
+      }
+
       // 1. Check exact mobile match
       if (cleanPhone.isNotEmpty && existing.mobile.trim().isNotEmpty && cleanPhone == existing.mobile.trim()) {
         return DuplicateCheckResult(

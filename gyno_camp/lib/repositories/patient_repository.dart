@@ -42,6 +42,7 @@ abstract class IPatientRepository {
     required String ward,
     String? spouseOrFatherName,
     String? maritalStatus,
+    String? excludePatientUuid,
   });
   Future<ClinicalVisitModel> saveClinicalVisit(
     ClinicalVisitModel visit, {
@@ -611,6 +612,7 @@ class PatientRepository implements IPatientRepository {
     required String ward,
     String? spouseOrFatherName,
     String? maritalStatus,
+    String? excludePatientUuid,
   }) async {
     final existing = await getPatientsByCamp(campId);
     return DuplicateDetectionService.check(
@@ -622,6 +624,7 @@ class PatientRepository implements IPatientRepository {
       ward: ward,
       spouseOrFatherName: spouseOrFatherName,
       maritalStatus: maritalStatus,
+      excludePatientUuid: excludePatientUuid,
     );
   }
 
