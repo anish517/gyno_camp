@@ -133,11 +133,20 @@ abstract class IOcrRepository {
   Future<void> deleteScanPhoto(String id, {int? pageNumber});
   Future<int> deleteAllScanPhotos({String? campId});
   Future<OcrScanResultModel> extractQueuedOfflineItem(OfflineScanQueueItem item);
-  Future<int> syncAndProcessAllOfflineScans({
+  Future<bool> syncSingleOfflineQueueItem(
+    OfflineScanQueueItem item, {
     String? defaultUserId,
     String? defaultUserName,
     String? defaultUserRole,
     String? defaultDeviceId,
+  });
+  Future<int> syncAndProcessAllOfflineScans({
+    String? campId,
+    String? defaultUserId,
+    String? defaultUserName,
+    String? defaultUserRole,
+    String? defaultDeviceId,
+    FutureOr<void> Function(int completed, int total, String currentItemId)? onProgress,
   });
 }
 
@@ -1663,22 +1672,96 @@ class OcrRepository implements IOcrRepository {
   }
 
   @override
-  Future<int> syncAndProcessAllOfflineScans({
+  Future<bool> syncSingleOfflineQueueItem(
+    OfflineScanQueueItem item, {
     String? defaultUserId,
     String? defaultUserName,
     String? defaultUserRole,
     String? defaultDeviceId,
   }) async {
     final db = await _databaseService.database;
+    OcrScanResultModel? extracted;
+    try {
+      await db.update(
+        DatabaseTables.tableOfflineScanQueue,
+        {'status': 'processing', 'updated_at': DateTime.now().toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [item.id],
+      );
+
+      extracted = await extractQueuedOfflineItem(item);
+      await commitVerifiedScan(
+        verifiedScan: extracted,
+        campId: item.campId,
+        campCode: item.campCode,
+        userId: item.createdByUserId.isNotEmpty ? item.createdByUserId : (defaultUserId ?? 'usr-local'),
+        userName: item.createdByUserName.isNotEmpty ? item.createdByUserName : (defaultUserName ?? 'Field Staff'),
+        userRole: item.createdByUserRole.isNotEmpty ? item.createdByUserRole : (defaultUserRole ?? 'DATA_TAKER'),
+        deviceId: item.deviceId.isNotEmpty ? item.deviceId : (defaultDeviceId ?? 'dev-local'),
+        primaryDoctorName: extracted.examiningDoctor,
+        attendingDoctorNames: extracted.attendingDoctors,
+        primaryNurseName: extracted.examiningNurse,
+        attendingNurseNames: extracted.attendingNurses,
+        archiveItemId: item.id,
+        reviewStatus: 'needs_review',
+      );
+      return true;
+    } on TokenIdConflictException catch (conflictErr) {
+      await db.update(
+        DatabaseTables.tableOfflineScanQueue,
+        {
+          'status': 'conflict',
+          'error_message': conflictErr.message,
+          if (extracted != null) 'extracted_json': jsonEncode(extracted.toMap()),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [item.id],
+      );
+      return false;
+    } catch (e) {
+      await db.update(
+        DatabaseTables.tableOfflineScanQueue,
+        {
+          'status': 'failed',
+          'error_message': e.toString(),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [item.id],
+      );
+      return false;
+    }
+  }
+
+  @override
+  Future<int> syncAndProcessAllOfflineScans({
+    String? campId,
+    String? defaultUserId,
+    String? defaultUserName,
+    String? defaultUserRole,
+    String? defaultDeviceId,
+    FutureOr<void> Function(int completed, int total, String currentItemId)? onProgress,
+  }) async {
+    final db = await _databaseService.database;
+    final cleanCampId = campId?.trim() ?? '';
+    final hasCampFilter = cleanCampId.isNotEmpty && cleanCampId != 'all';
     final items = await _queryOfflineScanItems(
       db,
-      where: "status IN ('pending', 'failed')",
+      where: hasCampFilter
+          ? "camp_id = ? AND status IN ('pending', 'failed')"
+          : "status IN ('pending', 'failed')",
+      whereArgs: hasCampFilter ? [cleanCampId] : null,
       orderBy: 'created_at ASC',
     );
     if (items.isEmpty) return 0;
 
     int processedCount = 0;
-    for (final item in items) {
+    for (int i = 0; i < items.length; i++) {
+      final item = items[i];
+      if (onProgress != null) {
+        await onProgress(i, items.length, item.id);
+      }
       OcrScanResultModel? extracted;
       try {
         await db.update(
@@ -1706,6 +1789,9 @@ class OcrRepository implements IOcrRepository {
         );
 
         processedCount++;
+        if (onProgress != null) {
+          await onProgress(i + 1, items.length, item.id);
+        }
       } on TokenIdConflictException catch (conflictErr) {
         await db.update(
           DatabaseTables.tableOfflineScanQueue,
@@ -1718,6 +1804,9 @@ class OcrRepository implements IOcrRepository {
           where: 'id = ?',
           whereArgs: [item.id],
         );
+        if (onProgress != null) {
+          await onProgress(i + 1, items.length, item.id);
+        }
       } catch (e) {
         await db.update(
           DatabaseTables.tableOfflineScanQueue,
@@ -1729,6 +1818,9 @@ class OcrRepository implements IOcrRepository {
           where: 'id = ?',
           whereArgs: [item.id],
         );
+        if (onProgress != null) {
+          await onProgress(i + 1, items.length, item.id);
+        }
         // Stop draining if server is unreachable so we retry on next connectivity wakeup
         if (e is GeminiOcrException && e.message.contains('Cannot reach')) {
           break;

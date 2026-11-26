@@ -178,7 +178,11 @@ class SyncViewModel extends StateNotifier<SyncState> {
     _sseSyncService?.updateDeviceId(clean);
   }
 
-  Future<bool> syncNow({required String deviceId, required String userId}) async {
+  Future<bool> syncNow({
+    required String deviceId,
+    required String userId,
+    bool includeOfflineOcrQueue = false,
+  }) async {
     _lastKnownDeviceId = deviceId;
     _lastKnownUserId = userId;
     _sseSyncService?.updateDeviceId(deviceId);
@@ -197,23 +201,25 @@ class SyncViewModel extends StateNotifier<SyncState> {
     state = state.copyWith(isSyncing: true, clearError: true);
 
     try {
-      // Process any locally queued offline Yellow Form scans first so their extracted
-      // Patient & Clinical Visit records are pushed in the same sync cycle!
+      // Queued Yellow Form OCR scans stay in the local queue until the operator
+      // explicitly runs Bulk or One-by-One OCR sync (includeOfflineOcrQueue == true).
       int offlineScansSynced = 0;
-      try {
-        final ocrRepo = ref != null ? ref!.read(ocrRepositoryProvider) : OcrRepository();
-        final pendingOffline = await ocrRepo.getPendingOfflineScanCount();
-        if (pendingOffline > 0) {
-          offlineScansSynced = await ocrRepo.syncAndProcessAllOfflineScans(
-            defaultDeviceId: deviceId,
-            defaultUserId: userId,
-          );
-          if (ref != null) {
-            await ref!.read(ocrScanProvider.notifier).loadOfflineQueue();
+      if (includeOfflineOcrQueue) {
+        try {
+          final ocrRepo = ref != null ? ref!.read(ocrRepositoryProvider) : OcrRepository();
+          final pendingOffline = await ocrRepo.getPendingOfflineScanCount();
+          if (pendingOffline > 0) {
+            offlineScansSynced = await ocrRepo.syncAndProcessAllOfflineScans(
+              defaultDeviceId: deviceId,
+              defaultUserId: userId,
+            );
+            if (ref != null) {
+              await ref!.read(ocrScanProvider.notifier).loadOfflineQueue();
+            }
           }
+        } catch (e) {
+          debugPrint('[SyncVM] Offline scan queue sync note: $e');
         }
-      } catch (e) {
-        debugPrint('[SyncVM] Offline scan queue sync note: $e');
       }
 
       final result = await syncRepository.executeFullSyncCycle(

@@ -1012,6 +1012,95 @@ void main() {
         expect(container.read(ocrScanProvider).pendingOfflineQueue, hasLength(1));
       },
     );
+
+    testWidgets(
+      'Instant Offline Queue Mode toggle, non-blocking bulk sync progress, and 1-by-1 row actions render cleanly on mobile (360px) and desktop',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(360, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        const valid1x1PngBase64 =
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+        final pendingItem = OfflineScanQueueItem(
+          id: 'pending-q-1',
+          campId: 'camp-2222',
+          campCode: '2222',
+          page1ImageBase64: valid1x1PngBase64,
+          page2ImageBase64: valid1x1PngBase64,
+          status: 'pending',
+          createdAt: DateTime(2026, 11, 26, 10, 0),
+          updatedAt: DateTime(2026, 11, 26, 10, 0),
+          createdByUserId: 'usr-1',
+          createdByUserName: 'Staff',
+          createdByUserRole: 'DataTaker',
+          deviceId: 'dev-1',
+        );
+        final conflictItem = OfflineScanQueueItem(
+          id: 'conflict-q-2',
+          campId: 'camp-2222',
+          campCode: '2222',
+          page1ImageBase64: valid1x1PngBase64,
+          page2ImageBase64: valid1x1PngBase64,
+          status: 'conflict',
+          errorMessage: 'Patient Token ID "00099" is already registered to SUNITA TAMANG.',
+          createdAt: DateTime(2026, 11, 26, 10, 1),
+          updatedAt: DateTime(2026, 11, 26, 10, 1),
+          createdByUserId: 'usr-1',
+          createdByUserName: 'Staff',
+          createdByUserRole: 'DataTaker',
+          deviceId: 'dev-1',
+        );
+
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: const FormScanView(),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        container.read(ocrScanProvider.notifier).state = OcrScanState(
+          offlineQueue: [pendingItem, conflictItem],
+          isQueueSyncing: true,
+          bulkSyncCompletedCount: 1,
+          bulkSyncTotalCount: 3,
+        );
+        await tester.pump();
+
+        // Capture slots remain unlocked while background queue sync runs!
+        expect(find.text('Page 1 (Front Page)'), findsOneWidget);
+        expect(find.text('Page 2 (Back Page)'), findsOneWidget);
+        expect(find.byKey(const ValueKey('instant_queue_mode_switch')), findsOneWidget);
+        expect(find.textContaining('Background digitization running (1 of 3)'), findsOneWidget);
+
+        // Pending item shows 1-by-1 sync button; conflict item hides 1-by-1 auto-sync and shows Resolve button
+        expect(find.byKey(const ValueKey('sync_single_queue_btn_pending-q-1')), findsOneWidget);
+        expect(find.byKey(const ValueKey('sync_single_queue_btn_conflict-q-2')), findsNothing);
+        expect(find.byKey(const ValueKey('review_single_queue_btn_conflict-q-2')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        // Toggle Instant Offline Queue Mode switch off & back on cleanly
+        await tester.tap(find.byKey(const ValueKey('instant_queue_mode_switch')));
+        await tester.pump();
+        expect(container.read(ocrScanProvider).autoQueueDualPage, isFalse);
+
+        // Verify wide desktop viewport as well
+        tester.view.physicalSize = const Size(1280, 1000);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }
 

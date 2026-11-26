@@ -175,5 +175,35 @@ void main() {
       expect(viewModel.state.errorMessage, contains('Sync failed'));
       expect(viewModel.state.history.first.isSuccess, isFalse);
     });
+
+    test('default syncNow does not auto-drain queued Yellow Form OCR scans so manual bulk/1-by-1 sync stays in operator control', () async {
+      final nowIso = DateTime.now().toIso8601String();
+      await testDb.insert(DatabaseTables.tableOfflineScanQueue, {
+        'id': 'offscan-manual-control-1',
+        'camp_id': 'camp-01',
+        'camp_code': 'KTM01',
+        'page1_image_base64': 'AQID',
+        'status': 'pending',
+        'review_status': 'pending',
+        'created_by_user_id': 'usr-01',
+        'created_by_user_name': 'Nurse',
+        'created_by_user_role': 'DATA_TAKER',
+        'device_id': 'dev-01',
+        'tenant_id': 'tenant_default',
+        'created_at': nowIso,
+        'updated_at': nowIso,
+      });
+
+      final ok = await viewModel.syncNow(deviceId: 'dev-01', userId: 'usr-01');
+      expect(ok, isTrue);
+
+      final rows = await testDb.query(
+        DatabaseTables.tableOfflineScanQueue,
+        where: 'id = ?',
+        whereArgs: ['offscan-manual-control-1'],
+      );
+      expect(rows.single['status'], 'pending');
+      expect(viewModel.state.pendingOfflineScansCount, 1);
+    });
   });
 }

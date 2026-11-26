@@ -315,8 +315,31 @@ class _FormScanViewState extends ConsumerState<FormScanView>
   // ==========================================
   Widget _buildCapturePrompt(BuildContext context, OcrScanViewModel ocrVm) {
     final ocrState = ref.watch(ocrScanProvider);
+    final activeCamp = ref.watch(userActiveCampProvider);
+    final authState = ref.watch(authStateProvider);
+    final deviceState = ref.watch(deviceSecurityProvider);
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isCompact = screenWidth < 500;
+
+    final captureUserId = authState.currentUser?.id ?? 'usr-local';
+    final captureUserName = authState.currentUser?.name ?? 'Field Staff';
+    final captureUserRole = authState.currentUser?.role.toString() ?? 'DataTaker';
+    final captureDeviceId = deviceState.device?.deviceId ?? 'dev-local';
+
+    Future<void> handleAutoQueuedResult(OfflineScanQueueItem? queued) async {
+      if (queued != null && context.mounted) {
+        ref.read(syncStateProvider.notifier).refreshPendingCounts();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFF15803D),
+            duration: Duration(seconds: 2),
+            content: Text(
+              '✅ Page 1 + Page 2 queued locally! Ready for next patient — sync anytime below.',
+            ),
+          ),
+        );
+      }
+    }
 
     return Center(
       child: SingleChildScrollView(
@@ -329,6 +352,62 @@ class _FormScanViewState extends ConsumerState<FormScanView>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Instant Queue Mode Banner & Toggle (Scan Page 1 + Page 2 fast, sync later manually)
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.primaryTeal.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.bolt_rounded,
+                      color: AppTheme.primaryTeal,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Instant Offline Queue Mode (Scan First, Sync Later)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                              color: AppTheme.primaryDark,
+                            ),
+                          ),
+                          Text(
+                            ocrState.autoQueueDualPage
+                                ? 'Page 1 + Page 2 save locally in background without waiting — sync later in bulk or 1-by-1.'
+                                : 'Manual slot mode — hold scanned pages in slots to add hints, save locally, or digitize now.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.blueGrey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      key: const ValueKey('instant_queue_mode_switch'),
+                      activeThumbColor: AppTheme.primaryTeal,
+                      value: ocrState.autoQueueDualPage,
+                      onChanged: (val) => ocrVm.setAutoQueueDualPage(val),
+                    ),
+                  ],
+                ),
+              ),
+
               // Dual-Slot Cards (Side-by-Side or Column)
               LayoutBuilder(
                 builder: (context, box) {
@@ -343,10 +422,32 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     summaryText: ocrState.hasPage1
                         ? '${ocrState.page1Scan!.demographics["firstName"] ?? "Patient"} ${ocrState.page1Scan!.demographics["surname"] ?? ""} (${ocrState.page1Scan!.demographics["age"] ?? 35}y) • Ward ${ocrState.page1Scan!.demographics["ward"] ?? "03"}'
                         : (ocrState.hasPage1Image
-                            ? 'Page 1 image captured — ready for offline storage or digitization'
+                            ? 'Page 1 image captured — scan Page 2 or save to local queue'
                             : null),
-                    onCamera: () => ocrVm.capturePage(1),
-                    onGallery: () => ocrVm.pickPage(1),
+                    onCamera: () async {
+                      final q = await ocrVm.capturePage(
+                        1,
+                        campId: activeCamp?.id,
+                        campCode: activeCamp?.campCode,
+                        userId: captureUserId,
+                        userName: captureUserName,
+                        userRole: captureUserRole,
+                        deviceId: captureDeviceId,
+                      );
+                      await handleAutoQueuedResult(q);
+                    },
+                    onGallery: () async {
+                      final q = await ocrVm.pickPage(
+                        1,
+                        campId: activeCamp?.id,
+                        campCode: activeCamp?.campCode,
+                        userId: captureUserId,
+                        userName: captureUserName,
+                        userRole: captureUserRole,
+                        deviceId: captureDeviceId,
+                      );
+                      await handleAutoQueuedResult(q);
+                    },
                     onClear: () => ocrVm.clearSlot(1),
                     onPreviewImage: ocrState.hasPage1Image
                         ? () => _showFullScreenFormPreviewDialog(
@@ -368,10 +469,32 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     summaryText: ocrState.hasPage2
                         ? '${(ocrState.page2Scan!.vitals["systolicBp"] != null && ocrState.page2Scan!.vitals["diastolicBp"] != null) ? "BP ${ocrState.page2Scan!.vitals["systolicBp"]}/${ocrState.page2Scan!.vitals["diastolicBp"]}" : "Vitals not recorded"} • ${ocrState.page2Scan!.diagnoses.length} Diagnoses'
                         : (ocrState.hasPage2Image
-                            ? 'Page 2 image captured — ready for offline storage or digitization'
+                            ? 'Page 2 image captured — scan Page 1 or save to local queue'
                             : null),
-                    onCamera: () => ocrVm.capturePage(2),
-                    onGallery: () => ocrVm.pickPage(2),
+                    onCamera: () async {
+                      final q = await ocrVm.capturePage(
+                        2,
+                        campId: activeCamp?.id,
+                        campCode: activeCamp?.campCode,
+                        userId: captureUserId,
+                        userName: captureUserName,
+                        userRole: captureUserRole,
+                        deviceId: captureDeviceId,
+                      );
+                      await handleAutoQueuedResult(q);
+                    },
+                    onGallery: () async {
+                      final q = await ocrVm.pickPage(
+                        2,
+                        campId: activeCamp?.id,
+                        campCode: activeCamp?.campCode,
+                        userId: captureUserId,
+                        userName: captureUserName,
+                        userRole: captureUserRole,
+                        deviceId: captureDeviceId,
+                      );
+                      await handleAutoQueuedResult(q);
+                    },
                     onClear: () => ocrVm.clearSlot(2),
                     onPreviewImage: ocrState.hasPage2Image
                         ? () => _showFullScreenFormPreviewDialog(
@@ -403,6 +526,39 @@ class _FormScanViewState extends ConsumerState<FormScanView>
 
               // Offline Notice & Save to Local Storage Card (stays above primary Review CTA)
               _buildOfflineNoticeAndSaveCard(context, ocrState, ocrVm),
+
+              // Optional On-Demand Immediate Digitization (when images are staged in slots without OCR result yet)
+              if (ocrState.hasAnyCapturedImage &&
+                  !ocrState.hasPage1 &&
+                  !ocrState.hasPage2) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('extract_immediately_btn'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryTeal,
+                      side: const BorderSide(color: AppTheme.primaryTeal),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.fact_check_outlined, size: 20),
+                    label: const Text(
+                      'Digitize & Review Current Form Immediately',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () => ocrVm.extractCurrentSlotsNow(
+                      campId: activeCamp?.id,
+                      campCode: activeCamp?.campCode,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Primary Action: Review Captured Data (immediately below Save Offline Scan)
               if (ocrState.hasPage1 || ocrState.hasPage2) ...[
@@ -475,7 +631,17 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                       'Scan Both Pages (Edge Detect & OMR)',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    onPressed: () => ocrVm.scanBothPagesWithDocumentScanner(),
+                    onPressed: () async {
+                      final q = await ocrVm.scanBothPagesWithDocumentScanner(
+                        campId: activeCamp?.id,
+                        campCode: activeCamp?.campCode,
+                        userId: captureUserId,
+                        userName: captureUserName,
+                        userRole: captureUserRole,
+                        deviceId: captureDeviceId,
+                      );
+                      await handleAutoQueuedResult(q);
+                    },
                   ),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
@@ -496,7 +662,17 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                       'Select Both Images at Once (Multi-Select)',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    onPressed: () => ocrVm.pickBothPages(),
+                    onPressed: () async {
+                      final q = await ocrVm.pickBothPages(
+                        campId: activeCamp?.id,
+                        campCode: activeCamp?.campCode,
+                        userId: captureUserId,
+                        userName: captureUserName,
+                        userRole: captureUserRole,
+                        deviceId: captureDeviceId,
+                      );
+                      await handleAutoQueuedResult(q);
+                    },
                   ),
                 ],
               ),
@@ -805,18 +981,27 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                       ],
                     );
                     final syncBtn = FilledButton.tonalIcon(
+                      key: const ValueKey('bulk_sync_offline_queue_btn'),
                       style: FilledButton.styleFrom(
                         visualDensity: VisualDensity.compact,
                       ),
-                      icon: const Icon(Icons.sync, size: 16),
-                      label: const Text(
-                        'Sync & Extract All Now',
-                        style: TextStyle(
+                      icon: ocrState.isQueueSyncing
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.sync, size: 16),
+                      label: Text(
+                        ocrState.isQueueSyncing
+                            ? 'Syncing (${ocrState.bulkSyncCompletedCount}/${ocrState.bulkSyncTotalCount})...'
+                            : 'Sync & Extract All Now',
+                        style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      onPressed: ocrState.isProcessing
+                      onPressed: (ocrState.isProcessing || ocrState.isQueueSyncing)
                           ? null
                           : () async {
                               final count = await ocrVm.syncAllOfflineScans(
@@ -890,12 +1075,38 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                     );
                   },
                 ),
+                if (ocrState.isQueueSyncing) ...[
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: ocrState.bulkSyncTotalCount > 0
+                          ? ocrState.bulkSyncCompletedCount /
+                              ocrState.bulkSyncTotalCount
+                          : null,
+                      minHeight: 6,
+                      backgroundColor: Colors.teal.shade50,
+                      color: AppTheme.primaryTeal,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Background digitization running (${ocrState.bulkSyncCompletedCount} of ${ocrState.bulkSyncTotalCount}) — capture slots above remain unlocked.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.teal.shade800,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 ...visiblePending.map((item) {
                   final hasP1 =
                       item.page1Bytes != null && item.page1Bytes!.isNotEmpty;
                   final hasP2 =
                       item.page2Bytes != null && item.page2Bytes!.isNotEmpty;
+                  final isItemSyncing =
+                      ocrState.syncingQueueItemIds.contains(item.id);
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.symmetric(
@@ -943,6 +1154,12 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           ),
                         ),
                         IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
                           tooltip: 'Preview Stored Yellow Form',
                           icon: const Icon(
                             Icons.visibility_outlined,
@@ -956,20 +1173,85 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                             initialPage: hasP1 ? 1 : 2,
                           ),
                         ),
+                        if (!item.isConflict)
+                          IconButton(
+                            key: ValueKey('sync_single_queue_btn_${item.id}'),
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(6),
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                            tooltip: 'Sync & Commit This Scan (Background)',
+                            icon: isItemSyncing
+                                ? const SizedBox(
+                                    width: 15,
+                                    height: 15,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.sync_rounded,
+                                    size: 18,
+                                    color: AppTheme.primaryTeal,
+                                  ),
+                            onPressed: (ocrState.isProcessing || isItemSyncing)
+                                ? null
+                                : () async {
+                                    final ok = await ocrVm
+                                        .syncSingleOfflineQueueItem(
+                                          item,
+                                          defaultUserId:
+                                              authState.currentUser?.id ??
+                                              'usr-local',
+                                          defaultUserName:
+                                              authState.currentUser?.name ??
+                                              'Field Staff',
+                                          defaultUserRole:
+                                              authState.currentUser?.role
+                                                  .toString() ??
+                                              'DataTaker',
+                                          defaultDeviceId:
+                                              deviceState.device?.deviceId ??
+                                              'dev-local',
+                                        );
+                                    if (context.mounted) {
+                                      if (ok && activeCamp != null) {
+                                        ref
+                                            .read(patientListProvider.notifier)
+                                            .loadPatients(activeCamp.id);
+                                        ref
+                                            .read(campStateProvider.notifier)
+                                            .loadCamps();
+                                      }
+                                      ref
+                                          .read(syncStateProvider.notifier)
+                                          .refreshPendingCounts();
+                                    }
+                                  },
+                          ),
                         IconButton(
+                          key: ValueKey('review_single_queue_btn_${item.id}'),
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
                           tooltip: item.isConflict
                               ? 'Resolve Token ID Conflict'
-                              : 'Extract & Commit Now',
+                              : 'Extract & Review in Split-Screen',
                           icon: Icon(
                             item.isConflict
                                 ? Icons.edit_note_rounded
-                                : Icons.cloud_upload_outlined,
+                                : Icons.fact_check_outlined,
                             size: 18,
                             color: item.isConflict
                                 ? Colors.red.shade700
                                 : Colors.indigo,
                           ),
-                          onPressed: ocrState.isProcessing
+                          onPressed: (ocrState.isProcessing || isItemSyncing)
                               ? null
                               : () async {
                                   final ok = await ocrVm
@@ -990,18 +1272,26 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                 },
                         ),
                         IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
                           tooltip: 'Delete Queued Scan',
                           icon: Icon(
                             Icons.delete_outline,
                             size: 18,
                             color: Colors.red.shade600,
                           ),
-                          onPressed: () async {
-                            await ocrVm.deleteOfflineQueueItem(item.id);
-                            ref
-                                .read(syncStateProvider.notifier)
-                                .refreshPendingCounts();
-                          },
+                          onPressed: isItemSyncing
+                              ? null
+                              : () async {
+                                  await ocrVm.deleteOfflineQueueItem(item.id);
+                                  ref
+                                      .read(syncStateProvider.notifier)
+                                      .refreshPendingCounts();
+                                },
                         ),
                       ],
                     ),
