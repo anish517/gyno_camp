@@ -640,6 +640,7 @@ void main() {
         );
         expect(searchField, findsOneWidget);
         await tester.enterText(searchField, 'Kamala');
+        await tester.testTextInput.receiveAction(TextInputAction.search);
         await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);

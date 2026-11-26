@@ -480,7 +480,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       controller: _searchController,
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
-        hintText: 'Search by Patient ID, Name, Phone, Ward, District...',
+        hintText: 'Search by Patient ID, Name, Phone, Ward… (press Enter)',
         hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5),
         prefixIcon: const Padding(
           padding: EdgeInsets.only(left: 14, right: 10),
@@ -515,10 +515,12 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         ),
       ),
       onChanged: (val) {
-        setState(() {});
-        vm.search(isAllCamps ? 'all' : effectiveCampId, val);
+        setState(() {}); // keeps clear (✕) button visibility reactive
       },
-      onSubmitted: (_) => FocusScope.of(context).unfocus(),
+      onSubmitted: (val) {
+        vm.search(isAllCamps ? 'all' : effectiveCampId, val.trim());
+        FocusScope.of(context).unfocus();
+      },
     );
 
     final filterButton = OutlinedButton.icon(
