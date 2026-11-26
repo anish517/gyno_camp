@@ -3047,23 +3047,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       },
     );
 
-    PopupMenuEntry<String> buildMenuHeader(String label) {
-      return PopupMenuItem<String>(
-        enabled: false,
-        height: 24,
-        padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 9.5,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF94A3B8),
-            letterSpacing: 0.8,
-          ),
-        ),
-      );
-    }
-
     PopupMenuEntry<String> buildMenuItem({
       required String value,
       required IconData icon,
@@ -3274,7 +3257,15 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
         }
       },
       itemBuilder: (ctx) => [
-        buildMenuHeader('CLINICAL WORKFLOW'),
+        if (!isCampLocked)
+          buildMenuItem(
+            value: 'edit',
+            icon: Icons.edit_note_rounded,
+            iconColor: AppTheme.brandPurple,
+            iconBg: AppTheme.brandPurpleLight,
+            title: 'Edit Registration (Page 1)',
+            subtitle: 'Demographics, address & consent',
+          ),
         if (!isCampLocked)
           buildMenuItem(
             value: 're_exam',
@@ -3292,17 +3283,6 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           title: 'Clinical History & Dossier',
           subtitle: 'Encounter timeline, vitals & chart',
         ),
-        const PopupMenuDivider(height: 10),
-        buildMenuHeader('PATIENT ADMINISTRATION'),
-        if (!isCampLocked)
-          buildMenuItem(
-            value: 'edit',
-            icon: Icons.edit_note_rounded,
-            iconColor: AppTheme.brandPurple,
-            iconBg: AppTheme.brandPurpleLight,
-            title: 'Edit Registration (Page 1)',
-            subtitle: 'Demographics, address & consent',
-          ),
         if (!isCampLocked)
           buildMenuItem(
             value: 'delete_patient',
