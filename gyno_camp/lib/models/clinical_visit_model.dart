@@ -26,18 +26,18 @@ class ClinicalVisitModel {
   final Map<String, dynamic> anamnesisComplaints;
 
   // Physical Examination (Page 2 Top)
-  final bool uterusInside;
+  final bool? uterusInside;
   final String? vulvaRemarks;
   final String? vaginaRemarks;
   final String? cervixRemarks;
   final String? uterusRemarks;
-  final String pelvicFloorTone; // 'normal', 'weak', 'hypertonic'
+  final String? pelvicFloorTone; // 'normal', 'weak', 'hypertonic', or null (not recorded)
 
   // POP Staging (Pelvic Organ Prolapse)
-  final int popAnteriorStage; // 0 - 3
-  final int popMiddleStage; // 0 - 4
-  final int popPosteriorStage; // 0 - 3
-  final int highestPopStage; // Auto-computed 0 - 4
+  final int? popAnteriorStage; // 0 - 3, or null (not recorded)
+  final int? popMiddleStage; // 0 - 4, or null (not recorded)
+  final int? popPosteriorStage; // 0 - 3, or null (not recorded)
+  final int? highestPopStage; // Auto-computed 0 - 4, or null (not recorded)
 
   // Lab Tests & Vitals (Page 2 Middle)
   final String? urineTest; // 'normal', 'pos'
@@ -98,16 +98,16 @@ class ClinicalVisitModel {
     this.livingChildren,
     this.abortions,
     this.anamnesisComplaints = const {},
-    this.uterusInside = true,
+    this.uterusInside,
     this.vulvaRemarks,
     this.vaginaRemarks,
     this.cervixRemarks,
     this.uterusRemarks,
-    this.pelvicFloorTone = ClinicalConstants.pelvicFloorNormal,
-    this.popAnteriorStage = 0,
-    this.popMiddleStage = 0,
-    this.popPosteriorStage = 0,
-    this.highestPopStage = 0,
+    this.pelvicFloorTone,
+    this.popAnteriorStage,
+    this.popMiddleStage,
+    this.popPosteriorStage,
+    this.highestPopStage,
     this.urineTest,
     this.pregnancyTest,
     this.systolicBp,
@@ -147,6 +147,15 @@ class ClinicalVisitModel {
     int highest = anterior;
     if (middle > highest) highest = middle;
     if (posterior > highest) highest = posterior;
+    return highest.clamp(0, 4);
+  }
+
+  /// Nullable variant: returns null when all compartments are unrecorded (null)
+  static int? computeHighestPopStageOrNull(int? anterior, int? middle, int? posterior) {
+    if (anterior == null && middle == null && posterior == null) return null;
+    int highest = anterior ?? 0;
+    if ((middle ?? 0) > highest) highest = middle!;
+    if ((posterior ?? 0) > highest) highest = posterior!;
     return highest.clamp(0, 4);
   }
 
@@ -228,7 +237,7 @@ class ClinicalVisitModel {
       'living_children': livingChildren,
       'abortions': abortions,
       'anamnesis_json': jsonEncode(anamnesisComplaints),
-      'uterus_inside': uterusInside ? 1 : 0,
+      'uterus_inside': uterusInside == null ? null : (uterusInside! ? 1 : 0),
       'vulva_remarks': vulvaRemarks,
       'vagina_remarks': vaginaRemarks,
       'cervix_remarks': cervixRemarks,
@@ -296,18 +305,22 @@ class ClinicalVisitModel {
       livingChildren: map['living_children'] as int?,
       abortions: map['abortions'] as int?,
       anamnesisComplaints: complaints,
-      uterusInside: (map['uterus_inside'] is int)
-          ? (map['uterus_inside'] as int) == 1
-          : (map['uterus_inside'] as bool? ?? true),
+      uterusInside: map['uterus_inside'] == null
+          ? null
+          : ((map['uterus_inside'] is int)
+              ? (map['uterus_inside'] as int) == 1
+              : (map['uterus_inside'] as bool?)),
       vulvaRemarks: map['vulva_remarks'] as String?,
       vaginaRemarks: map['vagina_remarks'] as String?,
       cervixRemarks: map['cervix_remarks'] as String?,
       uterusRemarks: map['uterus_remarks'] as String?,
-      pelvicFloorTone: map['pelvic_floor_tone'] as String? ?? ClinicalConstants.pelvicFloorNormal,
-      popAnteriorStage: map['pop_anterior_stage'] as int? ?? 0,
-      popMiddleStage: map['pop_middle_stage'] as int? ?? 0,
-      popPosteriorStage: map['pop_posterior_stage'] as int? ?? 0,
-      highestPopStage: map['highest_pop_stage'] as int? ?? 0,
+      pelvicFloorTone: (map['pelvic_floor_tone'] as String?)?.trim().isNotEmpty == true
+          ? (map['pelvic_floor_tone'] as String).trim()
+          : null,
+      popAnteriorStage: (map['pop_anterior_stage'] as num?)?.toInt(),
+      popMiddleStage: (map['pop_middle_stage'] as num?)?.toInt(),
+      popPosteriorStage: (map['pop_posterior_stage'] as num?)?.toInt(),
+      highestPopStage: (map['highest_pop_stage'] as num?)?.toInt(),
       urineTest: map['urine_test'] as String?,
       pregnancyTest: map['pregnancy_test'] as String?,
       systolicBp: map['systolic_bp'] as int?,
@@ -383,15 +396,21 @@ class ClinicalVisitModel {
     int? abortions,
     Map<String, dynamic>? anamnesisComplaints,
     bool? uterusInside,
+    bool clearUterusInside = false,
     String? vulvaRemarks,
     String? vaginaRemarks,
     String? cervixRemarks,
     String? uterusRemarks,
     String? pelvicFloorTone,
+    bool clearPelvicFloorTone = false,
     int? popAnteriorStage,
+    bool clearPopAnteriorStage = false,
     int? popMiddleStage,
+    bool clearPopMiddleStage = false,
     int? popPosteriorStage,
+    bool clearPopPosteriorStage = false,
     int? highestPopStage,
+    bool clearHighestPopStage = false,
     String? urineTest,
     String? pregnancyTest,
     int? systolicBp,
@@ -441,16 +460,16 @@ class ClinicalVisitModel {
       livingChildren: livingChildren ?? this.livingChildren,
       abortions: abortions ?? this.abortions,
       anamnesisComplaints: anamnesisComplaints ?? this.anamnesisComplaints,
-      uterusInside: uterusInside ?? this.uterusInside,
+      uterusInside: clearUterusInside ? null : (uterusInside ?? this.uterusInside),
       vulvaRemarks: vulvaRemarks ?? this.vulvaRemarks,
       vaginaRemarks: vaginaRemarks ?? this.vaginaRemarks,
       cervixRemarks: cervixRemarks ?? this.cervixRemarks,
       uterusRemarks: uterusRemarks ?? this.uterusRemarks,
-      pelvicFloorTone: pelvicFloorTone ?? this.pelvicFloorTone,
-      popAnteriorStage: popAnteriorStage ?? this.popAnteriorStage,
-      popMiddleStage: popMiddleStage ?? this.popMiddleStage,
-      popPosteriorStage: popPosteriorStage ?? this.popPosteriorStage,
-      highestPopStage: highestPopStage ?? this.highestPopStage,
+      pelvicFloorTone: clearPelvicFloorTone ? null : (pelvicFloorTone ?? this.pelvicFloorTone),
+      popAnteriorStage: clearPopAnteriorStage ? null : (popAnteriorStage ?? this.popAnteriorStage),
+      popMiddleStage: clearPopMiddleStage ? null : (popMiddleStage ?? this.popMiddleStage),
+      popPosteriorStage: clearPopPosteriorStage ? null : (popPosteriorStage ?? this.popPosteriorStage),
+      highestPopStage: clearHighestPopStage ? null : (highestPopStage ?? this.highestPopStage),
       urineTest: urineTest ?? this.urineTest,
       pregnancyTest: pregnancyTest ?? this.pregnancyTest,
       systolicBp: systolicBp ?? this.systolicBp,

@@ -348,13 +348,16 @@ void main() {
       );
     });
 
-    test('refuses to call the server without device credentials', () async {
-      var called = false;
+    test('uses fallback offline-sync-device-secret header when SessionService has no secret', () async {
+      String? sentSecret;
       final mockClient = MockClient((request) async {
-        called = true;
-        return http.Response('{}', 200);
+        sentSecret = request.headers['X-Device-Secret'];
+        return proxyOk({
+          'pageNumber': 1,
+          'demographics': {'firstName': 'MAYA', 'surname': 'TAMANG'},
+        });
       });
-      // No explicit secret and no SessionService instance -> empty secret.
+      // No explicit secret and no SessionService instance -> falls back to offline-sync-device-secret.
       final service = GeminiOcrService(
         httpClient: mockClient,
         baseUrl: 'http://test-server:8080',
@@ -362,11 +365,72 @@ void main() {
       );
 
       final sampleFile = XFile('test_samples/sample_yellow_form_filled_page1.jpg');
-      await expectLater(
-        service.extractFromImage(sampleFile, pageNumber: 1),
-        throwsA(isA<GeminiOcrException>()),
-      );
-      expect(called, false);
+      final res = await service.extractFromImage(sampleFile, pageNumber: 1);
+      expect(sentSecret, 'offline-sync-device-secret');
+      expect(res.demographics['firstName'], 'MAYA');
+    });
+
+    test('preserves null and empty strings on blank/unfilled cloud OCR JSON instead of injecting defaults', () async {
+      final sampleBytes = File('test_samples/sample_yellow_form_filled_page1.jpg').readAsBytesSync();
+      final blankService = buildService(MockClient((_) async => proxyOk({
+        'pageNumber': 1,
+        'demographics': {
+          'firstName': 'SITA',
+          'surname': 'SHARMA',
+          'age': 29,
+          'maritalStatus': null,
+          'relationType': null,
+          'relativeSurname': null,
+          'province': null,
+          'district': null,
+          'municipality': null,
+          'ward': null,
+          'consentTreatment': null,
+          'consentStoreMedicalInfo': null,
+        },
+        'obstetrics': {
+          'deliveries': null,
+          'livingChildren': null,
+          'abortions': null,
+          'complaintsDuration': null,
+        },
+        'popStaging': {
+          'uterusInside': null,
+          'pelvicFloorTone': null,
+          'anteriorStage': null,
+          'middleStage': null,
+          'posteriorStage': null,
+          'highestPopStage': null,
+          'vulvaRemarks': null,
+          'vaginaRemarks': null,
+          'cervixRemarks': null,
+          'uterusRemarks': null,
+        },
+        'vitals': {
+          'urineTest': null,
+          'pregnancyTest': null,
+        },
+      })));
+
+      final res = await blankService.extractFromBytes(sampleBytes, pageNumber: 1);
+      expect(res.demographics['maritalStatus'], isNull);
+      expect(res.demographics['relativeType'], isNull);
+      expect(res.demographics['relativeSurname'], equals(''));
+      expect(res.demographics['province'], equals(''));
+      expect(res.demographics['district'], equals(''));
+      expect(res.demographics['consentTreatment'], isNull);
+      expect(res.demographics['consentStoreMedicalInfo'], isNull);
+      expect(res.obstetrics['deliveries'], isNull);
+      expect(res.obstetrics['livingChildren'], isNull);
+      expect(res.obstetrics['abortions'], isNull);
+      expect(res.popStaging['uterusInside'], isNull);
+      expect(res.popStaging['pelvicFloorTone'], isNull);
+      expect(res.popStaging['anteriorStage'], isNull);
+      expect(res.popStaging['middleStage'], isNull);
+      expect(res.popStaging['posteriorStage'], isNull);
+      expect(res.popStaging['highestPopStage'], isNull);
+      expect(res.vitals['urineTest'], isNull);
+      expect(res.vitals['pregnancyTest'], isNull);
     });
   });
 

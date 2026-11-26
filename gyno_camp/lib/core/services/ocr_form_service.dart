@@ -590,8 +590,30 @@ class OcrFormService {
         demographics['relativeType'] = 'Guardian';
       } else if (relValue != null && (relValue.toLowerCase().contains('father') || relValue.contains('बुबा'))) {
         demographics['relativeType'] = 'Father';
+      } else if (relValue != null && (relValue.toLowerCase().contains('husband') || relValue.contains('श्रीमान्') || relValue.contains('पति'))) {
+        demographics['relativeType'] = 'Husband';
+      } else if ((demographics['relativeName'] as String?)?.trim().isNotEmpty == true) {
+        final hasDedicatedHusbandLine = lines.any((l) {
+          final low = l.toLowerCase();
+          return (low.contains("husband's name") || low.contains('husband name') || low.startsWith('husband:')) &&
+              !low.contains('father') &&
+              !low.contains('बुबा');
+        });
+        final hasDedicatedFatherLine = lines.any((l) {
+          final low = l.toLowerCase();
+          return (low.contains("father's name") || low.contains('father name') || low.startsWith('father:')) &&
+              !low.contains('husband') &&
+              !low.contains('श्रीमान');
+        });
+        if (hasDedicatedHusbandLine) {
+          demographics['relativeType'] = 'Husband';
+        } else if (hasDedicatedFatherLine) {
+          demographics['relativeType'] = 'Father';
+        } else {
+          demographics['relativeType'] = null;
+        }
       } else {
-        demographics['relativeType'] = (demographics['age'] as int? ?? 30) < 20 ? 'Father' : 'Husband';
+        demographics['relativeType'] = null;
       }
       confidences['relative'] = demographics['relativeName'] != null ? 0.90 : 0.50;
 
@@ -692,8 +714,8 @@ class OcrFormService {
           demographics['ward'] = wardMatch.group(1)!.padLeft(2, '0');
           confidences['ward'] = 0.90;
         } else {
-          demographics['ward'] = '03';
-          confidences['ward'] = 0.60;
+          demographics['ward'] = '';
+          confidences['ward'] = 0.0;
         }
       }
 
@@ -761,9 +783,9 @@ class OcrFormService {
       } else if (demographics['district'] != null && (demographics['district'] as String).isNotEmpty) {
         demographics['province'] = NepalGeodata.provinceOf(demographics['district'] as String);
       } else {
-        demographics['province'] = 'Bagmati';
+        demographics['province'] = '';
       }
-      confidences['location'] = (districtValue != null) ? 0.92 : 0.55;
+      confidences['location'] = (districtValue != null) ? 0.92 : 0.0;
 
       // ── Consents (Check explicit YES / NO checkboxes on Consent lines first, then legacy fallback) ──
       bool? parseConsentLine(List<String> lineKeywords) {
@@ -792,11 +814,11 @@ class OcrFormService {
                     RegExp(r'\bno\b', caseSensitive: false).hasMatch(subLine)) {
                   if (noRe.hasMatch(subLine)) return false;
                   if (yesRe.hasMatch(subLine)) return true;
-                  return false;
+                  return null;
                 }
               }
             }
-            return false;
+            return null;
           }
         }
         return null;
@@ -805,19 +827,15 @@ class OcrFormService {
       final explicitTreatConsent = parseConsentLine(['consent for treatment', 'उपचारको लागि सहमति']);
       final explicitStoreConsent = parseConsentLine(['consent for storage', 'स्वास्थ्य विवरण सहमति']);
       final lowerFull = text.toLowerCase();
-      demographics['consentTreatment'] = explicitTreatConsent ??
-          (!lowerFull.contains('no consent') &&
-              (lowerFull.contains('consent to examination') ||
-                  lowerFull.contains('treatment informed consent') ||
-                  lowerFull.contains('उपचार') ||
-                  lowerFull.contains('सहमति')));
-      demographics['consentStoreMedicalInfo'] = explicitStoreConsent ??
-          (!lowerFull.contains('no consent') &&
-              (lowerFull.contains('storage consent') ||
-                  lowerFull.contains('भण्डारण') ||
-                  lowerFull.contains('medical information') ||
-                  lowerFull.contains('सहमति')));
-      confidences['consent'] = 0.92;
+      final bool hasLegacyConsentGranted = !lowerFull.contains('no consent') &&
+          (lowerFull.contains('consent granted') ||
+              lowerFull.contains('informed consent granted') ||
+              isOptionSelected(['consent to examination', 'treatment informed consent', 'storage consent']));
+      demographics['consentTreatment'] = explicitTreatConsent ?? (hasLegacyConsentGranted ? true : null);
+      demographics['consentStoreMedicalInfo'] = explicitStoreConsent ?? (hasLegacyConsentGranted ? true : null);
+      if (demographics['consentTreatment'] != null || demographics['consentStoreMedicalInfo'] != null) {
+        confidences['consent'] = 0.92;
+      }
 
       // ── Marital Status ──
       if (page1OmrMarital != null && page1OmrMarital.values.any((r) => r.isMarked)) {
@@ -836,18 +854,10 @@ class OcrFormService {
         } else if (demographics['relativeType'] == 'Husband') {
           demographics['maritalStatus'] = 'married';
         } else {
-          demographics['maritalStatus'] = 'married';
+          demographics['maritalStatus'] = null;
         }
-        confidences['maritalStatus'] = 0.92;
-      }
-
-      // Reconcile relation with marital status
-      if (demographics['maritalStatus'] == 'married') {
-        demographics['relativeType'] ??= 'Husband';
-      } else {
-        // For unmarried, widow, divorced, default relation to Father unless explicitly set
-        if (demographics['relativeType'] == null || demographics['relativeType'] == 'Husband') {
-          demographics['relativeType'] = 'Father';
+        if (demographics['maritalStatus'] != null) {
+          confidences['maritalStatus'] = 0.92;
         }
       }
 
@@ -959,17 +969,14 @@ class OcrFormService {
         lowerText.contains('obstetric history');
 
     if (hasObstetricSectionOnPage) {
-      rawDeliveries ??= 3;
-      if (rawDeliveries > 15) rawDeliveries = 3;
-
-      rawLiving ??= min(rawDeliveries, 3);
-      if (rawLiving > 15) rawLiving = min(rawDeliveries, 3);
-
-      rawAbortions ??= max(0, rawDeliveries - rawLiving);
-      if (rawAbortions > 15) rawAbortions = max(0, rawDeliveries - rawLiving);
+      if (rawDeliveries != null && rawDeliveries > 15) rawDeliveries = null;
+      if (rawLiving != null && rawLiving > 15) rawLiving = null;
+      if (rawAbortions != null && rawAbortions > 15) rawAbortions = null;
 
       obstetrics['deliveries'] = rawDeliveries;
-      obstetrics['livingChildren'] = min(rawLiving, rawDeliveries);
+      obstetrics['livingChildren'] = (rawLiving != null && rawDeliveries != null)
+          ? min(rawLiving, rawDeliveries)
+          : rawLiving;
       obstetrics['abortions'] = rawAbortions;
 
       final clinicalComplaints = <String>[];
@@ -1148,7 +1155,7 @@ class OcrFormService {
         } else if (isOptionSelected(['< 1month', '<1month', '< 1 month', 'few weeks', '<1m'])) {
           duration = '< 1month';
         } else {
-          duration = '< 1 year';
+          duration = '';
         }
       }
       obstetrics['complaintsDuration'] = duration;
@@ -1283,9 +1290,11 @@ class OcrFormService {
       // ── Rapid Tests (Station 3) ──
       // 1. Urine test (supports both Yellow Form "urine test: normal / pos" and multi-reagent "Urine Dipstick: [x] Protein+ ...")
       String? detectedUrineResult;
+      bool sawUrineTestLine = false;
       for (final line in lines) {
         final low = line.toLowerCase();
         if (low.contains('urine dipstick')) {
+          sawUrineTestLine = true;
           final reagents = <String>[];
           for (final rName in ['protein+', 'glucose+', 'blood+', 'leukocytes+', 'nitrite+']) {
             final esc = RegExp.escape(rName);
@@ -1293,10 +1302,15 @@ class OcrFormService {
               reagents.add(rName);
             }
           }
-          detectedUrineResult = reagents.isNotEmpty ? reagents.join(', ') : 'normal';
+          if (reagents.isNotEmpty) {
+            detectedUrineResult = reagents.join(', ');
+          } else if (RegExp(r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|(?:^|\s)[xX✓✔])\s*normal', caseSensitive: false).hasMatch(line)) {
+            detectedUrineResult = 'normal';
+          }
           break;
         }
         if (low.contains('urine test')) {
+          sawUrineTestLine = true;
           final idx = low.indexOf('urine test');
           final after = line.substring(idx);
           final snippet = after.split(RegExp(r'pregnancy\s*test|blood\s*pressure', caseSensitive: false)).first;
@@ -1312,27 +1326,48 @@ class OcrFormService {
             detectedUrineResult = 'pos';
           } else if (markedNormal) {
             detectedUrineResult = 'normal';
+          } else {
+            final hasBoxes = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(snippet);
+            final hasBothOptions = snippet.toLowerCase().contains('normal') && snippet.toLowerCase().contains('pos');
+            if (!hasBoxes && !hasBothOptions) {
+              if (snippet.toLowerCase().contains('pos')) {
+                detectedUrineResult = 'pos';
+              } else if (snippet.toLowerCase().contains('normal')) {
+                detectedUrineResult = 'normal';
+              }
+            }
           }
           break;
         }
       }
       if (detectedUrineResult != null) {
         vitals['urineTest'] = detectedUrineResult;
-      } else {
+      } else if (!sawUrineTestLine) {
         final rawUrine = findValueForLabel(['urine test', 'urine dipstick', 'urine', 'पिसाब जाँच']);
         final urineLineText = (rawUrine ?? '').toLowerCase();
-        final hasUrineBoxes = rawUrine != null && RegExp(r'\[|\]|\(|\)|[☐口Ü☑☒]').hasMatch(rawUrine);
-        final urinePos = isOptionSelected(['urine: pos', 'urine test: pos', 'पोजिटिभ']) ||
+        final hasUrineBoxes = rawUrine != null && RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(rawUrine);
+        final hasBothUrineChoices = urineLineText.contains('normal') && urineLineText.contains('pos');
+        if (isOptionSelected(['urine: pos', 'urine test: pos', 'पोजिटिभ']) ||
             isOptionSelected(['protein+', 'glucose+', 'blood+']) ||
-            (!hasUrineBoxes && rawUrine != null && (urineLineText.contains('pos') || urineLineText.contains('+') || urineLineText.contains('protein') || urineLineText.contains('glucose') || urineLineText.contains('blood')));
-        vitals['urineTest'] = urinePos ? 'pos' : 'normal';
+            (!hasUrineBoxes && !hasBothUrineChoices && rawUrine != null && (urineLineText.contains('pos') || urineLineText.contains('+') || urineLineText.contains('protein') || urineLineText.contains('glucose') || urineLineText.contains('blood')))) {
+          vitals['urineTest'] = 'pos';
+        } else if (isOptionSelected(['urine: normal', 'urine test: normal']) ||
+            (!hasUrineBoxes && !hasBothUrineChoices && rawUrine != null && urineLineText.contains('normal'))) {
+          vitals['urineTest'] = 'normal';
+        } else {
+          vitals['urineTest'] = null;
+        }
+      } else {
+        vitals['urineTest'] = null;
       }
 
       // 2. Pregnancy test (supports neg / pos / Positive / Not Done)
       String? detectedPregResult;
+      bool sawPregTestLine = false;
       for (final line in lines) {
         final low = line.toLowerCase();
         if (low.contains('pregnancy test') || low.contains('pregnancy:')) {
+          sawPregTestLine = true;
           final idx = low.contains('pregnancy test') ? low.indexOf('pregnancy test') : low.indexOf('pregnancy:');
           final after = line.substring(idx);
           final snippet = after.split(RegExp(r'blood\s*pressure|pulse|\becg\b', caseSensitive: false)).first;
@@ -1354,23 +1389,43 @@ class OcrFormService {
             detectedPregResult = 'pos';
           } else if (markedNeg) {
             detectedPregResult = 'neg';
+          } else {
+            final hasBoxes = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(snippet);
+            final sLow = snippet.toLowerCase();
+            final hasBothChoices = sLow.contains('neg') && sLow.contains('pos');
+            if (!hasBoxes && !hasBothChoices) {
+              if (sLow.contains('not done')) {
+                detectedPregResult = 'not_done';
+              } else if (sLow.contains('pos')) {
+                detectedPregResult = 'pos';
+              } else if (sLow.contains('neg')) {
+                detectedPregResult = 'neg';
+              }
+            }
           }
           break;
         }
       }
       if (detectedPregResult != null) {
         vitals['pregnancyTest'] = detectedPregResult;
-      } else {
+      } else if (!sawPregTestLine) {
         final rawPregnancy = findValueForLabel(['pregnancy test', 'pregnancy', 'upt', 'hcg', 'गर्भ जाँच']);
         final pregLower = (rawPregnancy ?? '').toLowerCase();
-        final hasPregBoxes = rawPregnancy != null && RegExp(r'\[|\]|\(|\)|[☐口Ü☑☒]').hasMatch(rawPregnancy);
-        if (!hasPregBoxes && pregLower.contains('not done')) {
+        final hasPregBoxes = rawPregnancy != null && RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(rawPregnancy);
+        final hasBothPregChoices = pregLower.contains('neg') && pregLower.contains('pos');
+        if (!hasPregBoxes && !hasBothPregChoices && pregLower.contains('not done')) {
           vitals['pregnancyTest'] = 'not_done';
+        } else if (isOptionSelected(['pregnancy: pos', 'pregnancy test: pos', 'upt: pos', 'upt: positive']) ||
+            (!hasPregBoxes && !hasBothPregChoices && pregLower.contains('pos') && !pregLower.contains('neg'))) {
+          vitals['pregnancyTest'] = 'pos';
+        } else if (isOptionSelected(['pregnancy: neg', 'pregnancy test: neg', 'upt: neg', 'upt: negative']) ||
+            (!hasPregBoxes && !hasBothPregChoices && pregLower.contains('neg'))) {
+          vitals['pregnancyTest'] = 'neg';
         } else {
-          final pregPos = isOptionSelected(['pregnancy: pos', 'pregnancy test: pos', 'upt: pos', 'upt: positive']) ||
-              (!hasPregBoxes && pregLower.contains('pos') && !pregLower.contains('neg'));
-          vitals['pregnancyTest'] = pregPos ? 'pos' : 'neg';
+          vitals['pregnancyTest'] = null;
         }
+      } else {
+        vitals['pregnancyTest'] = null;
       }
 
       // ── ECG Examination (Station 3) ──
@@ -1573,18 +1628,22 @@ class OcrFormService {
         }
       }
 
-      final a = ant ?? 0;
-      final m = mid ?? (station4HighestPop != null && station4HighestPop > 0 ? station4HighestPop : 0);
-      final p = post ?? 0;
-      var highest = [a, m, p].reduce(max);
-      if (station4HighestPop != null && station4HighestPop > highest) {
-        highest = station4HighestPop;
-      }
+      final int? resolvedMid = mid ?? (station4HighestPop != null && station4HighestPop > 0 && ant == null && post == null ? station4HighestPop : null);
+      final nonNullStages = <int>[
+        ?ant,
+        ?resolvedMid,
+        ?post,
+        ?station4HighestPop,
+      ];
+      final int? highest = nonNullStages.isNotEmpty ? nonNullStages.reduce(max) : null;
 
-      popStaging['anteriorStage'] = a;
-      popStaging['middleStage'] = m;
-      popStaging['posteriorStage'] = p;
+      popStaging['anteriorStage'] = ant;
+      popStaging['middleStage'] = resolvedMid;
+      popStaging['posteriorStage'] = post;
       popStaging['highestPopStage'] = highest;
+      if (highest != null) {
+        confidences['popStaging'] = 0.94;
+      }
 
       // Uterus Inside detection
       bool? detectedUterusInside;
@@ -1599,16 +1658,29 @@ class OcrFormService {
             detectedUterusInside = false;
           } else if (yesMarked) {
             detectedUterusInside = true;
+          } else {
+            final hasBoxes = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(after);
+            final aLow = after.toLowerCase();
+            final hasBoth = aLow.contains('yes') && aLow.contains('no');
+            if (!hasBoxes && !hasBoth) {
+              if (aLow.contains('no') || aLow.contains('prolapsed')) {
+                detectedUterusInside = false;
+              } else if (aLow.contains('yes')) {
+                detectedUterusInside = true;
+              }
+            }
           }
           break;
         }
       }
       if (detectedUterusInside != null) {
         popStaging['uterusInside'] = detectedUterusInside;
+      } else if (isOptionSelected(['no (prolapsed)', 'prolapsed outside', 'uterus inside: no', 'uterus inside no'])) {
+        popStaging['uterusInside'] = false;
+      } else if (isOptionSelected(['uterus inside: yes', 'uterus inside yes'])) {
+        popStaging['uterusInside'] = true;
       } else {
-        final uterusOutside = isOptionSelected(['no (prolapsed)', 'prolapsed outside', 'uterus inside: no', 'uterus inside no']) ||
-            (highest >= 2 && !isOptionSelected(['uterus inside: yes', 'uterus inside yes', 'uterus inside: 0 yes']));
-        popStaging['uterusInside'] = !uterusOutside;
+        popStaging['uterusInside'] = null;
       }
 
       // 1. Vulva Examination (Station 2)
@@ -1617,9 +1689,10 @@ class OcrFormService {
         final low = line.toLowerCase();
         if (low.startsWith('vulva') || (low.contains('vulva') && !low.contains('vagina'))) {
           final isNormalChecked = RegExp(
-            r'vulva[^\r\n]*?(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])\s*normal|vulva[^\r\n]*?normal\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])',
+            r'vulva[^\r\n]*?(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)\s*normal|vulva[^\r\n]*?normal\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)',
             caseSensitive: false,
           ).hasMatch(line);
+          final hasBoxes = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(line);
           final afterOr = RegExp(r'\bor\b[:\s_]*(.+)$', caseSensitive: false).firstMatch(line);
           final remarkText = (afterOr?.group(1) ?? '')
               .replaceAll(RegExp(r'\s{2,}(?:[xX✓✔]\s+)?stage\s*[0-4].*$', caseSensitive: false), '')
@@ -1627,7 +1700,7 @@ class OcrFormService {
               .trim();
           if (remarkText.isNotEmpty && !remarkText.toLowerCase().contains('normal') && !isNoiseOrSeparator(remarkText)) {
             detectedVulva = remarkText;
-          } else if (isNormalChecked || low.contains('normal')) {
+          } else if (isNormalChecked || (!hasBoxes && !low.contains('normal or') && low.contains('normal'))) {
             detectedVulva = 'Normal';
           }
           break;
@@ -1635,8 +1708,12 @@ class OcrFormService {
       }
       if (detectedVulva == null) {
         final vulvaVal = findValueForLabel(['vulva appearance', 'vulva:', 'vulva', 'भल्भा']);
-        if (vulvaVal != null && vulvaVal.isNotEmpty && !vulvaVal.toLowerCase().contains('normal') && !isNoiseOrSeparator(vulvaVal)) {
+        final vLow = (vulvaVal ?? '').toLowerCase();
+        final vBoxes = vulvaVal != null && RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(vulvaVal);
+        if (vulvaVal != null && vulvaVal.isNotEmpty && !vLow.contains('normal') && !isNoiseOrSeparator(vulvaVal)) {
           detectedVulva = vulvaVal.trim();
+        } else if (vulvaVal != null && !vBoxes && !vLow.contains('normal or') && vLow.contains('normal')) {
+          detectedVulva = 'Normal';
         } else if (isOptionSelected(['condyloma', 'कन्डाइलोमा', 'wart', 'warts'])) {
           detectedVulva = 'Condyloma';
         } else if (isOptionSelected(['ulcer', 'घाउ'])) {
@@ -1645,8 +1722,6 @@ class OcrFormService {
           detectedVulva = 'Lichen Sclerosus';
         } else if (isOptionSelected(['erythema', 'redness'])) {
           detectedVulva = 'Erythema';
-        } else {
-          detectedVulva = 'Normal';
         }
       }
       popStaging['vulvaRemarks'] = detectedVulva;
@@ -1658,6 +1733,10 @@ class OcrFormService {
         if ((low.startsWith('vagina') || (low.contains('vagina') && low.contains('normal or'))) &&
             !low.contains('atrophy vagina') &&
             !low.contains('vaginosis')) {
+          final isNormalChecked = RegExp(
+            r'vagina[^\r\n]*?(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)\s*normal|vagina[^\r\n]*?normal\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)',
+            caseSensitive: false,
+          ).hasMatch(line);
           if (low.contains('normal or')) {
             final afterOr = RegExp(r'\bnormal\s+or\b[:\s_]*(.*)$', caseSensitive: false).firstMatch(line);
             final remarkText = (afterOr?.group(1) ?? '')
@@ -1666,7 +1745,7 @@ class OcrFormService {
                 .trim();
             if (remarkText.isNotEmpty && !remarkText.toLowerCase().contains('normal') && !isNoiseOrSeparator(remarkText)) {
               detectedVagina = remarkText;
-            } else {
+            } else if (isNormalChecked) {
               detectedVagina = 'Normal';
             }
             break;
@@ -1675,14 +1754,14 @@ class OcrFormService {
       }
       if (detectedVagina == null) {
         final vaginaVal = findValueForLabel(['vagina / vulva', 'vagina appearance', 'vagina:', 'vagina', 'योनी']);
-        if (vaginaVal != null && vaginaVal.isNotEmpty) {
+        final vagLow = (vaginaVal ?? '').toLowerCase();
+        final vagBoxes = vaginaVal != null && RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(vaginaVal);
+        if (vaginaVal != null && vaginaVal.isNotEmpty && !vagLow.contains('normal or') && !vagBoxes && !isNoiseOrSeparator(vaginaVal)) {
           detectedVagina = vaginaVal.trim();
         } else if (isOptionSelected(['atrophy', 'atrophic', 'सुकेको'])) {
           detectedVagina = 'Atrophic';
         } else if (isOptionSelected(['mild discharge', 'vaginal discharge'])) {
           detectedVagina = 'Mild discharge';
-        } else {
-          detectedVagina = 'Normal';
         }
       }
       popStaging['vaginaRemarks'] = detectedVagina;
@@ -1695,6 +1774,10 @@ class OcrFormService {
             (low.contains('cervix') &&
                 low.contains('normal or') &&
                 !low.contains('cervicitis'))) {
+          final isNormalChecked = RegExp(
+            r'cervix[^\r\n]*?(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)\s*normal|cervix[^\r\n]*?normal\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)',
+            caseSensitive: false,
+          ).hasMatch(line);
           if (low.contains('normal or')) {
             final afterOr = RegExp(r'\bnormal\s+or\b[:\s_]*(.*)$', caseSensitive: false).firstMatch(line);
             final remarkText = (afterOr?.group(1) ?? '')
@@ -1703,7 +1786,7 @@ class OcrFormService {
                 .trim();
             if (remarkText.isNotEmpty && !remarkText.toLowerCase().contains('normal') && !isNoiseOrSeparator(remarkText)) {
               detectedCervix = remarkText;
-            } else {
+            } else if (isNormalChecked) {
               detectedCervix = 'Normal';
             }
             break;
@@ -1712,7 +1795,9 @@ class OcrFormService {
       }
       if (detectedCervix == null) {
         final cervixVal = findValueForLabel(['cervix appearance', 'cervix:', 'cervix', 'पाठेघरको मुख']);
-        if (cervixVal != null && cervixVal.isNotEmpty) {
+        final cervLow = (cervixVal ?? '').toLowerCase();
+        final cervBoxes = cervixVal != null && RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(cervixVal);
+        if (cervixVal != null && cervixVal.isNotEmpty && !cervLow.contains('normal or') && !cervBoxes && !isNoiseOrSeparator(cervixVal)) {
           detectedCervix = cervixVal.trim();
         } else if (isOptionSelected(['erosion', 'इरोज़न'])) {
           detectedCervix = 'Erosion';
@@ -1720,8 +1805,6 @@ class OcrFormService {
           detectedCervix = 'Polyp';
         } else if (isOptionSelected(['hypertrophy', 'hypertrophied'])) {
           detectedCervix = 'Hypertrophy';
-        } else {
-          detectedCervix = 'Normal';
         }
       }
       popStaging['cervixRemarks'] = detectedCervix;
@@ -1732,9 +1815,10 @@ class OcrFormService {
         final low = line.toLowerCase();
         if (low.startsWith('uterus') || (low.contains('uterus') && !low.contains('cervix') && !low.contains('vulva') && !low.contains('inside'))) {
           final isNormalChecked = RegExp(
-            r'uterus[^\r\n]*?(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])\s*normal|uterus[^\r\n]*?normal\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])',
+            r'uterus[^\r\n]*?(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)\s*normal|uterus[^\r\n]*?normal\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)',
             caseSensitive: false,
           ).hasMatch(line);
+          final hasBoxes = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(line);
           final afterOr = RegExp(r'\bor\b[:\s_]*(.+)$', caseSensitive: false).firstMatch(line);
           final remarkText = (afterOr?.group(1) ?? '')
               .replaceAll(RegExp(r'\s{2,}(?:[xX✓✔]\s+)?stage\s*[0-4].*$', caseSensitive: false), '')
@@ -1742,7 +1826,7 @@ class OcrFormService {
               .trim();
           if (remarkText.isNotEmpty && !remarkText.toLowerCase().contains('normal') && !isNoiseOrSeparator(remarkText)) {
             detectedUterus = remarkText;
-          } else if (isNormalChecked || low.contains('normal')) {
+          } else if (isNormalChecked || (!hasBoxes && !low.contains('normal or') && low.contains('normal'))) {
             detectedUterus = 'Normal size';
           }
           break;
@@ -1750,8 +1834,12 @@ class OcrFormService {
       }
       if (detectedUterus == null) {
         final uterusVal = findValueForLabel(['uterus examination', 'uterus remarks', 'uterus:', 'पाठेघर सम्बन्धी']);
-        if (uterusVal != null && uterusVal.isNotEmpty && !uterusVal.toLowerCase().contains('normal') && !isNoiseOrSeparator(uterusVal)) {
+        final uLow = (uterusVal ?? '').toLowerCase();
+        final uBoxes = uterusVal != null && RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(uterusVal);
+        if (uterusVal != null && uterusVal.isNotEmpty && !uLow.contains('normal') && !isNoiseOrSeparator(uterusVal)) {
           detectedUterus = uterusVal.trim();
+        } else if (uterusVal != null && !uBoxes && !uLow.contains('normal or') && uLow.contains('normal')) {
+          detectedUterus = 'Normal size';
         } else if (isOptionSelected(['bulky', 'ठूलो', 'enlarged'])) {
           detectedUterus = 'Bulky';
         } else if (isOptionSelected(['tender', 'दुख्ने', 'tenderness'])) {
@@ -1760,8 +1848,6 @@ class OcrFormService {
           detectedUterus = 'Fibroid';
         } else if (isOptionSelected(['atrophic uterus', 'atrophic'])) {
           detectedUterus = 'Atrophic';
-        } else {
-          detectedUterus = 'Normal size';
         }
       }
       popStaging['uterusRemarks'] = detectedUterus;
@@ -1775,29 +1861,42 @@ class OcrFormService {
           popStaging['pelvicFloorTone'] = 'normal';
         }
       } else {
-        final toneLine = lines.firstWhere((l) => l.toLowerCase().contains('pelvic floor muscle'), orElse: () => '');
+        final toneLine = lines.firstWhere((l) => l.toLowerCase().contains('pelvic floor'), orElse: () => '');
         if (toneLine.isNotEmpty) {
           final cleanTone = toneLine.toLowerCase();
-          if (RegExp(r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)\s*hypertonic').hasMatch(cleanTone)) {
+          final hasToneBoxes = RegExp(r'\[\s*[xX✓✔•*+\#1\-]?\s*\]|\(\s*[xX✓✔•*+\#1\-]?\s*\)|[☐口Ü☑☒]').hasMatch(toneLine);
+          final hasMultipleToneChoices = cleanTone.contains('normal') && cleanTone.contains('weak');
+          if (RegExp(r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)\s*hypertonic|hypertonic\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])').hasMatch(cleanTone)) {
             popStaging['pelvicFloorTone'] = 'hypertonic';
-          } else if (RegExp(r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)\s*weak').hasMatch(cleanTone)) {
+          } else if (RegExp(r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)\s*weak|weak\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])').hasMatch(cleanTone)) {
             popStaging['pelvicFloorTone'] = 'weak';
-          } else if (RegExp(r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)\s*normal').hasMatch(cleanTone)) {
+          } else if (RegExp(r'(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•]|\b[xX✓✔]\b)\s*normal|normal\s*(?:\[\s*[xX✓✔•*+\#1\-]\s*\]|[☑☒✓✔•])').hasMatch(cleanTone)) {
             popStaging['pelvicFloorTone'] = 'normal';
+          } else if (!hasToneBoxes && !hasMultipleToneChoices) {
+            if (cleanTone.contains('hypertonic')) {
+              popStaging['pelvicFloorTone'] = 'hypertonic';
+            } else if (cleanTone.contains('weak')) {
+              popStaging['pelvicFloorTone'] = 'weak';
+            } else if (cleanTone.contains('normal')) {
+              popStaging['pelvicFloorTone'] = 'normal';
+            } else {
+              popStaging['pelvicFloorTone'] = null;
+            }
           } else {
-            popStaging['pelvicFloorTone'] = highest >= 2 ? 'weak' : 'normal';
+            popStaging['pelvicFloorTone'] = null;
           }
         } else {
           if (isOptionSelected(['hypertonic', 'कडा'])) {
             popStaging['pelvicFloorTone'] = 'hypertonic';
-          } else if (isOptionSelected(['weak tone', 'कमजोर tone']) || highest >= 2) {
+          } else if (isOptionSelected(['weak tone', 'कमजोर tone'])) {
             popStaging['pelvicFloorTone'] = 'weak';
-          } else {
+          } else if (isOptionSelected(['normal tone', 'सामान्य tone'])) {
             popStaging['pelvicFloorTone'] = 'normal';
+          } else {
+            popStaging['pelvicFloorTone'] = null;
           }
         }
       }
-      confidences['popStaging'] = 0.94;
 
       // ── Diagnoses (Station 4) ──
       void addDiag(String name) {
@@ -1830,7 +1929,7 @@ class OcrFormService {
           lines;
 
       // 21 Canonical Yellow Form Diagnoses Text Checking (Scoped to Station 4)
-      if (highest >= 2 || isOptionSelectedIn(s4Lines, ['pop', 'pelvic organ prolapse', 'पाठेघर खसेको', 'prolapse'])) {
+      if ((highest != null && highest >= 2) || isOptionSelectedIn(s4Lines, ['pop', 'pelvic organ prolapse', 'पाठेघर खसेको', 'prolapse'])) {
         addDiag('POP');
       }
       if (isOptionSelectedIn(s4Lines, ['atrophy vagina', 'atrophic vagina', 'vaginal atrophy', 'atrophy', 'सुकेको'])) {

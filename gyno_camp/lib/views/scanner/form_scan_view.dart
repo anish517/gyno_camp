@@ -2925,6 +2925,53 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                             return;
                           }
 
+                          final currentDemo = Map<String, dynamic>.from(
+                            ocrState.scanResult?.demographics ?? const {},
+                          );
+                          final checkFirst = (currentDemo['firstName'] as String? ?? '').trim();
+                          final checkSur = (currentDemo['surname'] as String? ?? '').trim();
+                          final checkAge = (currentDemo['age'] as num?)?.toInt();
+                          final checkWard = (currentDemo['ward'] as String? ?? '').trim().isNotEmpty
+                              ? (currentDemo['ward'] as String).trim()
+                              : activeCamp.ward.trim();
+
+                          final missingFields = <String>[
+                            if (checkFirst.isEmpty) 'First Name',
+                            if (checkSur.isEmpty) 'Surname',
+                            if (checkAge == null || checkAge <= 0) 'Age',
+                            if (checkWard.isEmpty) 'Ward No.',
+                          ];
+                          if (missingFields.isNotEmpty) {
+                            _tabController.animateTo(0);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Required demographics missing: ${missingFields.join(", ")}. Please fill them in Tab 1 before committing.',
+                                ),
+                                backgroundColor: Colors.red[700],
+                              ),
+                            );
+                            return;
+                          }
+
+                          // Pre-fill blank administrative location from active camp before commit
+                          if ((currentDemo['province'] as String? ?? '').trim().isEmpty &&
+                              activeCamp.province.trim().isNotEmpty) {
+                            ocrVm.updateDemographic('province', activeCamp.province.trim(), campId: activeCamp.id);
+                          }
+                          if ((currentDemo['district'] as String? ?? '').trim().isEmpty &&
+                              activeCamp.district.trim().isNotEmpty) {
+                            ocrVm.updateDemographic('district', activeCamp.district.trim(), campId: activeCamp.id);
+                          }
+                          if ((currentDemo['municipality'] as String? ?? '').trim().isEmpty &&
+                              activeCamp.municipality.trim().isNotEmpty) {
+                            ocrVm.updateDemographic('municipality', activeCamp.municipality.trim(), campId: activeCamp.id);
+                          }
+                          if ((currentDemo['ward'] as String? ?? '').trim().isEmpty &&
+                              activeCamp.ward.trim().isNotEmpty) {
+                            ocrVm.updateDemographic('ward', activeCamp.ward.trim(), campId: activeCamp.id);
+                          }
+
                           if (ocrState.duplicateResult.hasDuplicate) {
                             final proceed = await showDialog<bool>(
                               context: context,
@@ -3099,8 +3146,11 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     String? campCode,
   }) {
     final demo = result.demographics;
+    final activeCamp = ref.watch(userActiveCampProvider);
 
-    final rawDist = demo['district']?.toString().trim() ?? '';
+    final rawDist = (demo['district']?.toString().trim().isNotEmpty == true)
+        ? demo['district']!.toString().trim()
+        : (activeCamp?.district.trim() ?? '');
     String? matchedGlobalDistrict;
     if (rawDist.isNotEmpty) {
       for (final d in NepalGeodata.allDistricts) {
@@ -3112,7 +3162,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
       }
     }
 
-    final rawProv = demo['province']?.toString().trim() ?? '';
+    final rawProv = (demo['province']?.toString().trim().isNotEmpty == true)
+        ? demo['province']!.toString().trim()
+        : (activeCamp?.province.trim() ?? '');
     String? matchedProvince;
     if (rawProv.isNotEmpty) {
       for (final p in ClinicalConstants.nepalProvinces) {
@@ -3713,27 +3765,27 @@ class _FormScanViewState extends ConsumerState<FormScanView>
               final isNarrow = constraints.maxWidth < 550;
               final ageField = _buildFieldWithConfidence(
                 label: 'Age (उमेर)',
-                value: demo['age']?.toString() ?? '35',
+                value: demo['age']?.toString() ?? '',
                 fieldKey: 'age',
                 result: result,
                 keyboardType: TextInputType.number,
                 onChanged: (val) => vm.updateDemographic(
                   'age',
-                  int.tryParse(val) ?? 35,
+                  int.tryParse(val.trim()),
                   campId: campId,
                 ),
               );
-              final maritalField = DropdownButtonFormField<String>(
+              final normalizedMarital = demo['maritalStatus']?.toString().trim().toLowerCase() ?? '';
+              final maritalField = DropdownButtonFormField<String?>(
                 key: ValueKey('scan_marital_${demo['maritalStatus']}'),
-                initialValue:
-                    const [
-                      'married',
-                      'unmarried',
-                      'widow',
-                      'divorced',
-                    ].contains(demo['maritalStatus']?.toString().toLowerCase())
-                    ? demo['maritalStatus']?.toString().toLowerCase()
-                    : 'married',
+                initialValue: const [
+                  'married',
+                  'unmarried',
+                  'widow',
+                  'divorced',
+                ].contains(normalizedMarital)
+                    ? normalizedMarital
+                    : null,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Marital Status (वैवाहिक स्थिति)',
@@ -3744,6 +3796,18 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   ),
                 ),
                 selectedItemBuilder: (context) => const [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Not Recorded (—)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -3790,28 +3854,35 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   ),
                 ],
                 items: const [
-                  DropdownMenuItem(
+                  DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(
+                      'Not Recorded (—)',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                  ),
+                  DropdownMenuItem<String?>(
                     value: 'married',
                     child: Text(
                       'Married (विवाहित)',
                       style: TextStyle(fontSize: 13),
                     ),
                   ),
-                  DropdownMenuItem(
+                  DropdownMenuItem<String?>(
                     value: 'unmarried',
                     child: Text(
                       'Unmarried (अविवाहित)',
                       style: TextStyle(fontSize: 13),
                     ),
                   ),
-                  DropdownMenuItem(
+                  DropdownMenuItem<String?>(
                     value: 'widow',
                     child: Text(
                       'Widow (एकल/विधवा)',
                       style: TextStyle(fontSize: 13),
                     ),
                   ),
-                  DropdownMenuItem(
+                  DropdownMenuItem<String?>(
                     value: 'divorced',
                     child: Text(
                       'Divorced (सम्बन्धविच्छेद)',
@@ -3820,13 +3891,11 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   ),
                 ],
                 onChanged: (status) {
-                  if (status != null) {
-                    vm.updateDemographic(
-                      'maritalStatus',
-                      status,
-                      campId: campId,
-                    );
-                  }
+                  vm.updateDemographic(
+                    'maritalStatus',
+                    status,
+                    campId: campId,
+                  );
                 },
               );
 
@@ -3935,12 +4004,15 @@ class _FormScanViewState extends ConsumerState<FormScanView>
               final isNarrow = constraints.maxWidth < 550;
               final palikaField = Builder(
                 builder: (context) {
+                  final effectivePalikaSource =
+                      (demo['municipality'] != null &&
+                          demo['municipality'].toString().trim().isNotEmpty)
+                      ? demo['municipality'].toString().trim()
+                      : (activeCamp?.municipality.trim() ?? '');
                   final rawPalikas = NepalGeodata.palikasFor(
                     validDistrict,
-                    extraPalikas:
-                        demo['municipality'] != null &&
-                            demo['municipality'].toString().trim().isNotEmpty
-                        ? [demo['municipality'].toString().trim()]
+                    extraPalikas: effectivePalikaSource.isNotEmpty
+                        ? [effectivePalikaSource]
                         : null,
                   );
                   final seenLower = <String>{};
@@ -3953,12 +4025,12 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   final currentPalika = palikas.firstWhere(
                     (p) =>
                         p.toLowerCase() ==
-                        demo['municipality']?.toString().trim().toLowerCase(),
+                        effectivePalikaSource.toLowerCase(),
                     orElse: () => palikas.isNotEmpty ? palikas.first : '',
                   );
                   return DropdownButtonFormField<String>(
                     key: ValueKey(
-                      'scan_palika_${validDistrict}_${demo['municipality']}',
+                      'scan_palika_${validDistrict}_$effectivePalikaSource',
                     ),
                     initialValue: currentPalika.isNotEmpty
                         ? currentPalika
@@ -3993,7 +4065,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
 
               final wardField = _buildFieldWithConfidence(
                 label: 'Ward Number (वडा नं)',
-                value: demo['ward']?.toString() ?? '03',
+                value: (demo['ward']?.toString().trim().isNotEmpty == true)
+                    ? demo['ward']!.toString().trim()
+                    : (activeCamp?.ward.trim() ?? ''),
                 fieldKey: 'ward',
                 result: result,
                 keyboardType: TextInputType.number,
@@ -4130,6 +4204,8 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                       onSelected: (selected) {
                         if (selected) {
                           vm.updateRelativeType(rel);
+                        } else {
+                          vm.updateDemographic('relativeType', null, campId: campId);
                         }
                       },
                     ),
@@ -4297,7 +4373,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             child: Column(
               children: [
                 CheckboxListTile(
-                  value: demo['consentTreatment'] as bool? ?? true,
+                  value: demo['consentTreatment'] as bool? ?? false,
                   title: const Text(
                     'Consent for Examination & Treatment',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -4319,7 +4395,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                 ),
                 const Divider(height: 1),
                 CheckboxListTile(
-                  value: demo['consentStoreMedicalInfo'] as bool? ?? true,
+                  value: demo['consentStoreMedicalInfo'] as bool? ?? false,
                   title: const Text(
                     'Consent to Store Medical Information',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -4405,7 +4481,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   _buildStepperCardRow(
                     label: 'Deliveries / Parity (सुत्केरी संख्या)',
                     description: 'Total live or stillborn deliveries',
-                    value: obs['deliveries'] as int? ?? 3,
+                    value: (obs['deliveries'] as num?)?.toInt(),
                     onChanged: (v) {
                       obs['deliveries'] = v;
                       vm.updateObstetric('deliveries', v);
@@ -4415,7 +4491,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   _buildStepperCardRow(
                     label: 'Living Children (जीवित बालबच्चा)',
                     description: 'Number of living children at present',
-                    value: obs['livingChildren'] as int? ?? 3,
+                    value: (obs['livingChildren'] as num?)?.toInt(),
                     onChanged: (v) {
                       obs['livingChildren'] = v;
                       vm.updateObstetric('livingChildren', v);
@@ -4425,7 +4501,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   _buildStepperCardRow(
                     label: 'Abortions / Miscarriages (गर्भपतन)',
                     description: 'Spontaneous miscarriages or terminations',
-                    value: obs['abortions'] as int? ?? 0,
+                    value: (obs['abortions'] as num?)?.toInt(),
                     onChanged: (v) {
                       obs['abortions'] = v;
                       vm.updateObstetric('abortions', v);
@@ -4835,7 +4911,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
 
                       final currentDuration =
                           (item['duration'] as String?) ??
-                          (obs['complaintsDuration'] as String? ?? '< 1 year');
+                          (obs['complaintsDuration'] as String? ?? '');
                       final currentRemarks = (item['remarks'] as String?) ?? '';
 
                       // Extract selected sub-options
@@ -5239,21 +5315,21 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   const SizedBox(height: 12),
                   _buildStageDropdown(
                     label: 'POP anterior wall (अगाडिको भित्ता):',
-                    value: pop['anteriorStage'] as int? ?? 0,
+                    value: (pop['anteriorStage'] as num?)?.toInt(),
                     maxStage: 3,
                     onChanged: (v) => vm.updatePopStage('anteriorStage', v),
                   ),
                   const Divider(height: 24),
                   _buildStageDropdown(
                     label: 'POP middle part (बीचको भाग - Uterine):',
-                    value: pop['middleStage'] as int? ?? 0,
+                    value: (pop['middleStage'] as num?)?.toInt(),
                     maxStage: 4,
                     onChanged: (v) => vm.updatePopStage('middleStage', v),
                   ),
                   const Divider(height: 24),
                   _buildStageDropdown(
                     label: 'POP posterior wall (पछाडिको भित्ता):',
-                    value: pop['posteriorStage'] as int? ?? 0,
+                    value: (pop['posteriorStage'] as num?)?.toInt(),
                     maxStage: 3,
                     onChanged: (v) => vm.updatePopStage('posteriorStage', v),
                   ),
@@ -5348,9 +5424,10 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                               fontSize: 11.5,
                             ),
                             onSelected: (selected) {
-                              if (selected) {
-                                vm.updatePopStage('highestPopStage', stage);
-                              }
+                              vm.updatePopStage(
+                                'highestPopStage',
+                                selected ? stage : null,
+                              );
                             },
                           );
                         }),
@@ -5401,15 +5478,19 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                         selectedColor: AppTheme.primaryTeal.withValues(
                           alpha: 0.2,
                         ),
-                        onSelected: (sel) =>
-                            vm.updatePopStage('uterusInside', true),
+                        onSelected: (sel) => vm.updatePopStage(
+                          'uterusInside',
+                          sel ? true : null,
+                        ),
                       ),
                       ChoiceChip(
                         label: const Text('No'),
                         selected: pop['uterusInside'] == false,
                         selectedColor: Colors.orange.shade100,
-                        onSelected: (sel) =>
-                            vm.updatePopStage('uterusInside', false),
+                        onSelected: (sel) => vm.updatePopStage(
+                          'uterusInside',
+                          sel ? false : null,
+                        ),
                       ),
                     ],
                   ),
@@ -5450,8 +5531,10 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                   : FontWeight.normal,
                               fontSize: 12,
                             ),
-                            onSelected: (_) =>
-                                vm.updatePopStage('pelvicFloorTone', t['val']),
+                            onSelected: (sel) => vm.updatePopStage(
+                              'pelvicFloorTone',
+                              sel ? t['val'] : null,
+                            ),
                           );
                         }).toList(),
                   ),
@@ -6479,12 +6562,13 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   Builder(
                     builder: (context) {
                       final currentUrine =
-                          (vitals['urineTest'] as String? ?? 'normal')
+                          (vitals['urineTest'] as String? ?? '')
+                              .trim()
                               .toLowerCase();
-                      final isNormal =
-                          currentUrine == 'normal' || currentUrine.isEmpty;
+                      final isNormal = currentUrine == 'normal';
                       final isPos =
                           !isNormal &&
+                          currentUrine.isNotEmpty &&
                           (currentUrine.contains('pos') ||
                               currentUrine.contains('+') ||
                               currentUrine.contains('protein') ||
@@ -6510,8 +6594,10 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                   : FontWeight.normal,
                               fontSize: 11.5,
                             ),
-                            onSelected: (_) =>
-                                vm.updateVital('urineTest', 'normal'),
+                            onSelected: (sel) => vm.updateVital(
+                              'urineTest',
+                              sel ? 'normal' : null,
+                            ),
                           ),
                           ChoiceChip(
                             label: const Text('Positive (पोजिटिभ)'),
@@ -6526,8 +6612,8 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                   : FontWeight.normal,
                               fontSize: 11.5,
                             ),
-                            onSelected: (_) =>
-                                vm.updateVital('urineTest', 'pos'),
+                            onSelected: (sel) =>
+                                vm.updateVital('urineTest', sel ? 'pos' : null),
                           ),
                         ],
                       );
@@ -6546,19 +6632,27 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                         [
                           {'val': 'neg', 'label': 'Negative (नेगेटिभ)'},
                           {'val': 'pos', 'label': 'Positive (पोजिटिभ)'},
+                          {
+                            'val': 'not_done',
+                            'label': 'Not Done (जाँच नगरिएको)',
+                          },
                         ].map((item) {
                           final rawPreg =
-                              (vitals['pregnancyTest'] as String? ?? 'neg')
+                              (vitals['pregnancyTest'] as String? ?? '')
                                   .toLowerCase()
                                   .trim();
                           final isSelected =
-                              rawPreg == item['val'] ||
-                              (item['val'] == 'neg' &&
-                                  (rawPreg == 'negative' ||
-                                      rawPreg.startsWith('neg'))) ||
-                              (item['val'] == 'pos' &&
-                                  (rawPreg == 'positive' ||
-                                      rawPreg.startsWith('pos')));
+                              rawPreg.isNotEmpty &&
+                              (rawPreg == item['val'] ||
+                                  (item['val'] == 'neg' &&
+                                      (rawPreg == 'negative' ||
+                                          rawPreg.startsWith('neg'))) ||
+                                  (item['val'] == 'pos' &&
+                                      (rawPreg == 'positive' ||
+                                          rawPreg.startsWith('pos'))) ||
+                                  (item['val'] == 'not_done' &&
+                                      (rawPreg.contains('not') ||
+                                          rawPreg.contains('done'))));
                           return ChoiceChip(
                             label: Text(item['label']!),
                             selected: isSelected,
@@ -6574,8 +6668,10 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                   : FontWeight.normal,
                               fontSize: 11.5,
                             ),
-                            onSelected: (_) =>
-                                vm.updateVital('pregnancyTest', item['val']),
+                            onSelected: (sel) => vm.updateVital(
+                              'pregnancyTest',
+                              sel ? item['val'] : null,
+                            ),
                           );
                         }).toList(),
                   ),
@@ -8348,7 +8444,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
         'label': 'Consent: Treatment',
         'section': 'Demographics',
         'tabIndex': 0,
-        'value': (demo['consentTreatment'] as bool?) == false ? 'No' : 'Yes',
+        'value': demo['consentTreatment'] == null
+            ? '—'
+            : ((demo['consentTreatment'] as bool) ? 'Yes' : 'No'),
         'confKey': 'consent',
       },
       {
@@ -8356,9 +8454,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
         'label': 'Consent: Store Info',
         'section': 'Demographics',
         'tabIndex': 0,
-        'value': (demo['consentStoreMedicalInfo'] as bool?) == false
-            ? 'No'
-            : 'Yes',
+        'value': demo['consentStoreMedicalInfo'] == null
+            ? '—'
+            : ((demo['consentStoreMedicalInfo'] as bool) ? 'Yes' : 'No'),
         'confKey': 'consent',
       },
       // ── Obstetrics ────────────────────────────────────────
@@ -8425,7 +8523,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
         'label': 'Uterus Inside',
         'section': 'POP Exam',
         'tabIndex': 2,
-        'value': (pop['uterusInside'] as bool?) == true ? 'Yes' : 'No',
+        'value': pop['uterusInside'] == null
+            ? '—'
+            : ((pop['uterusInside'] as bool) ? 'Yes' : 'No'),
         'confKey': 'popStaging',
       },
       {
@@ -8433,7 +8533,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
         'label': 'Pelvic Floor Muscle',
         'section': 'POP Exam',
         'tabIndex': 2,
-        'value': pop['pelvicFloorTone']?.toString() ?? '—',
+        'value': (pop['pelvicFloorTone'] as String?)?.trim().isNotEmpty == true
+            ? pop['pelvicFloorTone']!.toString()
+            : '—',
         'confKey': 'popStaging',
       },
       {
@@ -8441,7 +8543,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
         'label': 'Vulva Appearance',
         'section': 'POP Exam',
         'tabIndex': 2,
-        'value': pop['vulvaRemarks']?.toString() ?? 'Normal',
+        'value': (pop['vulvaRemarks'] as String?)?.trim().isNotEmpty == true
+            ? pop['vulvaRemarks']!.toString()
+            : '—',
         'confKey': 'popStaging',
       },
       {
@@ -8449,7 +8553,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
         'label': 'Vagina Exam',
         'section': 'POP Exam',
         'tabIndex': 2,
-        'value': pop['vaginaRemarks']?.toString() ?? 'Normal',
+        'value': (pop['vaginaRemarks'] as String?)?.trim().isNotEmpty == true
+            ? pop['vaginaRemarks']!.toString()
+            : '—',
         'confKey': 'popStaging',
       },
       {
@@ -8457,7 +8563,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
         'label': 'Cervix Appearance',
         'section': 'POP Exam',
         'tabIndex': 2,
-        'value': pop['cervixRemarks']?.toString() ?? 'Normal / Smooth',
+        'value': (pop['cervixRemarks'] as String?)?.trim().isNotEmpty == true
+            ? pop['cervixRemarks']!.toString()
+            : '—',
         'confKey': 'popStaging',
       },
       {
@@ -8465,7 +8573,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
         'label': 'Uterus Exam',
         'section': 'POP Exam',
         'tabIndex': 2,
-        'value': pop['uterusRemarks']?.toString() ?? 'Normal size',
+        'value': (pop['uterusRemarks'] as String?)?.trim().isNotEmpty == true
+            ? pop['uterusRemarks']!.toString()
+            : '—',
         'confKey': 'popStaging',
       },
       {
@@ -9005,8 +9115,8 @@ class _FormScanViewState extends ConsumerState<FormScanView>
   Widget _buildStepperCardRow({
     required String label,
     required String description,
-    required int value,
-    required ValueChanged<int> onChanged,
+    required int? value,
+    required ValueChanged<int?> onChanged,
   }) {
     return Row(
       children: [
@@ -9034,6 +9144,13 @@ class _FormScanViewState extends ConsumerState<FormScanView>
           ),
         ),
         const SizedBox(width: 12),
+        if (value != null)
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Clear to Not Recorded',
+            icon: Icon(Icons.close, size: 16, color: Colors.grey.shade500),
+            onPressed: () => onChanged(null),
+          ),
         Container(
           decoration: BoxDecoration(
             color: Colors.grey.shade100,
@@ -9050,16 +9167,20 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   size: 18,
                   color: Colors.blueGrey,
                 ),
-                onPressed: value > 0 ? () => onChanged(value - 1) : null,
+                onPressed: value == null
+                    ? () => onChanged(0)
+                    : (value > 0 ? () => onChanged(value - 1) : null),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  '$value',
-                  style: const TextStyle(
+                  value != null ? '$value' : '—',
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryDark,
+                    color: value != null
+                        ? AppTheme.primaryDark
+                        : Colors.grey.shade500,
                   ),
                 ),
               ),
@@ -9070,7 +9191,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   size: 18,
                   color: AppTheme.primaryTeal,
                 ),
-                onPressed: () => onChanged(value + 1),
+                onPressed: () => onChanged(value == null ? 0 : value + 1),
               ),
             ],
           ),
@@ -9081,14 +9202,14 @@ class _FormScanViewState extends ConsumerState<FormScanView>
 
   Widget _buildStageDropdown({
     required String label,
-    required int value,
+    required int? value,
     required int maxStage,
-    required ValueChanged<int> onChanged,
+    required ValueChanged<int?> onChanged,
   }) {
-    final int effectiveMax = value > maxStage ? value : maxStage;
-    final int safeValue = value < 0
-        ? 0
-        : (value > effectiveMax ? effectiveMax : value);
+    final int effectiveMax = (value != null && value > maxStage) ? value : maxStage;
+    final int? safeValue = value == null
+        ? null
+        : (value < 0 ? 0 : (value > effectiveMax ? effectiveMax : value));
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -9098,13 +9219,22 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ),
-        DropdownButton<int>(
+        DropdownButton<int?>(
           value: safeValue,
-          items: List.generate(
-            effectiveMax + 1,
-            (i) => DropdownMenuItem(value: i, child: Text('Stage $i')),
-          ),
-          onChanged: (v) => v != null ? onChanged(v) : null,
+          items: [
+            const DropdownMenuItem<int?>(
+              value: null,
+              child: Text(
+                'Not Recorded (—)',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            ...List.generate(
+              effectiveMax + 1,
+              (i) => DropdownMenuItem<int?>(value: i, child: Text('Stage $i')),
+            ),
+          ],
+          onChanged: onChanged,
         ),
       ],
     );

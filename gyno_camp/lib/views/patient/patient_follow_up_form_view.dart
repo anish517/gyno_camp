@@ -129,11 +129,11 @@ class _PatientFollowUpFormViewState
             _latestVisit = visits.first;
             // Pre-seed known ongoing diagnoses and baseline values
             _selectedDiagnoses.addAll(_latestVisit!.diagnoses);
-            _anteriorStage = _latestVisit!.popAnteriorStage;
-            _middleStage = _latestVisit!.popMiddleStage;
-            _posteriorStage = _latestVisit!.popPosteriorStage;
-            _uterusInside = _latestVisit!.uterusInside;
-            _pelvicFloorTone = _latestVisit!.pelvicFloorTone;
+            _anteriorStage = _latestVisit!.popAnteriorStage ?? 0;
+            _middleStage = _latestVisit!.popMiddleStage ?? 0;
+            _posteriorStage = _latestVisit!.popPosteriorStage ?? 0;
+            _uterusInside = _latestVisit!.uterusInside ?? true;
+            _pelvicFloorTone = _latestVisit!.pelvicFloorTone ?? ClinicalConstants.pelvicFloorNormal;
             _surgeryDone = _latestVisit!.surgeryDone;
             _selectedSurgeryType = _latestVisit!.surgeryType;
             final histSurgRef = _latestVisit!.surgicalReferral;
@@ -966,7 +966,8 @@ class _PatientFollowUpFormViewState
                     v.abortions != null ||
                     v.cervixRemarks != null ||
                     v.vaginaRemarks != null ||
-                    !v.uterusInside) ...[
+                    v.pelvicFloorTone != null ||
+                    v.uterusInside != null) ...[
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 6),
@@ -1018,18 +1019,20 @@ class _PatientFollowUpFormViewState
                                 const Color(0xFFEA580C),
                               ),
                             ],
-                            _tb(
-                              'Pelvic Floor: ${v.pelvicFloorTone.toUpperCase()}',
-                              AppTheme.primaryTeal,
-                            ),
-                            _tb(
-                              v.uterusInside
-                                  ? 'Uterus Inside: Yes'
-                                  : 'Uterus Inside: No',
-                              v.uterusInside
-                                  ? AppTheme.successGreen
-                                  : AppTheme.dangerRose,
-                            ),
+                            if (v.pelvicFloorTone != null && v.pelvicFloorTone!.trim().isNotEmpty)
+                              _tb(
+                                'Pelvic Floor: ${v.pelvicFloorTone!.toUpperCase()}',
+                                AppTheme.primaryTeal,
+                              ),
+                            if (v.uterusInside != null)
+                              _tb(
+                                v.uterusInside!
+                                    ? 'Uterus Inside: Yes'
+                                    : 'Uterus Inside: No',
+                                v.uterusInside!
+                                    ? AppTheme.successGreen
+                                    : AppTheme.dangerRose,
+                              ),
                             if (v.cervixRemarks?.isNotEmpty == true)
                               _tb(
                                 'Cervix: ${v.cervixRemarks}',
@@ -1141,7 +1144,12 @@ class _PatientFollowUpFormViewState
                         color: Color(0xFF475569),
                       ),
                     ),
-                    if (v.popAnteriorStage == 0 &&
+                    if (v.popAnteriorStage == null &&
+                        v.popMiddleStage == null &&
+                        v.popPosteriorStage == null &&
+                        v.highestPopStage == null) ...[
+                      _pb('', 'Not Recorded', isNormal: false),
+                    ] else if (v.popAnteriorStage == 0 &&
                         v.popMiddleStage == 0 &&
                         v.popPosteriorStage == 0) ...[
                       _pb('', 'Normal (No Prolapse)', isNormal: true),
@@ -1151,23 +1159,23 @@ class _PatientFollowUpFormViewState
                     ] else ...[
                       _pb(
                         'Ant',
-                        'St ${v.popAnteriorStage}',
+                        v.popAnteriorStage != null ? 'St ${v.popAnteriorStage}' : '—',
                         ip: v.popAnteriorStage == 2,
-                        ic: v.popAnteriorStage >= 3,
+                        ic: (v.popAnteriorStage ?? 0) >= 3,
                         isNormal: v.popAnteriorStage == 0,
                       ),
                       _pb(
                         'Mid',
-                        'St ${v.popMiddleStage}',
+                        v.popMiddleStage != null ? 'St ${v.popMiddleStage}' : '—',
                         ip: v.popMiddleStage == 2,
-                        ic: v.popMiddleStage >= 3,
+                        ic: (v.popMiddleStage ?? 0) >= 3,
                         isNormal: v.popMiddleStage == 0,
                       ),
                       _pb(
                         'Post',
-                        'St ${v.popPosteriorStage}',
+                        v.popPosteriorStage != null ? 'St ${v.popPosteriorStage}' : '—',
                         ip: v.popPosteriorStage == 2,
-                        ic: v.popPosteriorStage >= 3,
+                        ic: (v.popPosteriorStage ?? 0) >= 3,
                         isNormal: v.popPosteriorStage == 0,
                       ),
                     ],

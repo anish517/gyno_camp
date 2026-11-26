@@ -675,7 +675,7 @@ class PatientRepository implements IPatientRepository {
     final detailMap = {
       'patientId': newVisit.patientId,
       'highestPop': newVisit.highestPopStage,
-      'popStages': 'A${newVisit.popAnteriorStage} M${newVisit.popMiddleStage} P${newVisit.popPosteriorStage}',
+      'popStages': 'A${newVisit.popAnteriorStage ?? "-"} M${newVisit.popMiddleStage ?? "-"} P${newVisit.popPosteriorStage ?? "-"}',
       'bp': '${newVisit.systolicBp ?? "-"}/${newVisit.diastolicBp ?? "-"}',
       'pulse': newVisit.pulse,
       'spo2': newVisit.spo2,

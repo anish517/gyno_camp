@@ -5,6 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:gyno_camp/core/database/database_service.dart';
 import 'package:gyno_camp/core/services/nepali_localization_service.dart';
 import 'package:gyno_camp/core/services/ocr_form_service.dart';
+import 'package:gyno_camp/core/services/report_aggregation_service.dart';
 import 'package:gyno_camp/core/utils/nepali_date_helper.dart';
 import 'package:gyno_camp/models/clinical_visit_model.dart';
 import 'package:gyno_camp/models/ocr_scan_result_model.dart';
@@ -550,6 +551,25 @@ void main() {
       expect(visit.spo2, isNull);
       expect(visit.glucose, isNull);
       expect(visit.surgicalReferral, isNull);
+      expect(visit.uterusInside, isNull);
+      expect(visit.pelvicFloorTone, isNull);
+      expect(visit.popAnteriorStage, isNull);
+      expect(visit.popMiddleStage, isNull);
+      expect(visit.popPosteriorStage, isNull);
+      expect(visit.highestPopStage, isNull);
+      expect(visit.urineTest, isNull);
+      expect(visit.pregnancyTest, isNull);
+
+      // Verify null POP stages do NOT inflate Stage 0 prevalence counts in analytics
+      final report = ReportAggregationService().aggregate(
+        patients: [savedPatient],
+        visits: [visit],
+      );
+      expect(report.highestPopStages[0], 0);
+      expect(report.anteriorStages[0], 0);
+      expect(report.middleStages[0], 0);
+      expect(report.posteriorStages[0], 0);
+      expect(report.significantPopCount, 0);
     });
   });
 }

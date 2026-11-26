@@ -1030,7 +1030,7 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
                   ),
                 ],
                 // 1. Obstetric History & Pelvic Floor Exam (Station 2)
-                if (v.deliveries != null || v.livingChildren != null || v.abortions != null || v.vulvaRemarks != null || v.cervixRemarks != null || v.vaginaRemarks != null || v.uterusRemarks != null || !v.uterusInside) ...[
+                if (v.deliveries != null || v.livingChildren != null || v.abortions != null || v.vulvaRemarks != null || v.cervixRemarks != null || v.vaginaRemarks != null || v.uterusRemarks != null || v.pelvicFloorTone != null || v.uterusInside != null) ...[
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 8),
@@ -1058,11 +1058,13 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
                               _obsBadge('Living (L)', v.livingChildren?.toString() ?? '?', const Color(0xFFF0FFF4), const Color(0xFF16A34A), tooltip: 'Living Children (जीवित सन्तान)'),
                               _obsBadge('Losses (A)', v.abortions?.toString() ?? '?', const Color(0xFFFFF7ED), const Color(0xFFEA580C), tooltip: 'Abortions / Miscarriages (गर्भपतन)'),
                             ],
-                            _tb('Pelvic Floor: ${v.pelvicFloorTone.toUpperCase()}', AppTheme.primaryTeal),
-                            _tb(
-                              v.uterusInside ? 'Uterus Inside: Yes' : 'Uterus Inside: No',
-                              v.uterusInside ? AppTheme.successGreen : AppTheme.dangerRose,
-                            ),
+                            if (v.pelvicFloorTone != null && v.pelvicFloorTone!.trim().isNotEmpty)
+                              _tb('Pelvic Floor: ${v.pelvicFloorTone!.toUpperCase()}', AppTheme.primaryTeal),
+                            if (v.uterusInside != null)
+                              _tb(
+                                v.uterusInside! ? 'Uterus Inside: Yes' : 'Uterus Inside: No',
+                                v.uterusInside! ? AppTheme.successGreen : AppTheme.dangerRose,
+                              ),
                             if (v.vulvaRemarks?.isNotEmpty == true)
                               _tb('Vulva: ${v.vulvaRemarks}', const Color(0xFF64748B)),
                             if (v.vaginaRemarks?.isNotEmpty == true)
@@ -1142,15 +1144,17 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
                   children: [
                     const Text('POP Staging:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
                     const SizedBox(width: 4),
-                    if (v.popAnteriorStage == 0 && v.popMiddleStage == 0 && v.popPosteriorStage == 0) ...[
+                    if (v.popAnteriorStage == null && v.popMiddleStage == null && v.popPosteriorStage == null && v.highestPopStage == null) ...[
+                      _pb('', 'Not Recorded', isNormal: false),
+                    ] else if (v.popAnteriorStage == 0 && v.popMiddleStage == 0 && v.popPosteriorStage == 0) ...[
                       _pb('', 'Normal (No Prolapse)', isNormal: true),
                       _pb('Ant', 'St 0', isNormal: true),
                       _pb('Mid', 'St 0', isNormal: true),
                       _pb('Post', 'St 0', isNormal: true),
                     ] else ...[
-                      _pb('Ant', 'St ${v.popAnteriorStage}', ip: v.popAnteriorStage == 2, ic: v.popAnteriorStage >= 3, isNormal: v.popAnteriorStage == 0),
-                      _pb('Mid', 'St ${v.popMiddleStage}', ip: v.popMiddleStage == 2, ic: v.popMiddleStage >= 3, isNormal: v.popMiddleStage == 0),
-                      _pb('Post', 'St ${v.popPosteriorStage}', ip: v.popPosteriorStage == 2, ic: v.popPosteriorStage >= 3, isNormal: v.popPosteriorStage == 0),
+                      _pb('Ant', v.popAnteriorStage != null ? 'St ${v.popAnteriorStage}' : '—', ip: v.popAnteriorStage == 2, ic: (v.popAnteriorStage ?? 0) >= 3, isNormal: v.popAnteriorStage == 0),
+                      _pb('Mid', v.popMiddleStage != null ? 'St ${v.popMiddleStage}' : '—', ip: v.popMiddleStage == 2, ic: (v.popMiddleStage ?? 0) >= 3, isNormal: v.popMiddleStage == 0),
+                      _pb('Post', v.popPosteriorStage != null ? 'St ${v.popPosteriorStage}' : '—', ip: v.popPosteriorStage == 2, ic: (v.popPosteriorStage ?? 0) >= 3, isNormal: v.popPosteriorStage == 0),
                     ],
                   ],
                 ),

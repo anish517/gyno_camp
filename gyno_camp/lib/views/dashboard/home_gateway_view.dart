@@ -5314,8 +5314,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     };
     for (final p in campScopedPatients) {
       final v = _patientVisits[p.patientId];
-      if (v != null || p.highestPopStage != null) {
-        final stage = v?.highestPopStage ?? p.highestPopStage ?? 0;
+      final stage = v?.highestPopStage ?? p.highestPopStage;
+      if (stage != null) {
         final stageKey = stage.toString();
         if (popStageCounts.containsKey(stageKey)) {
           popStageCounts[stageKey] = (popStageCounts[stageKey] ?? 0) + 1;
@@ -5459,8 +5459,8 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
       // 3. POP Stage filter
       if (_selectedPopStage != 'all') {
-        if (visit == null && p.highestPopStage == null) return false;
-        final popStage = visit?.highestPopStage ?? p.highestPopStage ?? 0;
+        final popStage = visit?.highestPopStage ?? p.highestPopStage;
+        if (popStage == null) return false;
         if (_selectedPopStage == 'significant') {
           if (popStage < 2) return false;
         } else {
@@ -7082,9 +7082,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     } else {
       for (final p in patients) {
         final v = _patientVisits[p.patientId];
-        if (v != null || p.highestPopStage != null) {
+        final s = v?.highestPopStage ?? p.highestPopStage;
+        if (s != null) {
           totalExams++;
-          final s = v?.highestPopStage ?? p.highestPopStage ?? 0;
           if (s == 0) {
             st0++;
           } else if (s == 1) {
@@ -7120,12 +7120,18 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
       for (final p in patients) {
         final v = _patientVisits[p.patientId];
         if (v != null) {
-          final a = v.popAnteriorStage.clamp(0, 3);
-          final m = v.popMiddleStage.clamp(0, 4);
-          final post = v.popPosteriorStage.clamp(0, 3);
-          antStages[a] = (antStages[a] ?? 0) + 1;
-          midStages[m] = (midStages[m] ?? 0) + 1;
-          postStages[post] = (postStages[post] ?? 0) + 1;
+          if (v.popAnteriorStage != null) {
+            final a = v.popAnteriorStage!.clamp(0, 3);
+            antStages[a] = (antStages[a] ?? 0) + 1;
+          }
+          if (v.popMiddleStage != null) {
+            final m = v.popMiddleStage!.clamp(0, 4);
+            midStages[m] = (midStages[m] ?? 0) + 1;
+          }
+          if (v.popPosteriorStage != null) {
+            final post = v.popPosteriorStage!.clamp(0, 3);
+            postStages[post] = (postStages[post] ?? 0) + 1;
+          }
         }
       }
     }
@@ -8260,9 +8266,9 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
                                     ],
                                   ),
                                 ),
-                                if (visit != null || patient.highestPopStage != null)
+                                if ((visit?.highestPopStage ?? patient.highestPopStage) != null)
                                   _buildMiniBadge(
-                                    text: 'POP Stage ${visit?.highestPopStage ?? patient.highestPopStage ?? 0}',
+                                    text: 'POP Stage ${visit?.highestPopStage ?? patient.highestPopStage}',
                                     color: (visit?.highestPopStage ?? patient.highestPopStage ?? 0) >= 2
                                         ? const Color(0xFFF59E0B)
                                         : const Color(0xFF10B981),
@@ -8852,16 +8858,16 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
                           ),
                           child: Row(
                             children: [
-                              Expanded(child: _buildPopBox('Anterior (अगाडि)', 'Stage ${v?.popAnteriorStage ?? 0}')),
+                              Expanded(child: _buildPopBox('Anterior (अगाडि)', v?.popAnteriorStage != null ? 'Stage ${v!.popAnteriorStage}' : 'N/A')),
                               const SizedBox(width: 4),
-                              Expanded(child: _buildPopBox('Middle (बीचको)', 'Stage ${v?.popMiddleStage ?? 0}')),
+                              Expanded(child: _buildPopBox('Middle (बीचको)', v?.popMiddleStage != null ? 'Stage ${v!.popMiddleStage}' : 'N/A')),
                               const SizedBox(width: 4),
-                              Expanded(child: _buildPopBox('Posterior (पछाडि)', 'Stage ${v?.popPosteriorStage ?? 0}')),
+                              Expanded(child: _buildPopBox('Posterior (पछाडि)', v?.popPosteriorStage != null ? 'Stage ${v!.popPosteriorStage}' : 'N/A')),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: _buildPopBox(
                                   'Overall Highest',
-                                  'Stage ${v?.highestPopStage ?? 0}',
+                                  v?.highestPopStage != null ? 'Stage ${v!.highestPopStage}' : 'N/A',
                                   isHighlight: true,
                                 ),
                               ),

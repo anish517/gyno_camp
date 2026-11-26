@@ -171,7 +171,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Highest POP Stage (Baden-Walker / POP-Q)'), findsOneWidget);
+      expect(find.textContaining('Highest POP Stage'), findsOneWidget);
       expect(find.textContaining('Clinically Significant Prolapse'), findsOneWidget);
 
       // Tap Diagnoses Tab

@@ -424,15 +424,68 @@ class OcrRepository implements IOcrRepository {
       year: parsedIntake.year,
     );
 
+    // Resolve active camp location as fallback when Province / District / Palika / Ward were left blank on the paper form
+    String campProvince = '';
+    String campDistrict = '';
+    String campMunicipality = '';
+    String campWard = '';
+    try {
+      final db = await _databaseService.database;
+      final campRows = await db.query(
+        DatabaseTables.tableCamps,
+        columns: ['province', 'district', 'municipality', 'ward'],
+        where: 'id = ?',
+        whereArgs: [campId],
+        limit: 1,
+      );
+      if (campRows.isNotEmpty) {
+        campProvince = (campRows.first['province'] as String?)?.trim() ?? '';
+        campDistrict = (campRows.first['district'] as String?)?.trim() ?? '';
+        campMunicipality = (campRows.first['municipality'] as String?)?.trim() ?? '';
+        campWard = (campRows.first['ward'] as String?)?.trim() ?? '';
+      }
+    } catch (_) {}
+
+    final resolvedDistrict = () {
+      final d = (demo['district'] as String?)?.trim() ?? '';
+      return d.isNotEmpty ? d : campDistrict;
+    }();
+
+    final resolvedProvince = () {
+      final rawProv = (demo['province'] as String?)?.trim() ?? '';
+      if (rawProv.isNotEmpty &&
+          (resolvedDistrict.isEmpty ||
+              NepalGeodata.districtsFor(rawProv)
+                  .any((d) => d.toLowerCase() == resolvedDistrict.toLowerCase()))) {
+        return rawProv;
+      }
+      if (resolvedDistrict.isNotEmpty) {
+        return NepalGeodata.provinceOf(resolvedDistrict);
+      }
+      return rawProv.isNotEmpty ? rawProv : campProvince;
+    }();
+
+    final resolvedMunicipality = () {
+      final m = (demo['municipality'] as String?)?.trim() ?? '';
+      return m.isNotEmpty ? m : campMunicipality;
+    }();
+
+    final resolvedWard = () {
+      final w = (demo['ward'] as String?)?.trim() ?? '';
+      if (w.isNotEmpty) return w.padLeft(2, '0');
+      if (campWard.isNotEmpty) return campWard.padLeft(2, '0');
+      return '';
+    }();
+
     final patient = PatientModel(
       id: 'pat-${_uuid.v4()}',
       patientId: normalizedPatientId, // Pre-assigned token or auto-generated sequentially by repository if empty
       campId: campId,
       campCode: campCode,
       intakeDate: parsedIntake,
-      firstName: (demo['firstName'] as String? ?? 'Sita').trim(),
-      surname: (demo['surname'] as String? ?? 'Sharma').trim(),
-      age: (demo['age'] as int? ?? 35),
+      firstName: (demo['firstName'] as String? ?? '').trim(),
+      surname: (demo['surname'] as String? ?? '').trim(),
+      age: (demo['age'] as num?)?.toInt() ?? 0,
       spouseOrFatherName: () {
         final relName = (demo['relativeName'] as String? ?? '').trim();
         final relSur = (demo['relativeSurname'] as String? ?? '').trim();
@@ -442,33 +495,24 @@ class OcrRepository implements IOcrRepository {
         }
         return relName;
       }(),
-      relationshipType: demo['relativeType'] as String? ?? 'Husband',
-      mobile: (demo['mobile'] as String? ?? ''),
+      relationshipType: () {
+        final rt = (demo['relativeType'] as String?)?.trim();
+        return (rt != null && rt.isNotEmpty) ? rt : null;
+      }(),
+      mobile: (demo['mobile'] as String? ?? '').trim(),
       // Contact fields — now parsed by OCR service and carried through to DB
       contactPerson: demo['contactPerson'] as String?,
       contactMobile: demo['contactMobile'] as String?,
       // Marriage age — parsed from 'Age at Marriage' field on form
-      maritalAge: demo['maritalAge'] as int?,
-      province: () {
-        final rawProv = (demo['province'] as String?)?.trim() ?? '';
-        final rawDist = (demo['district'] as String?)?.trim() ?? '';
-        if (rawProv.isNotEmpty &&
-            (rawDist.isEmpty ||
-                NepalGeodata.districtsFor(rawProv)
-                    .any((d) => d.toLowerCase() == rawDist.toLowerCase()))) {
-          return rawProv;
-        }
-        return rawDist.isNotEmpty
-            ? NepalGeodata.provinceOf(rawDist)
-            : (rawProv.isNotEmpty ? rawProv : 'Bagmati');
-      }(),
-      district: (demo['district'] as String? ?? 'Kathmandu'),
-      municipality: (demo['municipality'] as String? ?? 'Ward 03'),
-      ward: (demo['ward'] as String? ?? '03').padLeft(2, '0'),
-      maritalStatus: (demo['maritalStatus'] as String? ?? 'married'),
+      maritalAge: (demo['maritalAge'] as num?)?.toInt(),
+      province: resolvedProvince,
+      district: resolvedDistrict,
+      municipality: resolvedMunicipality,
+      ward: resolvedWard,
+      maritalStatus: (demo['maritalStatus'] as String? ?? '').trim(),
       reasonsForVisit: List<String>.from(demo['reasonsForVisit'] as List? ?? const <String>[]),
-      consentTreatment: demo['consentTreatment'] as bool? ?? true,
-      consentStoreMedicalInfo: demo['consentStoreMedicalInfo'] as bool? ?? true,
+      consentTreatment: demo['consentTreatment'] as bool? ?? false,
+      consentStoreMedicalInfo: demo['consentStoreMedicalInfo'] as bool? ?? false,
       treatmentLevel: PatientModel.normalizeTreatmentLevel(
         verifiedScan.treatmentLevel ?? demo['treatmentLevel'] as String? ?? demo['levelOfTreatment'] as String?,
       ),
@@ -805,26 +849,42 @@ class OcrRepository implements IOcrRepository {
       conclusionDate: parseDateOrNull(verifiedScan.conclusionDate),
       treatmentDate: parseDateOrNull(verifiedScan.treatmentDate),
       outtakeDate: parseDateOrNull(verifiedScan.outtakeDate),
-      deliveries: obs['deliveries'] as int?,
-      livingChildren: obs['livingChildren'] as int?,
-      abortions: obs['abortions'] as int?,
+      deliveries: (obs['deliveries'] as num?)?.toInt(),
+      livingChildren: (obs['livingChildren'] as num?)?.toInt(),
+      abortions: (obs['abortions'] as num?)?.toInt(),
       anamnesisComplaints: anamnesisMap,
-      uterusInside: pop['uterusInside'] as bool? ?? false,
-      pelvicFloorTone: (pop['pelvicFloorTone'] as String?)?.trim().toLowerCase() ?? ClinicalConstants.pelvicFloorNormal,
-      cervixRemarks: pop['cervixRemarks'] as String?,
-      vaginaRemarks: pop['vaginaRemarks'] as String?,
-      vulvaRemarks: pop['vulvaRemarks'] as String?,
-      uterusRemarks: pop['uterusRemarks'] as String?,
-      popAnteriorStage: pop['anteriorStage'] as int? ?? 0,
-      popMiddleStage: pop['middleStage'] as int? ?? 0,
-      popPosteriorStage: pop['posteriorStage'] as int? ?? 0,
+      uterusInside: pop['uterusInside'] as bool?,
+      pelvicFloorTone: () {
+        final t = (pop['pelvicFloorTone'] as String?)?.trim().toLowerCase();
+        return (t != null && t.isNotEmpty && t != 'null') ? t : null;
+      }(),
+      cervixRemarks: () {
+        final s = (pop['cervixRemarks'] as String?)?.trim();
+        return (s != null && s.isNotEmpty && s.toLowerCase() != 'null') ? s : null;
+      }(),
+      vaginaRemarks: () {
+        final s = (pop['vaginaRemarks'] as String?)?.trim();
+        return (s != null && s.isNotEmpty && s.toLowerCase() != 'null') ? s : null;
+      }(),
+      vulvaRemarks: () {
+        final s = (pop['vulvaRemarks'] as String?)?.trim();
+        return (s != null && s.isNotEmpty && s.toLowerCase() != 'null') ? s : null;
+      }(),
+      uterusRemarks: () {
+        final s = (pop['uterusRemarks'] as String?)?.trim();
+        return (s != null && s.isNotEmpty && s.toLowerCase() != 'null') ? s : null;
+      }(),
+      popAnteriorStage: (pop['anteriorStage'] as num?)?.toInt(),
+      popMiddleStage: (pop['middleStage'] as num?)?.toInt(),
+      popPosteriorStage: (pop['posteriorStage'] as num?)?.toInt(),
       highestPopStage: () {
-        final explicit = (pop['highestPopStage'] ?? pop['highestStage'] ?? pop['stage']) as int?;
+        final explicit = ((pop['highestPopStage'] ?? pop['highestStage'] ?? pop['stage']) as num?)?.toInt();
         if (explicit != null) return explicit;
-        final a = pop['anteriorStage'] as int? ?? 0;
-        final m = pop['middleStage'] as int? ?? 0;
-        final p = pop['posteriorStage'] as int? ?? 0;
-        return [a, m, p].reduce((x, y) => x > y ? x : y);
+        return ClinicalVisitModel.computeHighestPopStageOrNull(
+          (pop['anteriorStage'] as num?)?.toInt(),
+          (pop['middleStage'] as num?)?.toInt(),
+          (pop['posteriorStage'] as num?)?.toInt(),
+        );
       }(),
       systolicBp: () {
         final v = (vitals['systolicBp'] as num?)?.toInt();
@@ -846,8 +906,14 @@ class OcrRepository implements IOcrRepository {
         final v = ((vitals['bloodGlucose'] ?? vitals['glucose']) as num?)?.toInt();
         return (v != null && v > 0) ? v : null;
       }(),
-      urineTest: vitals['urineTest'] as String? ?? 'normal',
-      pregnancyTest: vitals['pregnancyTest'] as String? ?? 'neg',
+      urineTest: () {
+        final u = (vitals['urineTest'] as String?)?.trim();
+        return (u != null && u.isNotEmpty && u.toLowerCase() != 'null') ? u : null;
+      }(),
+      pregnancyTest: () {
+        final p = (vitals['pregnancyTest'] as String?)?.trim();
+        return (p != null && p.isNotEmpty && p.toLowerCase() != 'null') ? p : null;
+      }(),
       ecgNotes: () {
         final rawEcg = (vitals['ecg'] as String?)?.trim();
         final rawNotes = (vitals['ecgNotes'] as String?)?.trim();

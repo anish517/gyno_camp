@@ -280,13 +280,15 @@ class ReportingRepository implements IReportingRepository {
     // Apply POP Staging Filter if requested
     if (popStageFilter != null && popStageFilter.trim().isNotEmpty && popStageFilter != 'all') {
       final matchingVisits = visits.where((v) {
-        if (popStageFilter == '0') return v.highestPopStage == 0;
-        if (popStageFilter == '1') return v.highestPopStage == 1;
-        if (popStageFilter == '2') return v.highestPopStage == 2;
-        if (popStageFilter == '3') return v.highestPopStage == 3;
-        if (popStageFilter == '4') return v.highestPopStage == 4;
-        if (popStageFilter == '2+' || popStageFilter == 'significant') return v.highestPopStage >= 2;
-        if (popStageFilter == '3+') return v.highestPopStage >= 3;
+        final hs = v.highestPopStage;
+        if (hs == null) return false;
+        if (popStageFilter == '0') return hs == 0;
+        if (popStageFilter == '1') return hs == 1;
+        if (popStageFilter == '2') return hs == 2;
+        if (popStageFilter == '3') return hs == 3;
+        if (popStageFilter == '4') return hs == 4;
+        if (popStageFilter == '2+' || popStageFilter == 'significant') return hs >= 2;
+        if (popStageFilter == '3+') return hs >= 3;
         return true;
       }).toList();
       final matchingPatientKeys = matchingVisits.map((v) => v.patientId.trim().toLowerCase()).toSet();

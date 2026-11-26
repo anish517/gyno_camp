@@ -1285,7 +1285,7 @@ class PdfReportService {
                           : '-',
                     ),
                     PdfReportService.sanitizeText(tLevelShort),
-                    v != null ? 'Stage ${v.highestPopStage}' : '-',
+                    v?.highestPopStage != null ? 'Stage ${v!.highestPopStage}' : '-',
                     PdfReportService.sanitizeText(
                       v?.diagnoses.isNotEmpty == true
                           ? v!.diagnoses.join(', ')
@@ -1938,22 +1938,22 @@ class PdfReportService {
                       pw.Expanded(
                         child: _buildPdfField(
                           'Uterus Inside',
-                          (visit?.uterusInside ?? true)
-                              ? 'Yes'
-                              : 'No',
-                          isBold: !(visit?.uterusInside ?? true),
+                          visit?.uterusInside == null
+                              ? 'N/A'
+                              : (visit!.uterusInside! ? 'Yes' : 'No'),
+                          isBold: visit?.uterusInside == false,
                         ),
                       ),
                       pw.Expanded(
                         child: _buildPdfField(
                           'Cervix',
-                          sanitizeText(visit?.cervixRemarks ?? 'normal'),
+                          sanitizeText(visit?.cervixRemarks ?? 'N/A'),
                         ),
                       ),
                       pw.Expanded(
                         child: _buildPdfField(
                           'Pelvic Floor Muscle',
-                          visit?.pelvicFloorTone.toUpperCase() ?? 'NORMAL',
+                          visit?.pelvicFloorTone?.toUpperCase() ?? 'N/A',
                         ),
                       ),
                     ],
@@ -1964,19 +1964,19 @@ class PdfReportService {
                       pw.Expanded(
                         child: _buildPdfField(
                           'Vulva',
-                          sanitizeText(visit?.vulvaRemarks ?? 'normal'),
+                          sanitizeText(visit?.vulvaRemarks ?? 'N/A'),
                         ),
                       ),
                       pw.Expanded(
                         child: _buildPdfField(
                           'Vagina',
-                          sanitizeText(visit?.vaginaRemarks ?? 'normal'),
+                          sanitizeText(visit?.vaginaRemarks ?? 'N/A'),
                         ),
                       ),
                       pw.Expanded(
                         child: _buildPdfField(
                           'Other / Uterus',
-                          sanitizeText(visit?.uterusRemarks ?? 'normal'),
+                          sanitizeText(visit?.uterusRemarks ?? 'N/A'),
                         ),
                       ),
                     ],
@@ -2054,17 +2054,17 @@ class PdfReportService {
                       pw.Expanded(
                         child: _buildPdfField(
                           'Urine Test',
-                          visit?.urineTest != null
-                              ? visit!.urineTest!.toUpperCase()
-                              : 'NORMAL',
+                          (visit?.urineTest != null && visit!.urineTest!.trim().isNotEmpty)
+                              ? visit.urineTest!.toUpperCase()
+                              : 'N/A',
                         ),
                       ),
                       pw.Expanded(
                         child: _buildPdfField(
                           'Pregnancy Test (UPT)',
-                          visit?.pregnancyTest != null
-                              ? visit!.pregnancyTest!.toUpperCase()
-                              : 'NEG',
+                          (visit?.pregnancyTest != null && visit!.pregnancyTest!.trim().isNotEmpty)
+                              ? visit.pregnancyTest!.toUpperCase()
+                              : 'N/A',
                         ),
                       ),
                       pw.Expanded(
@@ -2109,30 +2109,36 @@ class PdfReportService {
                 children: [
                   _buildPopBadge(
                     'ANTERIOR (Cystocele)',
-                    (visit?.popAnteriorStage ?? 0) == 0
-                        ? 'Stage 0 (Normal)'
-                        : 'Stage ${visit?.popAnteriorStage ?? 0}',
-                    isHighlight: (visit?.popAnteriorStage ?? 0) == 2,
+                    visit?.popAnteriorStage == null
+                        ? 'Not Recorded'
+                        : (visit!.popAnteriorStage == 0
+                            ? 'Stage 0 (Normal)'
+                            : 'Stage ${visit.popAnteriorStage}'),
+                    isHighlight: visit?.popAnteriorStage == 2,
                     isCritical: (visit?.popAnteriorStage ?? 0) >= 3,
-                    isNormal: (visit?.popAnteriorStage ?? 0) == 0,
+                    isNormal: visit?.popAnteriorStage == 0,
                   ),
                   _buildPopBadge(
                     'MIDDLE (Uterine)',
-                    (visit?.popMiddleStage ?? 0) == 0
-                        ? 'Stage 0 (Normal)'
-                        : 'Stage ${visit?.popMiddleStage ?? 0}',
-                    isHighlight: (visit?.popMiddleStage ?? 0) == 2,
+                    visit?.popMiddleStage == null
+                        ? 'Not Recorded'
+                        : (visit!.popMiddleStage == 0
+                            ? 'Stage 0 (Normal)'
+                            : 'Stage ${visit.popMiddleStage}'),
+                    isHighlight: visit?.popMiddleStage == 2,
                     isCritical: (visit?.popMiddleStage ?? 0) >= 3,
-                    isNormal: (visit?.popMiddleStage ?? 0) == 0,
+                    isNormal: visit?.popMiddleStage == 0,
                   ),
                   _buildPopBadge(
                     'POSTERIOR (Rectocele)',
-                    (visit?.popPosteriorStage ?? 0) == 0
-                        ? 'Stage 0 (Normal)'
-                        : 'Stage ${visit?.popPosteriorStage ?? 0}',
-                    isHighlight: (visit?.popPosteriorStage ?? 0) == 2,
+                    visit?.popPosteriorStage == null
+                        ? 'Not Recorded'
+                        : (visit!.popPosteriorStage == 0
+                            ? 'Stage 0 (Normal)'
+                            : 'Stage ${visit.popPosteriorStage}'),
+                    isHighlight: visit?.popPosteriorStage == 2,
                     isCritical: (visit?.popPosteriorStage ?? 0) >= 3,
-                    isNormal: (visit?.popPosteriorStage ?? 0) == 0,
+                    isNormal: visit?.popPosteriorStage == 0,
                   ),
                 ],
               ),
@@ -2327,7 +2333,9 @@ class PdfReportService {
                         children: [
                           pw.Expanded(
                             child: pw.Text(
-                              'POP: Stage ${v.highestPopStage} (Ant: ${v.popAnteriorStage}, Mid: ${v.popMiddleStage}, Post: ${v.popPosteriorStage})',
+                              v.highestPopStage != null
+                                  ? 'POP: Stage ${v.highestPopStage} (Ant: ${v.popAnteriorStage ?? "-"}, Mid: ${v.popMiddleStage ?? "-"}, Post: ${v.popPosteriorStage ?? "-"})'
+                                  : 'POP: Not Recorded',
                               style: pw.TextStyle(
                                 fontSize: 7.5,
                                 fontWeight: pw.FontWeight.bold,
@@ -3036,7 +3044,7 @@ class PdfReportService {
                         pw.Expanded(
                           child: _buildPdfField(
                             'Pelvic Floor Muscle',
-                            visit.pelvicFloorTone.toUpperCase(),
+                            visit.pelvicFloorTone?.toUpperCase() ?? 'N/A',
                           ),
                         ),
                       ],
@@ -3047,24 +3055,24 @@ class PdfReportService {
                         pw.Expanded(
                           child: _buildPdfField(
                             'Uterus Inside',
-                            visit.uterusInside
-                                ? 'Yes'
-                                : 'No',
-                            isBold: !visit.uterusInside,
+                            visit.uterusInside == null
+                                ? 'N/A'
+                                : (visit.uterusInside! ? 'Yes' : 'No'),
+                            isBold: visit.uterusInside == false,
                           ),
                         ),
                         pw.SizedBox(width: 6),
                         pw.Expanded(
                           child: _buildPdfField(
                             'Cervix',
-                            sanitizeText(visit.cervixRemarks ?? 'normal'),
+                            sanitizeText(visit.cervixRemarks ?? 'N/A'),
                           ),
                         ),
                         pw.SizedBox(width: 6),
                         pw.Expanded(
                           child: _buildPdfField(
                             'Vagina',
-                            sanitizeText(visit.vaginaRemarks ?? 'normal'),
+                            sanitizeText(visit.vaginaRemarks ?? 'N/A'),
                           ),
                         ),
                       ],
@@ -3075,14 +3083,14 @@ class PdfReportService {
                         pw.Expanded(
                           child: _buildPdfField(
                             'Vulva',
-                            sanitizeText(visit.vulvaRemarks ?? 'normal'),
+                            sanitizeText(visit.vulvaRemarks ?? 'N/A'),
                           ),
                         ),
                         pw.SizedBox(width: 6),
                         pw.Expanded(
                           child: _buildPdfField(
                             'Other / Uterus',
-                            sanitizeText(visit.uterusRemarks ?? 'normal'),
+                            sanitizeText(visit.uterusRemarks ?? 'N/A'),
                           ),
                         ),
                       ],
@@ -3164,14 +3172,18 @@ class PdfReportService {
                       pw.Expanded(
                         child: _buildPdfField(
                           'Urine Test',
-                          (visit.urineTest ?? 'Normal').toUpperCase(),
+                          (visit.urineTest != null && visit.urineTest!.trim().isNotEmpty)
+                              ? visit.urineTest!.toUpperCase()
+                              : 'N/A',
                         ),
                       ),
                       pw.SizedBox(width: 6),
                       pw.Expanded(
                         child: _buildPdfField(
                           'Pregnancy Test',
-                          (visit.pregnancyTest ?? 'Neg / N/A').toUpperCase(),
+                          (visit.pregnancyTest != null && visit.pregnancyTest!.trim().isNotEmpty)
+                              ? visit.pregnancyTest!.toUpperCase()
+                              : 'N/A',
                         ),
                       ),
                       pw.SizedBox(width: 6),
@@ -3201,9 +3213,9 @@ class PdfReportService {
             pw.Container(
               padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 4.5),
               decoration: pw.BoxDecoration(
-                color: visit.highestPopStage >= 2 ? lightBg : PdfColors.white,
+                color: (visit.highestPopStage ?? 0) >= 2 ? lightBg : PdfColors.white,
                 border: pw.Border.all(
-                  color: visit.highestPopStage >= 2 ? secondary : gray,
+                  color: (visit.highestPopStage ?? 0) >= 2 ? secondary : gray,
                   width: 0.8,
                 ),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -3213,29 +3225,35 @@ class PdfReportService {
                 children: [
                   _buildPopBadge(
                     'ANTERIOR (Cystocele)',
-                    visit.popAnteriorStage == 0
-                        ? 'Stage 0 (Normal)'
-                        : 'Stage ${visit.popAnteriorStage}',
+                    visit.popAnteriorStage == null
+                        ? 'Not Recorded'
+                        : (visit.popAnteriorStage == 0
+                            ? 'Stage 0 (Normal)'
+                            : 'Stage ${visit.popAnteriorStage}'),
                     isHighlight: visit.popAnteriorStage == 2,
-                    isCritical: visit.popAnteriorStage >= 3,
+                    isCritical: (visit.popAnteriorStage ?? 0) >= 3,
                     isNormal: visit.popAnteriorStage == 0,
                   ),
                   _buildPopBadge(
                     'MIDDLE (Uterine)',
-                    visit.popMiddleStage == 0
-                        ? 'Stage 0 (Normal)'
-                        : 'Stage ${visit.popMiddleStage}',
+                    visit.popMiddleStage == null
+                        ? 'Not Recorded'
+                        : (visit.popMiddleStage == 0
+                            ? 'Stage 0 (Normal)'
+                            : 'Stage ${visit.popMiddleStage}'),
                     isHighlight: visit.popMiddleStage == 2,
-                    isCritical: visit.popMiddleStage >= 3,
+                    isCritical: (visit.popMiddleStage ?? 0) >= 3,
                     isNormal: visit.popMiddleStage == 0,
                   ),
                   _buildPopBadge(
                     'POSTERIOR (Rectocele)',
-                    visit.popPosteriorStage == 0
-                        ? 'Stage 0 (Normal)'
-                        : 'Stage ${visit.popPosteriorStage}',
+                    visit.popPosteriorStage == null
+                        ? 'Not Recorded'
+                        : (visit.popPosteriorStage == 0
+                            ? 'Stage 0 (Normal)'
+                            : 'Stage ${visit.popPosteriorStage}'),
                     isHighlight: visit.popPosteriorStage == 2,
-                    isCritical: visit.popPosteriorStage >= 3,
+                    isCritical: (visit.popPosteriorStage ?? 0) >= 3,
                     isNormal: visit.popPosteriorStage == 0,
                   ),
                 ],
@@ -6636,12 +6654,7 @@ class PdfReportService {
               !isEcgAbnormal &&
               (RegExp(r'\bnormal\b').hasMatch(ecgText) ||
                   ecgText.contains('sinus rhythm'));
-          final isEcgNotDone =
-              ecgText.contains('not done') ||
-              (visit != null &&
-                  ecgText.isEmpty &&
-                  !isEcgNormal &&
-                  !isEcgAbnormal);
+          final isEcgNotDone = ecgText.contains('not done');
 
           // ── STATION 2: POP & PHYSICAL EXAMINATION ──
           final station2 = pw.Column(
@@ -6708,37 +6721,29 @@ class PdfReportService {
               examLine(
                 label: 'vulva',
                 isNormal:
-                    visit != null &&
-                    ((visit.vulvaRemarks ?? 'normal').toLowerCase().contains(
-                      'normal',
-                    )),
+                    visit?.vulvaRemarks != null &&
+                    visit!.vulvaRemarks!.toLowerCase().contains('normal'),
                 remarks: visit?.vulvaRemarks,
               ),
               examLine(
                 label: 'vagina',
                 isNormal:
-                    visit != null &&
-                    ((visit.vaginaRemarks ?? 'normal').toLowerCase().contains(
-                      'normal',
-                    )),
+                    visit?.vaginaRemarks != null &&
+                    visit!.vaginaRemarks!.toLowerCase().contains('normal'),
                 remarks: visit?.vaginaRemarks,
               ),
               examLine(
                 label: 'cervix',
                 isNormal:
-                    visit != null &&
-                    ((visit.cervixRemarks ?? 'normal').toLowerCase().contains(
-                      'normal',
-                    )),
+                    visit?.cervixRemarks != null &&
+                    visit!.cervixRemarks!.toLowerCase().contains('normal'),
                 remarks: visit?.cervixRemarks,
               ),
               examLine(
                 label: 'uterus',
                 isNormal:
-                    visit != null &&
-                    ((visit.uterusRemarks ?? 'normal').toLowerCase().contains(
-                      'normal',
-                    )),
+                    visit?.uterusRemarks != null &&
+                    visit!.uterusRemarks!.toLowerCase().contains('normal'),
                 remarks: visit?.uterusRemarks,
               ),
               pw.SizedBox(height: 3.0),
@@ -6839,8 +6844,7 @@ class PdfReportService {
                   pw.Text('urine test: ', style: bold(size: fsSmall)),
                   cb(
                     'normal',
-                    (visit?.urineTest ?? '').toLowerCase().contains('normal') ||
-                        (visit != null && (visit.urineTest ?? '').isEmpty),
+                    (visit?.urineTest ?? '').toLowerCase().contains('normal'),
                     bottom: 0,
                     boxSize: 10.5,
                     fontSize: 8.4,
@@ -6857,8 +6861,7 @@ class PdfReportService {
                   pw.Text('pregnancy test: ', style: bold(size: fsSmall)),
                   cb(
                     'neg',
-                    (visit?.pregnancyTest ?? '').toLowerCase().startsWith('neg') ||
-                        (visit != null && (visit.pregnancyTest ?? '').isEmpty),
+                    (visit?.pregnancyTest ?? '').toLowerCase().startsWith('neg'),
                     bottom: 0,
                     boxSize: 10.5,
                     fontSize: 8.4,

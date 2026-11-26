@@ -757,5 +757,125 @@ void main() {
         expectNoVendorBranding();
       },
     );
+
+    testWidgets(
+      'Blank/unfilled scan displays Not Recorded (—) and unselected chips instead of Stage 0 / Yes / 3 defaults, and guards empty required fields on commit',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1280, 1000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        final activeCamp = CampModel(
+          id: 'camp-dhn-01',
+          campCode: 'DHN01',
+          name: 'Dhankuta Health Camp',
+          province: 'Koshi',
+          district: 'Dhankuta',
+          municipality: 'Pakhribas',
+          ward: '04',
+          venue: 'Pakhribas Health Post',
+          startDate: DateTime(2026, 11, 20),
+          endDate: DateTime(2026, 11, 25),
+          status: CampStatus.open,
+          createdAt: DateTime(2026, 11, 20),
+        );
+
+        final blankScan = OcrScanResultModel(
+          pageNumber: 1,
+          isDualPage: true,
+          rawText: 'Blank form',
+          demographics: const {},
+          obstetrics: const {},
+          popStaging: const {},
+          vitals: const {},
+          diagnoses: const [],
+          medications: const [],
+          fieldConfidences: const {},
+          overallConfidence: 0.0,
+          scannedAt: DateTime(2026, 11, 25),
+        );
+
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        container.read(campStateProvider.notifier).state = CampState(
+          camps: [activeCamp],
+          activeCamp: activeCamp,
+        );
+        container.read(ocrScanProvider.notifier).state = OcrScanState(
+          page1Scan: blankScan,
+          page2Scan: blankScan,
+          scanResult: blankScan,
+        );
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: const FormScanView(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Tab 1: Active camp location pre-filled; Marital Status is Not Recorded (—); Consents unchecked
+        expect(find.text('Koshi'), findsOneWidget);
+        expect(find.text('Dhankuta'), findsOneWidget);
+        expect(find.text('Pakhribas'), findsOneWidget);
+        expect(find.text('Not Recorded (—)'), findsOneWidget);
+
+        final consentTiles = tester
+            .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
+            .toList();
+        expect(consentTiles.length, greaterThanOrEqualTo(2));
+        expect(consentTiles[0].value, isFalse);
+        expect(consentTiles[1].value, isFalse);
+
+        // Attempting to commit with empty First Name / Surname / Age shows validation SnackBar
+        await tester.tap(
+          find.text('Verify & Commit to Camp Database (दर्ता सम्पन्न गर्नुहोस्)'),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('Required demographics missing: First Name, Surname, Age'),
+          findsOneWidget,
+        );
+
+        // Tab 2: Obstetrics steppers show '—' instead of 3, 3, 0
+        await tester.tap(find.text('2. Obstetric History'));
+        await tester.pumpAndSettle();
+        expect(find.text('—'), findsNWidgets(3));
+
+        // Tab 3: POP Staging dropdowns show 'Not Recorded (—)' instead of Stage 0, and Uterus Inside Yes/No are both unselected
+        await tester.tap(find.text('3. POP Staging'));
+        await tester.pumpAndSettle();
+        expect(find.text('Not Recorded (—)'), findsNWidgets(3));
+
+        final yesChip = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, 'Yes'),
+        );
+        final noChip = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, 'No'),
+        );
+        expect(yesChip.selected, isFalse);
+        expect(noChip.selected, isFalse);
+
+        // Tab 4: Urine Test Normal and Pregnancy Test Negative are unselected when null
+        await tester.tap(find.text('4. Vitals & Diagnoses'));
+        await tester.pumpAndSettle();
+        final urineNormalChip = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, 'Normal (सामान्य)'),
+        );
+        final pregNegChip = tester.widget<ChoiceChip>(
+          find.widgetWithText(ChoiceChip, 'Negative (नेगेटिभ)'),
+        );
+        expect(urineNormalChip.selected, isFalse);
+        expect(pregNegChip.selected, isFalse);
+      },
+    );
   });
 }

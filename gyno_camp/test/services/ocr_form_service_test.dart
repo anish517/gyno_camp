@@ -364,6 +364,59 @@ Anamnesis Date: 2 0 8 3 - 0 7 - 2 0 BS
       expect(resSplit.intakeDate, '2083-07-19');
       expect(resSplit.anamnesisDate, '2083-07-20');
     });
+
+    test('Preserves null for unfilled POP stages, Uterus Inside, Pelvic Floor, Labs, Obstetrics, and Consents on blank printed form', () {
+      const blankPage1Text = '''
+GYNOCAMP RURAL HEALTH CLINICAL INTAKE FORM (YELLOW FORM - PAGE 1)
+First Name: □ □ □ □ □    Surname: □ □ □ □ □    Age: □ □
+Marital Status: [ ] Married  [ ] Unmarried  [ ] Widow  [ ] Divorced
+Relation: [ ] Husband  [ ] Father
+Consent for Treatment / उपचारको लागि सहमति: [ ] Yes  [ ] No
+Consent for Storage / स्वास्थ्य विवरण सहमति: [ ] Yes  [ ] No
+STATION 1: ANAMNESIS & OBSTETRIC HISTORY
+NR deliveries: □ □   NR living children: □ □   NR abortion: □ □
+''';
+      final p1 = service.parseFormText(blankPage1Text, pageNumber: 1);
+      expect(p1.demographics['maritalStatus'], isNull);
+      expect(p1.demographics['relativeType'], isNull);
+      expect(p1.demographics['consentTreatment'], isNull);
+      expect(p1.demographics['consentStoreMedicalInfo'], isNull);
+      expect(p1.demographics['ward'], equals(''));
+      expect(p1.demographics['province'], equals(''));
+      expect(p1.obstetrics['deliveries'], isNull);
+      expect(p1.obstetrics['livingChildren'], isNull);
+      expect(p1.obstetrics['abortions'], isNull);
+      expect(p1.obstetrics['complaintsDuration'], equals(''));
+
+      const blankPage2Text = '''
+STATION 2: POP & PHYSICAL EXAMINATION
+Examination Date: □□□□-□□-□□   uterus inside: [ ] yes  [ ] no   pelvic floor muscle: [ ] normal  [ ] weak  [ ] hypertonic
+vulva: [ ] normal or _________
+vagina: [ ] normal or _________
+cervix: [ ] normal or _________
+uterus: [ ] normal or _________
+POP anterior wall: [ ] stage 0  [ ] stage 1  [ ] stage 2  [ ] stage 3
+POP middle part: [ ] stage 0  [ ] stage 1  [ ] stage 2  [ ] stage 3  [ ] stage 4
+POP posterior wall: [ ] stage 0  [ ] stage 1  [ ] stage 2  [ ] stage 3
+STATION 3: POINT-OF-CARE LABS, VITALS & ECG
+urine test: [ ] normal  [ ] pos    pregnancy test: [ ] neg  [ ] pos
+STATION 4: CONFIRMED DIAGNOSES
+highest POP stage: [ ] stage 0  [ ] stage 1  [ ] stage 2  [ ] stage 3  [ ] stage 4
+''';
+      final p2 = service.parseFormText(blankPage2Text, pageNumber: 2);
+      expect(p2.popStaging['anteriorStage'], isNull);
+      expect(p2.popStaging['middleStage'], isNull);
+      expect(p2.popStaging['posteriorStage'], isNull);
+      expect(p2.popStaging['highestPopStage'], isNull);
+      expect(p2.popStaging['uterusInside'], isNull);
+      expect(p2.popStaging['pelvicFloorTone'], isNull);
+      expect(p2.popStaging['vulvaRemarks'], isNull);
+      expect(p2.popStaging['vaginaRemarks'], isNull);
+      expect(p2.popStaging['cervixRemarks'], isNull);
+      expect(p2.popStaging['uterusRemarks'], isNull);
+      expect(p2.vitals['urineTest'], isNull);
+      expect(p2.vitals['pregnancyTest'], isNull);
+    });
   });
 }
 

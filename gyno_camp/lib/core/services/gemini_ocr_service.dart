@@ -352,13 +352,13 @@ class GeminiOcrService {
 
     // Normalize Province (case-insensitive + 8-box character prefix support e.g. SUDURPAS -> Sudurpashchim)
     String normProvince(String? raw) {
-      if (raw == null || raw.trim().isEmpty) return 'Bagmati';
+      if (raw == null || raw.trim().isEmpty || raw.trim().toLowerCase() == 'null') return '';
       final clean = raw.replaceAll(RegExp(r'\s+'), '').toLowerCase();
       for (final p in ClinicalConstants.nepalProvinces) {
         final pLow = p.toLowerCase();
         if (pLow == clean || (clean.length >= 4 && pLow.startsWith(clean))) return p;
       }
-      return 'Bagmati';
+      return '';
     }
 
     // Normalize District (case-insensitive & space-insensitive against NepalGeodata, supporting 11-box prefixes)
@@ -436,51 +436,74 @@ class GeminiOcrService {
       }
     }
 
-    final normProv = normProvince(rawDemo['province']?.toString());
+    var normProv = normProvince(rawDemo['province']?.toString());
     final normDist = normDistrict(rawDemo['district']?.toString(), normProv);
+    if (normProv.isEmpty && normDist.isNotEmpty) {
+      normProv = NepalGeodata.provinceOf(normDist);
+    }
     final normalizedReasons = normReasons(rawDemo['reasonsForVisit']);
 
     // Normalize demographics (strictly Yellow Form Page 1 fields — NO caste/education/occupation)
     final demographics = <String, dynamic>{
-      'firstName': rawDemo['firstName']?.toString().trim() ?? '',
-      'surname': rawDemo['surname']?.toString().trim() ?? '',
+      'firstName': () {
+        final v = rawDemo['firstName']?.toString().trim() ?? '';
+        return v.toLowerCase() == 'null' ? '' : v;
+      }(),
+      'surname': () {
+        final v = rawDemo['surname']?.toString().trim() ?? '';
+        return v.toLowerCase() == 'null' ? '' : v;
+      }(),
       'age': (rawDemo['age'] as num?)?.toInt(),
-      'maritalStatus': rawDemo['maritalStatus']?.toString().toLowerCase().trim() ?? 'married',
-      'relativeName': rawDemo['relativeName']?.toString().trim() ?? (rawDemo['spouseOrFatherName']?.toString().trim() ?? ''),
+      'maritalStatus': () {
+        final raw = rawDemo['maritalStatus']?.toString().toLowerCase().trim();
+        if (raw == null || raw.isEmpty || raw == 'null') return null;
+        return raw;
+      }(),
+      'relativeName': () {
+        final v = rawDemo['relativeName']?.toString().trim() ?? (rawDemo['spouseOrFatherName']?.toString().trim() ?? '');
+        return v.toLowerCase() == 'null' ? '' : v;
+      }(),
       'relativeType': () {
-        // Read from Gemini data first (ticked/circled label on form)
+        // Read strictly from ticked/circled label on form; preserve null if unselected
         final raw = rawDemo['relationType']?.toString().trim();
         if (raw != null && raw.isNotEmpty && raw.toLowerCase() != 'null') {
           if (raw.toLowerCase().contains('father') || raw.contains('बुबा')) return 'Father';
           if (raw.toLowerCase().contains('husband') || raw.contains('श्रीमान्')) return 'Husband';
           return raw;
         }
-        // Fallback: guess from age only if no Gemini data
-        final age = (rawDemo['age'] as num?)?.toInt();
-        return (age != null && age < 20) ? 'Father' : 'Husband';
+        return null;
       }(),
       'relativeSurname': () {
         final relSur = rawDemo['relativeSurname']?.toString().trim() ?? '';
         if (relSur.isNotEmpty && relSur.toLowerCase() != 'null') return relSur;
-        // In Nepali camps, if marital status is married and patient's surname is known, husband shares the surname
-        final status = rawDemo['maritalStatus']?.toString().toLowerCase().trim() ?? '';
-        final pSur = rawDemo['surname']?.toString().trim() ?? '';
-        if ((status == 'married' || status.contains('विवाहित')) && pSur.isNotEmpty) {
-          return pSur;
-        }
         return '';
       }(),
-      'mobile': rawDemo['mobile']?.toString().trim() ?? '',
+      'mobile': () {
+        final v = rawDemo['mobile']?.toString().trim() ?? '';
+        return v.toLowerCase() == 'null' ? '' : v;
+      }(),
       'maritalAge': (rawDemo['maritalAge'] as num?)?.toInt() ?? (rawObs['ageAtMarriage'] as num?)?.toInt(),
-      'contactPerson': rawDemo['contactPerson']?.toString().trim() ?? '',
-      'contactMobile': rawDemo['contactMobile']?.toString().trim() ?? '',
+      'contactPerson': () {
+        final v = rawDemo['contactPerson']?.toString().trim() ?? '';
+        return v.toLowerCase() == 'null' ? '' : v;
+      }(),
+      'contactMobile': () {
+        final v = rawDemo['contactMobile']?.toString().trim() ?? '';
+        return v.toLowerCase() == 'null' ? '' : v;
+      }(),
       'province': normProv,
       'district': normDist,
-      'municipality': rawDemo['municipality']?.toString().trim() ?? '',
-      'ward': rawDemo['ward']?.toString().trim() ?? '',
+      'municipality': () {
+        final v = rawDemo['municipality']?.toString().trim() ?? '';
+        return v.toLowerCase() == 'null' ? '' : v;
+      }(),
+      'ward': () {
+        final v = rawDemo['ward']?.toString().trim() ?? '';
+        return v.toLowerCase() == 'null' ? '' : v;
+      }(),
       'reasonsForVisit': normalizedReasons,
-      'consentTreatment': rawDemo['consentTreatment'] ?? true,
-      'consentStoreMedicalInfo': rawDemo['consentStoreMedicalInfo'] ?? true,
+      'consentTreatment': rawDemo['consentTreatment'] as bool?,
+      'consentStoreMedicalInfo': rawDemo['consentStoreMedicalInfo'] as bool?,
       'patientId': () {
         final rawId = rawDemo['patientId'] ??
             rawDemo['patientTokenId'] ??
@@ -597,12 +620,18 @@ class GeminiOcrService {
       'spo2': (rawVitals['spo2'] as num?)?.toInt(),
       'bloodGlucose': (rawVitals['bloodGlucose'] as num?)?.toInt() ?? (rawVitals['glucose'] as num?)?.toInt() ?? (rawVitals['bloodSugar'] as num?)?.toInt(),
       'glucose': (rawVitals['bloodGlucose'] as num?)?.toInt() ?? (rawVitals['glucose'] as num?)?.toInt() ?? (rawVitals['bloodSugar'] as num?)?.toInt(),
-      'urineTest': rawVitals['urineTest']?.toString().trim() ?? 'normal',
+      'urineTest': () {
+        final raw = rawVitals['urineTest']?.toString().trim();
+        if (raw == null || raw.isEmpty || raw.toLowerCase() == 'null') return null;
+        return raw.toLowerCase() == 'normal' ? 'normal' : (raw.toLowerCase() == 'pos' || raw.toLowerCase() == 'positive' ? 'pos' : raw);
+      }(),
       'pregnancyTest': () {
         final raw = rawVitals['pregnancyTest']?.toString().trim().toLowerCase() ?? '';
+        if (raw.isEmpty || raw == 'null') return null;
         if (raw.contains('pos')) return 'pos';
         if (raw.contains('not') || raw.contains('done')) return 'not_done';
-        return 'neg';
+        if (raw.contains('neg')) return 'neg';
+        return null;
       }(),
       'ecg': rawVitals['ecg']?.toString().trim() ?? '',
       'ecgNotes': rawVitals['ecgNotes']?.toString().trim() ?? rawVitals['ecg']?.toString().trim() ?? '',

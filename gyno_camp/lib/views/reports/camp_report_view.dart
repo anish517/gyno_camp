@@ -4208,7 +4208,8 @@ class _CampReportViewState extends ConsumerState<CampReportView>
                   if (effectiveLevel == 'full_check_up' || effectiveLevel == 'gyno_checkup')
                     _buildSmallStatusChip('Gynocheckup (गाइनो जाँच)', AppTheme.primaryTeal, const Color(0xFFE6FFFA)),
                   if (visit != null) ...[
-                    _buildPopStageChip(visit.highestPopStage),
+                    if (visit.highestPopStage != null)
+                      _buildPopStageChip(visit.highestPopStage!),
                     if (visit.pessaryType != null && visit.pessaryType!.isNotEmpty)
                       _buildSmallStatusChip('💍 Pessary', AppTheme.brandPurple, AppTheme.brandPurpleLight),
                     if (visit.surgicalReferral != null && visit.surgicalReferral!.isNotEmpty)
@@ -4948,7 +4949,24 @@ class _CampReportViewState extends ConsumerState<CampReportView>
     );
   }
 
-  Widget _buildPopStageBadge(int stage) {
+  Widget _buildPopStageBadge(int? stage) {
+    if (stage == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text(
+          'Not Recorded',
+          style: TextStyle(
+            color: Color(0xFF64748B),
+            fontWeight: FontWeight.bold,
+            fontSize: 11,
+          ),
+        ),
+      );
+    }
     Color bg = const Color(0xFFDCFCE7);
     Color fg = const Color(0xFF166534);
     if (stage == 1) {
@@ -4978,7 +4996,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
         Text(label, style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryLight)),
         const SizedBox(height: 2),
         Text(
-          stage is int ? 'Stage $stage' : '$stage',
+          stage == null ? 'N/A' : (stage is int ? 'Stage $stage' : '$stage'),
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
         ),
       ],

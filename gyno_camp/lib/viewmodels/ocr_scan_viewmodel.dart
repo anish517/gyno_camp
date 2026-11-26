@@ -953,7 +953,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       updatedPop['highestPopStage'] = value;
       updatedPop['highestStage'] = value;
       updatedPop['stage'] = value;
-    } else {
+    } else if (key == 'anteriorStage' || key == 'middleStage' || key == 'posteriorStage') {
       // Recalculate highest if anterior, middle, or posterior wall changed
       final ant = updatedPop['anteriorStage'] as int?;
       final mid = updatedPop['middleStage'] as int?;
@@ -963,6 +963,10 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         updatedPop['highestPopStage'] = calc;
         updatedPop['highestStage'] = calc;
         updatedPop['stage'] = calc;
+      } else {
+        updatedPop['highestPopStage'] = null;
+        updatedPop['highestStage'] = null;
+        updatedPop['stage'] = null;
       }
     }
 

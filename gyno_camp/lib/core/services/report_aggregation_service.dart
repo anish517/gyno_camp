@@ -111,23 +111,31 @@ class ReportAggregationService {
 
     for (final v in deduplicatedVisits) {
       // Anterior
-      final ant = v.popAnteriorStage.clamp(0, 3);
-      anteriorStages[ant] = (anteriorStages[ant] ?? 0) + 1;
+      if (v.popAnteriorStage != null) {
+        final ant = v.popAnteriorStage!.clamp(0, 3);
+        anteriorStages[ant] = (anteriorStages[ant] ?? 0) + 1;
+      }
 
       // Middle
-      final mid = v.popMiddleStage.clamp(0, 4);
-      middleStages[mid] = (middleStages[mid] ?? 0) + 1;
+      if (v.popMiddleStage != null) {
+        final mid = v.popMiddleStage!.clamp(0, 4);
+        middleStages[mid] = (middleStages[mid] ?? 0) + 1;
+      }
 
       // Posterior
-      final pos = v.popPosteriorStage.clamp(0, 3);
-      posteriorStages[pos] = (posteriorStages[pos] ?? 0) + 1;
+      if (v.popPosteriorStage != null) {
+        final pos = v.popPosteriorStage!.clamp(0, 3);
+        posteriorStages[pos] = (posteriorStages[pos] ?? 0) + 1;
+      }
 
       // Highest
-      final highest = v.highestPopStage.clamp(0, 4);
-      highestPopStages[highest] = (highestPopStages[highest] ?? 0) + 1;
+      if (v.highestPopStage != null) {
+        final highest = v.highestPopStage!.clamp(0, 4);
+        highestPopStages[highest] = (highestPopStages[highest] ?? 0) + 1;
 
-      if (highest >= 2) {
-        significantPopCount++;
+        if (highest >= 2) {
+          significantPopCount++;
+        }
       }
 
       // Diagnoses

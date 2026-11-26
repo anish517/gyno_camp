@@ -268,16 +268,16 @@ class GynoCampSyncServer {
           living_children INTEGER,
           abortions INTEGER,
           anamnesis_json TEXT,
-          uterus_inside INTEGER DEFAULT 1,
+          uterus_inside INTEGER,
           vulva_remarks TEXT,
           vagina_remarks TEXT,
           cervix_remarks TEXT,
           uterus_remarks TEXT,
-          pelvic_floor_tone TEXT DEFAULT 'normal',
-          pop_anterior_stage INTEGER DEFAULT 0,
-          pop_middle_stage INTEGER DEFAULT 0,
-          pop_posterior_stage INTEGER DEFAULT 0,
-          highest_pop_stage INTEGER DEFAULT 0,
+          pelvic_floor_tone TEXT,
+          pop_anterior_stage INTEGER,
+          pop_middle_stage INTEGER,
+          pop_posterior_stage INTEGER,
+          highest_pop_stage INTEGER,
           urine_test TEXT,
           pregnancy_test TEXT,
           systolic_bp INTEGER,
@@ -445,6 +445,13 @@ class GynoCampSyncServer {
       // Drop legacy restrictive fk_visits_patient constraint (which lacked ON UPDATE/DELETE CASCADE
       // and blocked Token ID updates on patients with error 23503).
       await _connection!.execute('ALTER TABLE clinical_visits DROP CONSTRAINT IF EXISTS fk_visits_patient;');
+      // Drop legacy defaults on physical exam & POP staging columns so unfilled scans store NULL
+      await _connection!.execute('ALTER TABLE clinical_visits ALTER COLUMN uterus_inside DROP DEFAULT;');
+      await _connection!.execute('ALTER TABLE clinical_visits ALTER COLUMN pelvic_floor_tone DROP DEFAULT;');
+      await _connection!.execute('ALTER TABLE clinical_visits ALTER COLUMN pop_anterior_stage DROP DEFAULT;');
+      await _connection!.execute('ALTER TABLE clinical_visits ALTER COLUMN pop_middle_stage DROP DEFAULT;');
+      await _connection!.execute('ALTER TABLE clinical_visits ALTER COLUMN pop_posterior_stage DROP DEFAULT;');
+      await _connection!.execute('ALTER TABLE clinical_visits ALTER COLUMN highest_pop_stage DROP DEFAULT;');
       await _connection!.execute("UPDATE users SET role = 'SUPER_ADMIN' WHERE id = 'usr-superadmin-01' OR LOWER(email) = 'admin@gynocamp.org';");
       // Auto-migrate legacy organization names in PostgreSQL to unified tenant identity
       await _connection!.execute('''
@@ -1429,16 +1436,16 @@ class GynoCampSyncServer {
               'living_children': map['living_children'],
               'abortions': map['abortions'],
               'anamnesis_json': map['anamnesis_json'],
-              'uterus_inside': map['uterus_inside'] ?? 1,
+              'uterus_inside': map['uterus_inside'],
               'vulva_remarks': map['vulva_remarks'],
               'vagina_remarks': map['vagina_remarks'],
               'cervix_remarks': map['cervix_remarks'],
               'uterus_remarks': map['uterus_remarks'],
-              'pelvic_floor_tone': map['pelvic_floor_tone'] ?? 'normal',
-              'pop_anterior_stage': map['pop_anterior_stage'] ?? 0,
-              'pop_middle_stage': map['pop_middle_stage'] ?? 0,
-              'pop_posterior_stage': map['pop_posterior_stage'] ?? 0,
-              'highest_pop_stage': map['highest_pop_stage'] ?? 0,
+              'pelvic_floor_tone': map['pelvic_floor_tone'],
+              'pop_anterior_stage': map['pop_anterior_stage'],
+              'pop_middle_stage': map['pop_middle_stage'],
+              'pop_posterior_stage': map['pop_posterior_stage'],
+              'highest_pop_stage': map['highest_pop_stage'],
               'urine_test': map['urine_test'],
               'pregnancy_test': map['pregnancy_test'],
               'systolic_bp': map['systolic_bp'],
