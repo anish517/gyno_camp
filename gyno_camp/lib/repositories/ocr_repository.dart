@@ -109,10 +109,13 @@ abstract class IOcrRepository {
   Future<List<OfflineScanQueueItem>> getScanPhotoArchiveForPatient({
     String? patientUuid,
     String? patientId,
+    String? campId,
+    bool includePending = false,
   });
   Future<int> getPendingOfflineScanCount({String? campId});
   Future<void> deleteOfflineScanQueueItem(String id);
   Future<void> deleteScanPhoto(String id, {int? pageNumber});
+  Future<int> deleteAllScanPhotos({String? campId});
   Future<OcrScanResultModel> extractQueuedOfflineItem(OfflineScanQueueItem item);
   Future<int> syncAndProcessAllOfflineScans({
     String? defaultUserId,
@@ -1163,6 +1166,7 @@ class OcrRepository implements IOcrRepository {
     final String? p2Base64 = preparedPages[1];
 
     if (archiveItemId != null && archiveItemId.trim().isNotEmpty) {
+      final targetArchiveId = archiveItemId.trim();
       final updateMap = <String, dynamic>{
         'status': 'completed',
         'review_status': reviewStatus,
@@ -1187,7 +1191,13 @@ class OcrRepository implements IOcrRepository {
         DatabaseTables.tableOfflineScanQueue,
         updateMap,
         where: 'id = ?',
-        whereArgs: [archiveItemId.trim()],
+        whereArgs: [targetArchiveId],
+      );
+      // Clean up any duplicate completed archive rows for this same patient UUID
+      await db.delete(
+        DatabaseTables.tableOfflineScanQueue,
+        where: "status = 'completed' AND committed_patient_uuid = ? AND id != ?",
+        whereArgs: [registeredPatient.id, targetArchiveId],
       );
       return;
     }
@@ -1199,9 +1209,17 @@ class OcrRepository implements IOcrRepository {
         (page2ImagePath != null && page2ImagePath.trim().isNotEmpty);
     if (!hasAnyPhoto) return;
 
+    final canonicalArchiveId = 'scanarch-${registeredPatient.id}';
+    // Ensure at most one completed archive row exists per committed patient UUID
+    await db.delete(
+      DatabaseTables.tableOfflineScanQueue,
+      where: "status = 'completed' AND committed_patient_uuid = ? AND id != ?",
+      whereArgs: [registeredPatient.id, canonicalArchiveId],
+    );
+
     final now = DateTime.now();
     final archiveItem = OfflineScanQueueItem(
-      id: 'scanarch-${registeredPatient.id}',
+      id: canonicalArchiveId,
       campId: campId,
       campCode: campCode,
       page1ImageBase64: p1Base64,
@@ -1360,25 +1378,48 @@ class OcrRepository implements IOcrRepository {
   Future<List<OfflineScanQueueItem>> getScanPhotoArchiveForPatient({
     String? patientUuid,
     String? patientId,
+    String? campId,
+    bool includePending = false,
   }) async {
     final db = await _databaseService.database;
     final cleanUuid = patientUuid?.trim() ?? '';
     final cleanPid = patientId?.trim() ?? '';
+    final cleanCampId = campId?.trim() ?? '';
     if (cleanUuid.isEmpty && cleanPid.isEmpty) return const [];
 
-    final conditions = <String>[];
+    final idClauses = <String>[];
     final args = <Object?>[];
     if (cleanUuid.isNotEmpty) {
-      conditions.add('(committed_patient_uuid = ? OR id = ?)');
+      idClauses.add('committed_patient_uuid = ? OR id = ?');
       args.addAll([cleanUuid, 'scanarch-$cleanUuid']);
     }
     if (cleanPid.isNotEmpty) {
-      conditions.add('(LOWER(committed_patient_id) = LOWER(?) OR LOWER(patient_token_hint) = LOWER(?))');
-      args.addAll([cleanPid, cleanPid]);
+      if (cleanUuid.isNotEmpty) {
+        idClauses.add(
+          "((committed_patient_uuid IS NULL OR TRIM(committed_patient_uuid) = '' OR committed_patient_uuid = ?) "
+          'AND (LOWER(committed_patient_id) = LOWER(?) OR LOWER(patient_token_hint) = LOWER(?)))',
+        );
+        args.addAll([cleanUuid, cleanPid, cleanPid]);
+      } else {
+        idClauses.add(
+          '(LOWER(committed_patient_id) = LOWER(?) OR LOWER(patient_token_hint) = LOWER(?))',
+        );
+        args.addAll([cleanPid, cleanPid]);
+      }
     }
+
+    final whereParts = <String>['(${idClauses.join(' OR ')})'];
+    if (cleanCampId.isNotEmpty && cleanCampId != 'all') {
+      whereParts.add('camp_id = ?');
+      args.add(cleanCampId);
+    }
+    if (!includePending) {
+      whereParts.add("status = 'completed'");
+    }
+
     final items = await _queryOfflineScanItems(
       db,
-      where: conditions.join(' OR '),
+      where: whereParts.join(' AND '),
       whereArgs: args,
       orderBy: 'updated_at DESC, created_at DESC',
     );
@@ -1412,11 +1453,39 @@ class OcrRepository implements IOcrRepository {
 
   @override
   Future<void> deleteScanPhoto(String id, {int? pageNumber}) async {
+    final db = await _databaseService.database;
     if (pageNumber == null) {
+      final metaRows = await db.query(
+        DatabaseTables.tableOfflineScanQueue,
+        columns: ['camp_id', 'status', 'committed_patient_uuid'],
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
       await deleteOfflineScanQueueItem(id);
+      if (metaRows.isNotEmpty) {
+        final meta = metaRows.first;
+        final status = (meta['status'] as String?)?.trim() ?? '';
+        final patUuid = (meta['committed_patient_uuid'] as String?)?.trim() ?? '';
+        final rowCampId = (meta['camp_id'] as String?)?.trim() ?? '';
+        if (status == 'completed' && patUuid.isNotEmpty) {
+          if (rowCampId.isNotEmpty) {
+            await db.delete(
+              DatabaseTables.tableOfflineScanQueue,
+              where: "status = 'completed' AND committed_patient_uuid = ? AND camp_id = ?",
+              whereArgs: [patUuid, rowCampId],
+            );
+          } else {
+            await db.delete(
+              DatabaseTables.tableOfflineScanQueue,
+              where: "status = 'completed' AND committed_patient_uuid = ?",
+              whereArgs: [patUuid],
+            );
+          }
+        }
+      }
       return;
     }
-    final db = await _databaseService.database;
     final rows = await db.rawQuery(
       '''
       SELECT id, page1_image_path, page2_image_path,
@@ -1456,6 +1525,22 @@ class OcrRepository implements IOcrRepository {
       },
       where: 'id = ?',
       whereArgs: [id],
+    );
+  }
+
+  @override
+  Future<int> deleteAllScanPhotos({String? campId}) async {
+    final db = await _databaseService.database;
+    final cleanCampId = campId?.trim() ?? '';
+    final hasCampFilter = cleanCampId.isNotEmpty && cleanCampId != 'all';
+    final where = hasCampFilter
+        ? "status = 'completed' AND camp_id = ?"
+        : "status = 'completed'";
+    final whereArgs = hasCampFilter ? <Object?>[cleanCampId] : null;
+    return db.delete(
+      DatabaseTables.tableOfflineScanQueue,
+      where: where,
+      whereArgs: whereArgs,
     );
   }
 

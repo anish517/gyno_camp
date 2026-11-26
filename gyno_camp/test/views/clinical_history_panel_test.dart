@@ -1,9 +1,13 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gyno_camp/core/utils/nepali_date_helper.dart';
 import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/clinical_visit_model.dart';
+import 'package:gyno_camp/models/ocr_scan_result_model.dart';
 import 'package:gyno_camp/models/patient_model.dart';
+import 'package:gyno_camp/repositories/ocr_repository.dart';
 import 'package:gyno_camp/repositories/patient_repository.dart';
+import 'package:gyno_camp/viewmodels/ocr_scan_viewmodel.dart';
 import 'package:gyno_camp/views/patient/clinical_history_panel.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:nepali_utils/nepali_utils.dart';
@@ -189,4 +193,132 @@ void main() {
     expect(find.textContaining('Intake Date: 2083-04-10 BS', findRichText: true), findsOneWidget);
     expect(find.textContaining('1st Visit (Treatment)'), findsOneWidget);
   });
+
+  testWidgets('ClinicalHistoryPanel reacts when scan photos are deleted from archive via ocrScanProvider', (tester) async {
+    const valid1x1PngBase64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    final camp = CampModel(
+      id: 'camp-1111',
+      campCode: '1111',
+      name: 'Bhaktapur Camp',
+      district: 'Bhaktapur',
+      municipality: 'Bhaktapur',
+      ward: '05',
+      venue: 'Health Post',
+      startDate: DateTime(2026, 11, 20),
+      endDate: DateTime(2026, 11, 26),
+      createdAt: DateTime(2026, 11, 20),
+    );
+    final patient = PatientModel(
+      id: 'pat-99',
+      patientId: '00099',
+      campId: camp.id,
+      campCode: camp.campCode,
+      intakeDate: DateTime(2026, 11, 26),
+      firstName: 'Anish',
+      surname: 'Tiwari',
+      age: 21,
+      mobile: '',
+      ward: '05',
+      district: 'Bhaktapur',
+      municipality: 'Bhaktapur',
+      createdByUserId: 'u1',
+      createdByDeviceId: 'd1',
+      createdAt: DateTime(2026, 11, 26),
+    );
+    final fakeOcrRepo = _StubOcrArchiveRepo([
+      OfflineScanQueueItem(
+        id: 'scanarch-pat-99',
+        campId: 'camp-1111',
+        campCode: '1111',
+        page1ImageBase64: valid1x1PngBase64,
+        page2ImageBase64: valid1x1PngBase64,
+        status: 'completed',
+        reviewStatus: 'verified',
+        committedPatientUuid: 'pat-99',
+        committedPatientId: '00099',
+        committedPatientName: 'Anish Tiwari',
+        createdByUserId: 'u1',
+        deviceId: 'd1',
+        createdAt: DateTime(2026, 11, 26),
+        updatedAt: DateTime(2026, 11, 26),
+      ),
+    ]);
+
+    final container = ProviderContainer(
+      overrides: [
+        ocrRepositoryProvider.overrideWithValue(fakeOcrRepo),
+        ocrScanProvider.overrideWith((ref) => OcrScanViewModel(repository: fakeOcrRepo)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.binding.setSurfaceSize(const Size(1100, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: ClinicalHistoryPanel(
+              patient: patient,
+              camp: camp,
+              orgName: 'Women for Women',
+              repo: _StubPatientRepo(const []),
+              ocrRepo: fakeOcrRepo,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Scanned Yellow Form Photos'), findsOneWidget);
+    expect(find.text('Page 1 & Page 2'), findsOneWidget);
+
+    // Simulate deleting the photo from Scanned Form Photos archive
+    await container.read(ocrScanProvider.notifier).deleteAllScanPhotos(campId: camp.id);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Scanned Yellow Form Photos'), findsNothing);
+    expect(find.text('Page 1 & Page 2'), findsNothing);
+  });
+}
+
+class _StubOcrArchiveRepo implements IOcrRepository {
+  final List<OfflineScanQueueItem> items;
+  _StubOcrArchiveRepo(this.items);
+
+  @override
+  Future<List<OfflineScanQueueItem>> getOfflineScanQueue({String? campId}) async {
+    return items.where((i) => campId == null || campId.isEmpty || i.campId == campId).toList();
+  }
+
+  @override
+  Future<List<OfflineScanQueueItem>> getScanPhotoArchiveForPatient({
+    String? patientUuid,
+    String? patientId,
+    String? campId,
+    bool includePending = false,
+  }) async {
+    return items
+        .where(
+          (i) =>
+              (campId == null || campId.isEmpty || i.campId == campId) &&
+              (includePending || i.status == 'completed') &&
+              (i.committedPatientUuid == patientUuid || i.committedPatientId == patientId),
+        )
+        .toList();
+  }
+
+  @override
+  Future<int> deleteAllScanPhotos({String? campId}) async {
+    final removed = items.where((i) => campId == null || campId.isEmpty || i.campId == campId).toList();
+    items.removeWhere((i) => removed.contains(i));
+    return removed.length;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -135,6 +135,7 @@ class OcrScanState {
     bool? isPatientIdConflict,
     String? patientIdConflictReason,
     String? activeArchiveItemId,
+    bool clearActiveArchiveItem = false,
     String? reviewingPatientUuid,
     String? reviewingVisitId,
     bool clearReviewContext = false,
@@ -166,7 +167,9 @@ class OcrScanState {
       duplicateResult: duplicateResult ?? this.duplicateResult,
       isPatientIdConflict: clearPatientIdConflict ? false : (isPatientIdConflict ?? this.isPatientIdConflict),
       patientIdConflictReason: clearPatientIdConflict ? null : (patientIdConflictReason ?? this.patientIdConflictReason),
-      activeArchiveItemId: clearReviewContext ? null : (activeArchiveItemId ?? this.activeArchiveItemId),
+      activeArchiveItemId: (clearReviewContext || clearActiveArchiveItem)
+          ? null
+          : (activeArchiveItemId ?? this.activeArchiveItemId),
       reviewingPatientUuid: clearReviewContext ? null : (reviewingPatientUuid ?? this.reviewingPatientUuid),
       reviewingVisitId: clearReviewContext ? null : (reviewingVisitId ?? this.reviewingVisitId),
     );
@@ -280,18 +283,32 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       if (!mounted) return;
       if (state.activeArchiveItemId == id) {
         if (pageNumber == 1) {
+          final remainingP2Path = state.page2ImagePath ?? state.scanResult?.page2ImagePath;
           state = state.copyWith(
             offlineQueue: updatedQueue,
             clearPage1Image: true,
+            page1Scan: state.page1Scan?.copyWith(clearImagePath: true, clearPage1ImagePath: true),
+            scanResult: state.scanResult?.copyWith(
+              clearPage1ImagePath: true,
+              imagePath: remainingP2Path,
+              clearImagePath: remainingP2Path == null || remainingP2Path.isEmpty,
+            ),
             activeInspectionPage: state.hasPage2Image ? 2 : 1,
             successMessage:
                 'Page 1 photo deleted. The patient & visit record remains intact.',
           );
           return;
         } else if (pageNumber == 2) {
+          final remainingP1Path = state.page1ImagePath ?? state.scanResult?.page1ImagePath;
           state = state.copyWith(
             offlineQueue: updatedQueue,
             clearPage2Image: true,
+            page2Scan: state.page2Scan?.copyWith(clearImagePath: true, clearPage2ImagePath: true),
+            scanResult: state.scanResult?.copyWith(
+              clearPage2ImagePath: true,
+              imagePath: remainingP1Path,
+              clearImagePath: remainingP1Path == null || remainingP1Path.isEmpty,
+            ),
             activeInspectionPage: state.hasPage1Image ? 1 : 2,
             successMessage:
                 'Page 2 photo deleted. The patient & visit record remains intact.',
@@ -302,6 +319,14 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
             offlineQueue: updatedQueue,
             clearPage1Image: true,
             clearPage2Image: true,
+            clearActiveArchiveItem: true,
+            page1Scan: state.page1Scan?.copyWith(clearImagePath: true, clearPage1ImagePath: true),
+            page2Scan: state.page2Scan?.copyWith(clearImagePath: true, clearPage2ImagePath: true),
+            scanResult: state.scanResult?.copyWith(
+              clearImagePath: true,
+              clearPage1ImagePath: true,
+              clearPage2ImagePath: true,
+            ),
             successMessage:
                 'All stored scan photos deleted. The patient & visit record remains intact.',
           );
@@ -315,6 +340,44 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
             : 'Scanned form photo(s) deleted. The committed patient record remains intact.',
       );
     } catch (_) {}
+  }
+
+  /// Deletes all completed Yellow Form scan photos in the archive for the scoped
+  /// camp without deleting pending offline scans or committed patient/visit records.
+  Future<int> deleteAllScanPhotos({String? campId}) async {
+    try {
+      final targetCampId = campId ?? _scopedCampId;
+      final deletedCount = await _repository.deleteAllScanPhotos(campId: targetCampId);
+      final updatedQueue = await _repository.getOfflineScanQueue(campId: _scopedCampId);
+      if (!mounted) return deletedCount;
+      final activeItemRemoved = state.activeArchiveItemId != null &&
+          !updatedQueue.any((i) => i.id == state.activeArchiveItemId);
+      state = state.copyWith(
+        offlineQueue: updatedQueue,
+        clearPage1Image: activeItemRemoved,
+        clearPage2Image: activeItemRemoved,
+        clearActiveArchiveItem: activeItemRemoved,
+        page1Scan: activeItemRemoved
+            ? state.page1Scan?.copyWith(clearImagePath: true, clearPage1ImagePath: true)
+            : null,
+        page2Scan: activeItemRemoved
+            ? state.page2Scan?.copyWith(clearImagePath: true, clearPage2ImagePath: true)
+            : null,
+        scanResult: activeItemRemoved
+            ? state.scanResult?.copyWith(
+                clearImagePath: true,
+                clearPage1ImagePath: true,
+                clearPage2ImagePath: true,
+              )
+            : null,
+        successMessage: deletedCount > 0
+            ? 'Deleted stored scan photos for $deletedCount record(s). Committed patient & visit records remain intact.'
+            : 'No stored scan photos to delete.',
+      );
+      return deletedCount;
+    } catch (_) {
+      return 0;
+    }
   }
 
   /// Opens an already-committed or archived Yellow Form scan (Page 1 & Page 2 photos +
@@ -1452,9 +1515,13 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         existingVisitId: state.reviewingVisitId,
         archiveItemId: state.activeArchiveItemId,
         page1ImageBytes: state.page1ImageBytes,
-        page1ImagePath: state.page1ImagePath ?? state.page1Scan?.imagePath,
+        page1ImagePath: state.isReviewingCommittedScan
+            ? state.page1ImagePath
+            : (state.page1ImagePath ?? state.page1Scan?.imagePath),
         page2ImageBytes: state.page2ImageBytes,
-        page2ImagePath: state.page2ImagePath ?? state.page2Scan?.imagePath,
+        page2ImagePath: state.isReviewingCommittedScan
+            ? state.page2ImagePath
+            : (state.page2ImagePath ?? state.page2Scan?.imagePath),
         reviewStatus: 'verified',
         preservePhotoArchive: true,
       );

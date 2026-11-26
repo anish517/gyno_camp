@@ -23,6 +23,7 @@ class ClinicalHistoryPanel extends ConsumerStatefulWidget {
   final CampModel? camp;
   final String orgName;
   final IPatientRepository repo;
+  final IOcrRepository? ocrRepo;
   final VoidCallback? onDataModified;
 
   const ClinicalHistoryPanel({
@@ -31,6 +32,7 @@ class ClinicalHistoryPanel extends ConsumerStatefulWidget {
     required this.camp,
     required this.orgName,
     required this.repo,
+    this.ocrRepo,
     this.onDataModified,
   });
 
@@ -41,20 +43,67 @@ class ClinicalHistoryPanel extends ConsumerStatefulWidget {
 class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
   late Future<List<ClinicalVisitModel>> _visitsFuture;
   late Future<List<OfflineScanQueueItem>> _scanPhotosFuture;
-  final IOcrRepository _ocrRepo = OcrRepository();
+  late IOcrRepository _ocrRepo;
+  ProviderSubscription<List<OfflineScanQueueItem>>? _ocrQueueSub;
+  bool _depsInitialized = false;
   late PatientModel _patient;
   bool _dlDossier = false;
   int _mobileTabIndex = 1; // 0 = Profile & Obstetric Overview, 1 = Clinical Timeline & Encounters
+
+  IOcrRepository _resolveOcrRepo() {
+    if (widget.ocrRepo != null) return widget.ocrRepo!;
+    try {
+      return ProviderScope.containerOf(context, listen: false).read(ocrRepositoryProvider);
+    } catch (_) {
+      return OcrRepository();
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _patient = widget.patient;
+    _ocrRepo = widget.ocrRepo ?? OcrRepository();
     _visitsFuture = widget.repo.getClinicalVisits(_patient.patientId, patientUuid: _patient.id);
     _scanPhotosFuture = _ocrRepo.getScanPhotoArchiveForPatient(
       patientUuid: _patient.id,
       patientId: _patient.patientId,
+      campId: _patient.campId,
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_depsInitialized) {
+      _depsInitialized = true;
+      final resolvedRepo = _resolveOcrRepo();
+      if (!identical(resolvedRepo, _ocrRepo)) {
+        _ocrRepo = resolvedRepo;
+        _scanPhotosFuture = _ocrRepo.getScanPhotoArchiveForPatient(
+          patientUuid: _patient.id,
+          patientId: _patient.patientId,
+          campId: _patient.campId,
+        );
+      }
+      try {
+        final container = ProviderScope.containerOf(context, listen: false);
+        _ocrQueueSub = container.listen<List<OfflineScanQueueItem>>(
+          ocrScanProvider.select((s) => s.offlineQueue),
+          (_, _) {
+            if (mounted) _refreshScanPhotos();
+          },
+        );
+      } catch (_) {
+        // Standalone test mount without ProviderScope
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _ocrQueueSub?.close();
+    super.dispose();
   }
 
   void _refreshScanPhotos() {
@@ -62,6 +111,7 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
       _scanPhotosFuture = _ocrRepo.getScanPhotoArchiveForPatient(
         patientUuid: _patient.id,
         patientId: _patient.patientId,
+        campId: _patient.campId,
       );
     });
   }

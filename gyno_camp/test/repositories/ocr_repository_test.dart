@@ -571,5 +571,273 @@ void main() {
       expect(report.posteriorStages[0], 0);
       expect(report.significantPopCount, 0);
     });
+
+    test('deleteAllScanPhotos clears completed archive photos in target camp while preserving pending offline queue, other camps, and patient records', () async {
+      final dummyPage1 = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3]);
+      final sampleScan = await ocrRepo.processTextScan(OcrFormService.sampleFullFormText);
+
+      // 1. Two completed archive entries in camp-ktm-01
+      final q1 = await ocrRepo.enqueueOfflineScan(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        page1Bytes: dummyPage1,
+        patientIdHint: '00091',
+        userId: 'usr-1',
+        userName: 'Staff',
+        userRole: 'DataTaker',
+        deviceId: 'dev-1',
+      );
+      final pat1 = await ocrRepo.commitVerifiedScan(
+        verifiedScan: sampleScan.copyWith(
+          demographics: {
+            ...sampleScan.demographics,
+            'patientId': '00091',
+            'firstName': 'Asha',
+            'surname': 'Thapa',
+          },
+        ),
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        userId: 'usr-1',
+        userName: 'Staff',
+        deviceId: 'dev-1',
+        archiveItemId: q1.id,
+        reviewStatus: 'verified',
+      );
+
+      final q2 = await ocrRepo.enqueueOfflineScan(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        page1Bytes: dummyPage1,
+        patientIdHint: '00092',
+        userId: 'usr-1',
+        userName: 'Staff',
+        userRole: 'DataTaker',
+        deviceId: 'dev-1',
+      );
+      final pat2 = await ocrRepo.commitVerifiedScan(
+        verifiedScan: sampleScan.copyWith(
+          demographics: {
+            ...sampleScan.demographics,
+            'patientId': '00092',
+            'firstName': 'Rita',
+            'surname': 'Gurung',
+          },
+        ),
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        userId: 'usr-1',
+        userName: 'Staff',
+        deviceId: 'dev-1',
+        archiveItemId: q2.id,
+        reviewStatus: 'verified',
+      );
+
+      // 2. Unsynced pending scan in camp-ktm-01 (MUST NOT be deleted)
+      final pendingItem = await ocrRepo.enqueueOfflineScan(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        page1Bytes: dummyPage1,
+        patientIdHint: '00093',
+        userId: 'usr-1',
+        userName: 'Staff',
+        userRole: 'DataTaker',
+        deviceId: 'dev-1',
+      );
+
+      // 3. Completed archive entry in a DIFFERENT camp (MUST NOT be deleted when scoped to camp-ktm-01)
+      final qOtherCamp = await ocrRepo.enqueueOfflineScan(
+        campId: 'camp-pok-02',
+        campCode: 'POK02',
+        page1Bytes: dummyPage1,
+        patientIdHint: '00094',
+        userId: 'usr-1',
+        userName: 'Staff',
+        userRole: 'DataTaker',
+        deviceId: 'dev-1',
+      );
+      await ocrRepo.commitVerifiedScan(
+        verifiedScan: sampleScan.copyWith(
+          demographics: {
+            ...sampleScan.demographics,
+            'patientId': '00094',
+            'firstName': 'Sita',
+            'surname': 'Karki',
+          },
+        ),
+        campId: 'camp-pok-02',
+        campCode: 'POK02',
+        userId: 'usr-1',
+        userName: 'Staff',
+        deviceId: 'dev-1',
+        archiveItemId: qOtherCamp.id,
+        reviewStatus: 'verified',
+      );
+
+      // Delete all completed scan photos for camp-ktm-01
+      final deletedCount = await ocrRepo.deleteAllScanPhotos(campId: 'camp-ktm-01');
+      expect(deletedCount, 2);
+
+      final remainingKtmQueue = await ocrRepo.getOfflineScanQueue(campId: 'camp-ktm-01');
+      expect(remainingKtmQueue.length, 1);
+      expect(remainingKtmQueue.first.id, pendingItem.id);
+      expect(remainingKtmQueue.first.isPendingOrFailed, isTrue);
+
+      // Both committed patients' dossiers show zero photos, yet patients & visits stay intact
+      expect(
+        await ocrRepo.getScanPhotoArchiveForPatient(
+          patientUuid: pat1.id,
+          patientId: pat1.patientId,
+          campId: pat1.campId,
+        ),
+        isEmpty,
+      );
+      expect(
+        await ocrRepo.getScanPhotoArchiveForPatient(
+          patientUuid: pat2.id,
+          patientId: pat2.patientId,
+          campId: pat2.campId,
+        ),
+        isEmpty,
+      );
+      expect(await patientRepo.getPatientByPatientId(pat1.patientId), isNotNull);
+      expect(await patientRepo.getPatientByPatientId(pat2.patientId), isNotNull);
+      expect(await patientRepo.getClinicalVisits(pat1.patientId, patientUuid: pat1.id), hasLength(1));
+
+      // Other camp's archive item remains intact
+      final pokQueue = await ocrRepo.getOfflineScanQueue(campId: 'camp-pok-02');
+      expect(pokQueue.length, 1);
+      expect(pokQueue.first.isCompleted, isTrue);
+    });
+
+    test('getScanPhotoArchiveForPatient scopes by camp and patient UUID, and deletePatient/deleteScanPhoto leave zero stale photos', () async {
+      final dummyPage1 = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, 5, 6, 7]);
+      final sampleScan = await ocrRepo.processTextScan(OcrFormService.sampleFullFormText);
+
+      // Patient 00099 in camp-ktm-01 committed with photo + duplicate completed row
+      final saved = await ocrRepo.commitVerifiedScan(
+        verifiedScan: sampleScan.copyWith(
+          demographics: {
+            ...sampleScan.demographics,
+            'patientId': '00099',
+            'firstName': 'Anish',
+            'surname': 'Tiwari',
+          },
+        ),
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        userId: 'usr-1',
+        userName: 'Staff',
+        deviceId: 'dev-1',
+        page1ImageBytes: dummyPage1,
+      );
+
+      // Pending item + other camp completed item sharing token '00099' must NOT bleed into camp-ktm-01 dossier
+      await ocrRepo.enqueueOfflineScan(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        page1Bytes: dummyPage1,
+        patientIdHint: '00099',
+        userId: 'usr-1',
+        userName: 'Staff',
+        userRole: 'DataTaker',
+        deviceId: 'dev-1',
+      );
+      final nowIso = DateTime.now().toIso8601String();
+      await testDb.insert('offline_scan_queue', {
+        'id': 'other-camp-00099',
+        'camp_id': 'camp-other-99',
+        'camp_code': 'OTH99',
+        'page1_image_path': '/tmp/other.jpg',
+        'patient_token_hint': '00099',
+        'status': 'completed',
+        'review_status': 'verified',
+        'committed_patient_uuid': 'different-uuid',
+        'committed_patient_id': '00099',
+        'committed_patient_name': 'Other Camp Patient',
+        'created_by_user_id': 'usr-1',
+        'created_by_user_name': 'Staff',
+        'created_by_user_role': 'DataTaker',
+        'device_id': 'dev-1',
+        'tenant_id': 'tenant_default',
+        'created_at': nowIso,
+        'updated_at': nowIso,
+      });
+
+      final dossierPhotos = await ocrRepo.getScanPhotoArchiveForPatient(
+        patientUuid: saved.id,
+        patientId: saved.patientId,
+        campId: saved.campId,
+      );
+      expect(dossierPhotos.length, 1);
+      expect(dossierPhotos.first.committedPatientUuid, saved.id);
+
+      // Simulate an extra legacy duplicate completed row for the exact same patient UUID
+      await testDb.insert('offline_scan_queue', {
+        'id': 'dup-row-for-same-patient',
+        'camp_id': 'camp-ktm-01',
+        'camp_code': 'KTM01',
+        'page1_image_path': '/tmp/dup.jpg',
+        'patient_token_hint': '00099',
+        'status': 'completed',
+        'review_status': 'verified',
+        'committed_patient_uuid': saved.id,
+        'committed_patient_id': '00099',
+        'committed_patient_name': 'Anish Tiwari',
+        'created_by_user_id': 'usr-1',
+        'created_by_user_name': 'Staff',
+        'created_by_user_role': 'DataTaker',
+        'device_id': 'dev-1',
+        'tenant_id': 'tenant_default',
+        'created_at': nowIso,
+        'updated_at': nowIso,
+      });
+
+      // Deleting from archive clears all completed rows for this patient -> dossier is empty
+      await ocrRepo.deleteScanPhoto(dossierPhotos.first.id);
+      expect(
+        await ocrRepo.getScanPhotoArchiveForPatient(
+          patientUuid: saved.id,
+          patientId: saved.patientId,
+          campId: saved.campId,
+        ),
+        isEmpty,
+      );
+
+      // Re-commit another patient with reused token after deletePatient -> old archive cleaned up too
+      final patToDelete = await ocrRepo.commitVerifiedScan(
+        verifiedScan: sampleScan.copyWith(
+          demographics: {
+            ...sampleScan.demographics,
+            'patientId': '00105',
+            'firstName': 'Maya',
+            'surname': 'Lama',
+          },
+        ),
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        userId: 'usr-1',
+        userName: 'Staff',
+        deviceId: 'dev-1',
+        page1ImageBytes: dummyPage1,
+      );
+      expect(
+        await ocrRepo.getScanPhotoArchiveForPatient(
+          patientUuid: patToDelete.id,
+          patientId: patToDelete.patientId,
+          campId: patToDelete.campId,
+        ),
+        hasLength(1),
+      );
+      await patientRepo.deletePatient(patToDelete.id);
+      expect(
+        await ocrRepo.getScanPhotoArchiveForPatient(
+          patientUuid: patToDelete.id,
+          patientId: patToDelete.patientId,
+          campId: patToDelete.campId,
+        ),
+        isEmpty,
+      );
+    });
   });
 }

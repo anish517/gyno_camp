@@ -802,6 +802,30 @@ class PatientRepository implements IPatientRepository {
         whereArgs: [patientUuid, patientTokenId],
       );
 
+      // Remove archived/completed Yellow Form photos linked to this deleted patient
+      // so orphaned photos never resurface if a numeric Token ID is later reused.
+      final archiveWhereParts = <String>[
+        'committed_patient_uuid = ?',
+        'id = ?',
+      ];
+      final archiveWhereArgs = <Object?>[patientUuid, 'scanarch-$patientUuid'];
+      if (campId.isNotEmpty) {
+        archiveWhereParts.add(
+          "(camp_id = ? AND status = 'completed' AND (LOWER(committed_patient_id) = LOWER(?) OR LOWER(patient_token_hint) = LOWER(?)))",
+        );
+        archiveWhereArgs.addAll([campId, patientTokenId, patientTokenId]);
+      } else {
+        archiveWhereParts.add(
+          "(status = 'completed' AND LOWER(committed_patient_id) = LOWER(?))",
+        );
+        archiveWhereArgs.add(patientTokenId);
+      }
+      await txn.delete(
+        DatabaseTables.tableOfflineScanQueue,
+        where: archiveWhereParts.join(' OR '),
+        whereArgs: archiveWhereArgs,
+      );
+
       if (campId.isNotEmpty) {
         await txn.rawUpdate(
           'UPDATE ${DatabaseTables.tableCamps} SET total_patients_registered = CASE WHEN total_patients_registered > 0 THEN total_patients_registered - 1 ELSE 0 END WHERE id = ?',

@@ -98,8 +98,11 @@ class OcrScanResultModel {
   OcrScanResultModel copyWith({
     int? pageNumber,
     String? imagePath,
+    bool clearImagePath = false,
     String? page1ImagePath,
+    bool clearPage1ImagePath = false,
     String? page2ImagePath,
+    bool clearPage2ImagePath = false,
     String? page1RawText,
     String? page2RawText,
     bool? isDualPage,
@@ -155,9 +158,9 @@ class OcrScanResultModel {
   }) {
     return OcrScanResultModel(
       pageNumber: pageNumber ?? this.pageNumber,
-      imagePath: imagePath ?? this.imagePath,
-      page1ImagePath: page1ImagePath ?? this.page1ImagePath,
-      page2ImagePath: page2ImagePath ?? this.page2ImagePath,
+      imagePath: clearImagePath ? null : (imagePath ?? this.imagePath),
+      page1ImagePath: clearPage1ImagePath ? null : (page1ImagePath ?? this.page1ImagePath),
+      page2ImagePath: clearPage2ImagePath ? null : (page2ImagePath ?? this.page2ImagePath),
       page1RawText: page1RawText ?? this.page1RawText,
       page2RawText: page2RawText ?? this.page2RawText,
       isDualPage: isDualPage ?? this.isDualPage,

@@ -7,6 +7,7 @@ import 'package:gyno_camp/core/theme/app_theme.dart';
 import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/ocr_scan_result_model.dart';
 import 'package:gyno_camp/models/user_model.dart';
+import 'package:gyno_camp/repositories/ocr_repository.dart';
 import 'package:gyno_camp/viewmodels/auth_viewmodel.dart';
 import 'package:gyno_camp/viewmodels/camp_viewmodel.dart';
 import 'package:gyno_camp/viewmodels/ocr_scan_viewmodel.dart';
@@ -877,5 +878,180 @@ void main() {
         expect(pregNegChip.selected, isFalse);
       },
     );
+
+    testWidgets(
+      'Scanned Form Photos archive renders Delete All button on mobile (360px) and desktop without overflow and deletes only completed camp archive photos',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(360, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        const valid1x1PngBase64 =
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+        final activeCamp = CampModel(
+          id: 'camp-1111',
+          campCode: '1111',
+          name: 'Bhaktapur, Bhaktapur, Bagmati',
+          province: 'Bagmati',
+          district: 'Bhaktapur',
+          municipality: 'Bhaktapur',
+          ward: '05',
+          venue: 'Health Post',
+          startDate: DateTime(2026, 11, 20),
+          endDate: DateTime(2026, 11, 26),
+          status: CampStatus.open,
+          createdAt: DateTime(2026, 11, 20),
+        );
+
+        final fakeRepo = _MemoryArchiveOcrRepository([
+          OfflineScanQueueItem(
+            id: 'scanarch-1',
+            campId: 'camp-1111',
+            campCode: '1111',
+            page1ImageBase64: valid1x1PngBase64,
+            page2ImageBase64: valid1x1PngBase64,
+            status: 'completed',
+            reviewStatus: 'verified',
+            committedPatientUuid: 'pat-1',
+            committedPatientId: '00099',
+            committedPatientName: 'Anish Tiwari',
+            createdByUserId: 'usr-1',
+            createdByUserName: 'Staff',
+            createdByUserRole: 'DataTaker',
+            deviceId: 'dev-1',
+            createdAt: DateTime(2026, 11, 26),
+            updatedAt: DateTime(2026, 11, 26),
+          ),
+          OfflineScanQueueItem(
+            id: 'scanarch-2',
+            campId: 'camp-1111',
+            campCode: '1111',
+            page1ImageBase64: valid1x1PngBase64,
+            status: 'completed',
+            reviewStatus: 'verified',
+            committedPatientUuid: 'pat-2',
+            committedPatientId: '00100',
+            committedPatientName: 'Kamala Rai',
+            createdByUserId: 'usr-1',
+            createdByUserName: 'Staff',
+            createdByUserRole: 'DataTaker',
+            deviceId: 'dev-1',
+            createdAt: DateTime(2026, 11, 26),
+            updatedAt: DateTime(2026, 11, 26),
+          ),
+          OfflineScanQueueItem(
+            id: 'offscan-pending',
+            campId: 'camp-1111',
+            campCode: '1111',
+            page1ImageBase64: valid1x1PngBase64,
+            status: 'pending',
+            reviewStatus: 'pending',
+            patientTokenHint: '00101',
+            createdByUserId: 'usr-1',
+            createdByUserName: 'Staff',
+            createdByUserRole: 'DataTaker',
+            deviceId: 'dev-1',
+            createdAt: DateTime(2026, 11, 26),
+            updatedAt: DateTime(2026, 11, 26),
+          ),
+        ]);
+
+        final container = ProviderContainer(
+          overrides: [
+            ocrRepositoryProvider.overrideWithValue(fakeRepo),
+            ocrScanProvider.overrideWith(
+              (ref) => OcrScanViewModel(repository: fakeRepo),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        container.read(campStateProvider.notifier).state = CampState(
+          camps: [activeCamp],
+          activeCamp: activeCamp,
+        );
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: const FormScanView(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Scanned Form Photos — Review & Correction (2)'), findsOneWidget);
+        final deleteAllBtn = find.byKey(const ValueKey('archive_delete_all_btn'));
+        expect(deleteAllBtn, findsOneWidget);
+        expect(find.text('Delete All (2)'), findsOneWidget);
+
+        await tester.ensureVisible(deleteAllBtn);
+        await tester.tap(deleteAllBtn);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Delete All Stored Scan Photos?'), findsOneWidget);
+        expect(
+          find.textContaining('pending unsynced offline scans will NOT be deleted'),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('confirm_delete_all_archive_btn')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Scanned Form Photos — Review & Correction (2)'), findsNothing);
+        // Pending offline scan must remain intact
+        expect(find.text('Locally Stored Offline Scans (1)'), findsOneWidget);
+        expect(container.read(ocrScanProvider).completedScanArchive, isEmpty);
+        expect(container.read(ocrScanProvider).pendingOfflineQueue, hasLength(1));
+      },
+    );
   });
+}
+
+class _MemoryArchiveOcrRepository implements IOcrRepository {
+  final List<OfflineScanQueueItem> items;
+  _MemoryArchiveOcrRepository(this.items);
+
+  @override
+  Future<List<OfflineScanQueueItem>> getOfflineScanQueue({String? campId}) async {
+    if (campId == null || campId.isEmpty || campId == 'all') {
+      return List<OfflineScanQueueItem>.from(items);
+    }
+    return items.where((i) => i.campId == campId).toList();
+  }
+
+  @override
+  Future<void> deleteOfflineScanQueueItem(String id) async {
+    items.removeWhere((i) => i.id == id);
+  }
+
+  @override
+  Future<void> deleteScanPhoto(String id, {int? pageNumber}) async {
+    if (pageNumber == null) {
+      items.removeWhere((i) => i.id == id);
+    }
+  }
+
+  @override
+  Future<int> deleteAllScanPhotos({String? campId}) async {
+    final toRemove = items
+        .where(
+          (i) =>
+              i.status == 'completed' &&
+              (campId == null || campId.isEmpty || campId == 'all' || i.campId == campId),
+        )
+        .toList();
+    items.removeWhere((i) => toRemove.contains(i));
+    return toRemove.length;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -759,25 +759,30 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.cloud_queue,
-                      color: AppTheme.primaryTeal,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Locally Stored Offline Scans (${pendingList.length})',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: AppTheme.primaryDark,
+                LayoutBuilder(
+                  builder: (context, pendingHdrBox) {
+                    final isNarrowPendingHdr = pendingHdrBox.maxWidth < 440;
+                    final titleRow = Row(
+                      children: [
+                        const Icon(
+                          Icons.cloud_queue,
+                          color: AppTheme.primaryTeal,
+                          size: 20,
                         ),
-                      ),
-                    ),
-                    FilledButton.tonalIcon(
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Locally Stored Offline Scans (${pendingList.length})',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: AppTheme.primaryDark,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                    final syncBtn = FilledButton.tonalIcon(
                       style: FilledButton.styleFrom(
                         visualDensity: VisualDensity.compact,
                       ),
@@ -827,8 +832,28 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                 );
                               }
                             },
-                    ),
-                  ],
+                    );
+                    if (isNarrowPendingHdr) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          titleRow,
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: syncBtn,
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: titleRow),
+                        const SizedBox(width: 8),
+                        syncBtn,
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 10),
                 ...visiblePending.map((item) {
@@ -1007,57 +1032,129 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: () =>
-                      setState(() => _isArchiveExpanded = !_isArchiveExpanded),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.photo_library_outlined,
-                        color: AppTheme.primaryTeal,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                LayoutBuilder(
+                  builder: (context, hdrConstraints) {
+                    final isNarrowHdr = hdrConstraints.maxWidth < 440;
+                    final titleSection = Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => setState(
+                          () => _isArchiveExpanded = !_isArchiveExpanded,
+                        ),
+                        child: Row(
                           children: [
-                            Text(
-                              'Scanned Form Photos — Review & Correction (${allArchive.length})',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: AppTheme.primaryDark,
-                              ),
+                            const Icon(
+                              Icons.photo_library_outlined,
+                              color: AppTheme.primaryTeal,
+                              size: 20,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Retained Page 1 & Page 2 scan photos for post-sync clinical verification, correction, or photo cleanup.',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: Colors.blueGrey.shade600,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Scanned Form Photos — Review & Correction (${allArchive.length})',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: AppTheme.primaryDark,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Retained Page 1 & Page 2 scan photos for post-sync clinical verification, correction, or photo cleanup.',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: Colors.blueGrey.shade600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                      IconButton(
-                        tooltip: _isArchiveExpanded
-                            ? 'Collapse Scanned Form Photos'
-                            : 'Expand Scanned Form Photos',
-                        icon: Icon(
-                          _isArchiveExpanded
-                              ? Icons.expand_less_rounded
-                              : Icons.expand_more_rounded,
-                          color: AppTheme.primaryDark,
+                    );
+                    final deleteAllBtn = OutlinedButton.icon(
+                      key: const ValueKey('archive_delete_all_btn'),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        foregroundColor: AppTheme.dangerRose,
+                        side: BorderSide(
+                          color: AppTheme.dangerRose.withValues(alpha: 0.45),
                         ),
-                        onPressed: () => setState(
-                          () => _isArchiveExpanded = !_isArchiveExpanded,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                    ],
-                  ),
+                      icon: const Icon(Icons.delete_sweep_outlined, size: 16),
+                      label: Text(
+                        'Delete All (${allArchive.length})',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onPressed: ocrState.isProcessing
+                          ? null
+                          : () => _showDeleteAllScanPhotosDialog(
+                              context,
+                              ocrVm,
+                              allArchive.length,
+                              campId: activeCamp?.id,
+                              campCode: activeCamp?.campCode,
+                            ),
+                    );
+                    final collapseBtn = IconButton(
+                      tooltip: _isArchiveExpanded
+                          ? 'Collapse Scanned Form Photos'
+                          : 'Expand Scanned Form Photos',
+                      icon: Icon(
+                        _isArchiveExpanded
+                            ? Icons.expand_less_rounded
+                            : Icons.expand_more_rounded,
+                        color: AppTheme.primaryDark,
+                      ),
+                      onPressed: () => setState(
+                        () => _isArchiveExpanded = !_isArchiveExpanded,
+                      ),
+                    );
+
+                    if (isNarrowHdr) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              titleSection,
+                              collapseBtn,
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: deleteAllBtn,
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        titleSection,
+                        const SizedBox(width: 8),
+                        deleteAllBtn,
+                        const SizedBox(width: 4),
+                        collapseBtn,
+                      ],
+                    );
+                  },
                 ),
                 if (_isArchiveExpanded) ...[
                   if (allArchive.length > 5) ...[
@@ -1919,6 +2016,105 @@ class _FormScanViewState extends ConsumerState<FormScanView>
             onPressed: () async {
               Navigator.of(dialogCtx).pop();
               await ocrVm.deleteScanPhoto(item.id);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showDeleteAllScanPhotosDialog(
+    BuildContext context,
+    OcrScanViewModel ocrVm,
+    int count, {
+    String? campId,
+    String? campCode,
+  }) async {
+    final campLabel = (campCode != null && campCode.trim().isNotEmpty)
+        ? ' in Camp ${campCode.trim()}'
+        : '';
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.delete_sweep_outlined, color: AppTheme.dangerRose),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Delete All Stored Scan Photos?',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This will permanently remove all stored Yellow Form photos for $count scan(s)$campLabel to free storage.',
+              style: const TextStyle(fontSize: 13.5),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade300),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.verified_user_outlined,
+                    size: 18,
+                    color: Color(0xFF15803D),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'All committed patient records, clinical visits, and pending unsynced offline scans will NOT be deleted.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF166534),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            key: const ValueKey('confirm_delete_all_archive_btn'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerRose,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.delete_forever_outlined, size: 16),
+            label: Text('Delete All ($count)'),
+            onPressed: () async {
+              Navigator.of(dialogCtx).pop();
+              final deleted = await ocrVm.deleteAllScanPhotos(campId: campId);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: const Color(0xFF0D9488),
+                    content: Text(
+                      deleted > 0
+                          ? 'Deleted stored scan photos for $deleted record(s). Patient records remain intact.'
+                          : 'Stored scan photo archive cleared.',
+                    ),
+                  ),
+                );
+              }
             },
           ),
         ],
