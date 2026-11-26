@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/camp_model.dart';
 import '../../models/patient_model.dart';
 import '../../models/user_model.dart';
+import '../../repositories/patient_repository.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/camp_viewmodel.dart';
 import '../../viewmodels/master_lookup_viewmodel.dart';
@@ -68,9 +69,21 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   double? _progressValue;
 
   // Pre-numbered Patient Token Range State
+  static const int maxPreNumberedBatchSize = 5000;
+  static const int defaultVolumeChunkSize = 250;
+
   bool _enablePreNumberedTokens = false;
+  int _nextAvailableToken = 1;
+  bool? _userSplitVolumesOverride;
   final TextEditingController _startTokenController = TextEditingController(text: '1');
   final TextEditingController _tokenCountController = TextEditingController(text: '50');
+
+  int? get _rawParsedCount => int.tryParse(_tokenCountController.text.trim());
+
+  bool get isTokenCountClamped {
+    final val = _rawParsedCount;
+    return val != null && val > maxPreNumberedBatchSize;
+  }
 
   int get safeStartToken {
     final val = int.tryParse(_startTokenController.text.trim());
@@ -78,8 +91,45 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   }
 
   int get safeTokenCount {
-    final val = int.tryParse(_tokenCountController.text.trim());
-    return (val != null && val > 0 && val <= 500) ? val : 50;
+    final val = _rawParsedCount;
+    if (val == null || val <= 0) return 50;
+    if (val > maxPreNumberedBatchSize) return maxPreNumberedBatchSize;
+    return val;
+  }
+
+  bool get effectiveSplitIntoVolumes {
+    if (safeTokenCount <= defaultVolumeChunkSize) return false;
+    return _userSplitVolumesOverride ?? (safeTokenCount >= 500);
+  }
+
+  int get plannedVolumeCount {
+    if (!effectiveSplitIntoVolumes) return 1;
+    return (safeTokenCount / defaultVolumeChunkSize).ceil();
+  }
+
+  void _applyBulkRange({required int start, required int count}) {
+    final cleanStart = start < 1 ? 1 : start;
+    final cleanCount = count.clamp(1, maxPreNumberedBatchSize);
+    _startTokenController.text = '$cleanStart';
+    _tokenCountController.text = '$cleanCount';
+    setState(() {});
+  }
+
+  void _setStartToken(int start) {
+    final cleanStart = start < 1 ? 1 : start;
+    _startTokenController.text = '$cleanStart';
+    setState(() {});
+  }
+
+  void _setTokenCount(int count) {
+    final cleanCount = count.clamp(1, maxPreNumberedBatchSize);
+    _tokenCountController.text = '$cleanCount';
+    setState(() {});
+  }
+
+  void _stepTokenBlock(int direction) {
+    final nextStart = safeStartToken + (direction * safeTokenCount);
+    _setStartToken(nextStart < 1 ? 1 : nextStart);
   }
 
   @override
@@ -159,20 +209,28 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
     if (camp == null) return;
     try {
       // Global continuous 5-digit sequence across all camps (ignoring historical GC-... records)
-      final patients = await ref.read(patientRepositoryProvider).getPatientsByCamp();
-      int highestSeq = 0;
-      for (final p in patients) {
-        final pid = p.patientId.trim();
-        if (RegExp(r'^\d+$').hasMatch(pid)) {
-          final num = int.tryParse(pid);
-          if (num != null && num > highestSeq) {
-            highestSeq = num;
+      final patientRepo = ref.read(patientRepositoryProvider);
+      int nextSeq;
+      if (patientRepo is PatientRepository) {
+        nextSeq = await patientRepo.getNextAvailableSequenceNumber();
+      } else {
+        final patients = await patientRepo.getPatientsByCamp();
+        int highestSeq = 0;
+        for (final p in patients) {
+          final pid = p.patientId.trim();
+          if (RegExp(r'^\d+$').hasMatch(pid)) {
+            final num = int.tryParse(pid);
+            if (num != null && num > highestSeq) {
+              highestSeq = num;
+            }
           }
         }
+        nextSeq = highestSeq + 1;
       }
       if (mounted) {
         setState(() {
-          _startTokenController.text = '${highestSeq + 1}';
+          _nextAvailableToken = nextSeq < 1 ? 1 : nextSeq;
+          _startTokenController.text = '$_nextAvailableToken';
         });
       }
     } catch (_) {}
@@ -262,6 +320,110 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
         final endSeq = startSeq + count - 1;
         final startPad = startSeq.toString().padLeft(5, '0');
         final endPad = endSeq.toString().padLeft(5, '0');
+
+        if (effectiveSplitIntoVolumes) {
+          final totalVolumes = plannedVolumeCount;
+          DownloadResult? lastResult;
+
+          for (int volIdx = 0; volIdx < totalVolumes; volIdx++) {
+            final volOffset = volIdx * defaultVolumeChunkSize;
+            final volStartSeq = startSeq + volOffset;
+            final remaining = count - volOffset;
+            final volCount = remaining > defaultVolumeChunkSize ? defaultVolumeChunkSize : remaining;
+            final volEndSeq = volStartSeq + volCount - 1;
+            final volStartPad = volStartSeq.toString().padLeft(5, '0');
+            final volEndPad = volEndSeq.toString().padLeft(5, '0');
+
+            final Uint8List volBytes;
+            final String volFilename;
+            if (_selectedFormType == PrintableFormType.yellowRegistrationForm) {
+              volBytes = await pdfService.generatePreNumberedBlankFormsPdf(
+                camp: _selectedCamp!,
+                startSequence: volStartSeq,
+                count: volCount,
+                doctor: docToUse,
+                nurse: nurseToUse,
+                blankNurseLines: blankNurse,
+                blankDoctorLines: blankDoctor,
+                allDoctorsChecklist: _doctorMode == DoctorSelectionMode.allDoctorsChecklist,
+                allNursesChecklist: _nurseMode == NurseSelectionMode.allNursesChecklist,
+                organizationName: orgName,
+                diagnoses: diagnoses,
+                medications: medications,
+                referralHospitals: referralHospitals,
+                visitReasons: visitReasons,
+                chiefComplaints: chiefComplaints,
+                onProgress: (current, total, _) {
+                  if (mounted) {
+                    final overallDone = volOffset + current;
+                    setState(() {
+                      _progressMessage =
+                          'Volume ${volIdx + 1}/$totalVolumes • Form $overallDone of $count (${(overallDone / count * 100).toInt()}%)...';
+                      _progressValue = overallDone / count;
+                    });
+                  }
+                },
+              );
+              volFilename =
+                  'Blank_YellowForms_${campCode}_${volStartPad}_to_${volEndPad}_Part${volIdx + 1}of$totalVolumes.pdf';
+            } else {
+              volBytes = await pdfService.generatePreNumberedBlankFollowUpSlipsPdf(
+                camp: _selectedCamp!,
+                startSequence: volStartSeq,
+                count: volCount,
+                doctor: docToUse,
+                blankDoctorLines: blankDoctor,
+                nurse: nurseToUse,
+                blankNurseLines: blankNurse,
+                organizationName: orgName,
+                onProgress: (current, total, _) {
+                  if (mounted) {
+                    final overallDone = volOffset + current;
+                    setState(() {
+                      _progressMessage =
+                          'Volume ${volIdx + 1}/$totalVolumes • Sheet $overallDone of $count (${(overallDone / count * 100).toInt()}%)...';
+                      _progressValue = overallDone / count;
+                    });
+                  }
+                },
+              );
+              volFilename =
+                  'Blank_FollowUpSlips_${campCode}_${volStartPad}_to_${volEndPad}_Part${volIdx + 1}of$totalVolumes.pdf';
+            }
+
+            lastResult = await FileDownloadHelper.saveAndDownloadFile(
+              bytes: volBytes,
+              filename: volFilename,
+              mimeType: 'application/pdf',
+            );
+
+            if (!lastResult.isSuccess) {
+              break;
+            }
+            if (volIdx < totalVolumes - 1) {
+              await Future.delayed(const Duration(milliseconds: 120));
+            }
+          }
+
+          if (mounted && lastResult != null) {
+            Navigator.pop(context);
+            if (lastResult.isSuccess) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Downloaded $totalVolumes PDF volumes ($startPad to $endPad • $count forms) to ${lastResult.displayLocation}.',
+                  ),
+                  backgroundColor: AppTheme.successGreen,
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            } else {
+              FileDownloadHelper.showDownloadFeedback(context, lastResult);
+            }
+          }
+          return;
+        }
 
         if (_selectedFormType == PrintableFormType.yellowRegistrationForm) {
           pdfBytes = await pdfService.generatePreNumberedBlankFormsPdf(
@@ -554,15 +716,18 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
       }
     }
 
-    final canDownload = !_isGenerating && (isPrivileged || (visibleCamps.isNotEmpty && _selectedCamp != null));
+    final canDownload = !_isGenerating &&
+        (isPrivileged || user == null || (visibleCamps.isNotEmpty && _selectedCamp != null));
     final downloadLabel = _isGenerating
         ? 'Generating PDF...'
-        : (!isPrivileged && visibleCamps.isEmpty)
+        : (!isPrivileged && user != null && visibleCamps.isEmpty)
             ? 'No Assigned Camp'
             : (_selectedCamp == null
                 ? 'Download Universal Blank Form (PDF)'
                 : (_enablePreNumberedTokens
-                    ? 'Download $safeTokenCount Pre-Numbered Forms'
+                    ? (effectiveSplitIntoVolumes
+                        ? 'Download $safeTokenCount Pre-Numbered Forms ($plannedVolumeCount PDFs)'
+                        : 'Download $safeTokenCount Pre-Numbered Forms')
                     : 'Download Printable PDF'));
 
     final doctors = _selectedCamp?.doctorProfiles ?? [];
@@ -984,27 +1149,31 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                               child: const Text('Cancel'),
                             ),
                             const SizedBox(width: 12),
-                            ElevatedButton.icon(
-                              onPressed: canDownload ? _generateAndDownload : null,
-                              icon: _isGenerating
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                    )
-                                  : const Icon(Icons.download_rounded, size: 18),
-                              label: Text(
-                                _isGenerating
-                                    ? (_progressMessage ?? 'Generating...')
-                                    : downloadLabel,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.brandPurple,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            Flexible(
+                              child: ElevatedButton.icon(
+                                onPressed: canDownload ? _generateAndDownload : null,
+                                icon: _isGenerating
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : const Icon(Icons.download_rounded, size: 18),
+                                label: Text(
+                                  _isGenerating
+                                      ? (_progressMessage ?? 'Generating...')
+                                      : downloadLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.brandPurple,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
                               ),
                             ),
                           ],
@@ -1333,7 +1502,284 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
     final endSeq = startSeq + count - 1;
     final startId = PatientModel.generatePatientId(campCode: campCode, sequenceNumber: startSeq, year: year);
     final endId = PatientModel.generatePatientId(campCode: campCode, sequenceNumber: endSeq, year: year);
+    final nextFreePad = _nextAvailableToken.toString().padLeft(5, '0');
     final totalPages = _selectedFormType == PrintableFormType.yellowRegistrationForm ? count * 2 : count;
+    final canStepPrev = startSeq > 1;
+    final showSplitOption = count > defaultVolumeChunkSize;
+
+    final List<({String keyId, String label, int start, int count})> bulkPacks = [
+      if (_nextAvailableToken > 1) ...[
+        (keyId: 'bulk_pack_next_100', label: 'Next+100', start: _nextAvailableToken, count: 100),
+        (keyId: 'bulk_pack_next_250', label: 'Next+250', start: _nextAvailableToken, count: 250),
+        (keyId: 'bulk_pack_next_500', label: 'Next+500', start: _nextAvailableToken, count: 500),
+      ],
+      (keyId: 'bulk_pack_1_100', label: '1–100', start: 1, count: 100),
+      (keyId: 'bulk_pack_101_200', label: '101–200', start: 101, count: 100),
+      (keyId: 'bulk_pack_201_300', label: '201–300', start: 201, count: 100),
+      (keyId: 'bulk_pack_301_500', label: '301–500', start: 301, count: 200),
+      (keyId: 'bulk_pack_1_250', label: '1–250', start: 1, count: 250),
+      (keyId: 'bulk_pack_251_500', label: '251–500', start: 251, count: 250),
+      (keyId: 'bulk_pack_1_500', label: '1–500', start: 1, count: 500),
+      (keyId: 'bulk_pack_501_1000', label: '501–1000', start: 501, count: 500),
+      (keyId: 'bulk_pack_1_1000', label: '1–1000', start: 1, count: 1000),
+      (keyId: 'bulk_pack_1001_2000', label: '1001–2000', start: 1001, count: 1000),
+    ];
+
+    Widget buildChip({
+      required Key key,
+      required String label,
+      required bool selected,
+      required VoidCallback onTap,
+      IconData? icon,
+    }) {
+      return InkWell(
+        key: key,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(5),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.brandPurple : Colors.white,
+            borderRadius: BorderRadius.circular(5),
+            border: Border.all(
+              color: selected ? AppTheme.brandPurple : const Color(0xFFCBD5E1),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 12,
+                  color: selected ? Colors.white : AppTheme.brandPurple,
+                ),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: selected ? Colors.white : const Color(0xFF475569),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget buildStartField() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Starting Number (सुरु नम्बर)',
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            key: const Key('pre_numbered_start_input'),
+            controller: _startTokenController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              hintText: '1',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+              ),
+              suffixIconConstraints: const BoxConstraints(minHeight: 30),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    key: const Key('start_token_dec_btn'),
+                    onTap: startSeq > 1 ? () => _setStartToken(startSeq - 1) : null,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      child: Icon(
+                        Icons.remove_rounded,
+                        size: 16,
+                        color: startSeq > 1 ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    key: const Key('start_token_inc_btn'),
+                    onTap: () => _setStartToken(startSeq + 1),
+                    borderRadius: BorderRadius.circular(4),
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 4, right: 8, top: 4, bottom: 4),
+                      child: Icon(Icons.add_rounded, size: 16, color: Color(0xFF334155)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 5,
+            runSpacing: 5,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text(
+                'Start:',
+                style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+              ),
+              buildChip(
+                key: const Key('start_chip_next_free'),
+                label: 'Next (#$nextFreePad)',
+                selected: startSeq == _nextAvailableToken,
+                icon: Icons.auto_awesome_rounded,
+                onTap: () => _setStartToken(_nextAvailableToken),
+              ),
+              for (final s in [1, 101, 201, 301, 501, 1001, 1501, 2001])
+                buildChip(
+                  key: Key('start_chip_$s'),
+                  label: '$s',
+                  selected: startSeq == s,
+                  onTap: () => _setStartToken(s),
+                ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    Widget buildQuantityField() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Quantity (फाराम संख्या)',
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            key: const Key('pre_numbered_count_input'),
+            controller: _tokenCountController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              hintText: '50',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+              ),
+              suffixIconConstraints: const BoxConstraints(minHeight: 30),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    key: const Key('token_count_dec_btn'),
+                    onTap: count > 1 ? () => _setTokenCount((count - 25).clamp(1, maxPreNumberedBatchSize)) : null,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      child: Icon(
+                        Icons.remove_rounded,
+                        size: 16,
+                        color: count > 1 ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    key: const Key('token_count_inc_btn'),
+                    onTap: count < maxPreNumberedBatchSize
+                        ? () => _setTokenCount((count + 25).clamp(1, maxPreNumberedBatchSize))
+                        : null,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 4, right: 8, top: 4, bottom: 4),
+                      child: Icon(
+                        Icons.add_rounded,
+                        size: 16,
+                        color: count < maxPreNumberedBatchSize ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (isTokenCountClamped) ...[
+            const SizedBox(height: 4),
+            const Text(
+              'Max 5,000 forms per batch (clamped to 5,000 — use Next ▶ for 5,001+)',
+              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFFB45309)),
+            ),
+          ],
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 5,
+            runSpacing: 5,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text(
+                'Quick:',
+                style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+              ),
+              for (final q in [10, 25, 50, 100, 200, 250, 500, 1000, 2000])
+                buildChip(
+                  key: Key('qty_chip_$q'),
+                  label: '$q',
+                  selected: count == q,
+                  onTap: () => _setTokenCount(q),
+                ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    Widget buildBlockStepButtons() {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          OutlinedButton.icon(
+            key: const Key('token_range_prev_block_btn'),
+            onPressed: canStepPrev ? () => _stepTokenBlock(-1) : null,
+            icon: const Icon(Icons.chevron_left_rounded, size: 16),
+            label: const Text('Prev', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.brandPurple,
+              side: BorderSide(color: canStepPrev ? const Color(0xFFD8B4FE) : const Color(0xFFE2E8F0)),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: const Size(0, 30),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+          ),
+          const SizedBox(width: 6),
+          OutlinedButton.icon(
+            key: const Key('token_range_next_block_btn'),
+            onPressed: () => _stepTokenBlock(1),
+            icon: const Icon(Icons.chevron_right_rounded, size: 16),
+            label: const Text('Next', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.brandPurple,
+              side: const BorderSide(color: Color(0xFFD8B4FE)),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: const Size(0, 30),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1354,6 +1800,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
               ),
             ),
             Switch.adaptive(
+              key: const Key('enable_pre_numbered_tokens_switch'),
               value: _enablePreNumberedTokens,
               activeColor: AppTheme.brandPurple,
               onChanged: (val) => setState(() => _enablePreNumberedTokens = val),
@@ -1379,106 +1826,45 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                // 1-Tap Bulk Range Packs (sets BOTH Starting Number & Quantity)
+                const Text(
+                  'Bulk Packs (सुरु र संख्या एकैपटक छान्नुहोस्):',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4C1D95)),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Starting Number (सुरु नम्बर)',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                          ),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _startTokenController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              hintText: '1',
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(6),
-                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                              ),
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ],
+                    for (final pack in bulkPacks)
+                      buildChip(
+                        key: Key(pack.keyId),
+                        label: pack.label,
+                        selected: startSeq == pack.start && count == pack.count,
+                        icon: Icons.layers_outlined,
+                        onTap: () => _applyBulkRange(start: pack.start, count: pack.count),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Quantity (फाराम संख्या)',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                          ),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _tokenCountController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              hintText: '50',
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(6),
-                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                              ),
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                // Quick quantity chips
-                Row(
-                  children: [
-                    const Text('Quick:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 8),
-                    for (final q in [10, 25, 50, 100]) ...[
-                      InkWell(
-                        onTap: () {
-                          _tokenCountController.text = '$q';
-                          setState(() {});
-                        },
-                        borderRadius: BorderRadius.circular(4),
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 6),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: safeTokenCount == q ? AppTheme.brandPurple : Colors.white,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: safeTokenCount == q ? AppTheme.brandPurple : const Color(0xFFCBD5E1),
-                            ),
-                          ),
-                          child: Text(
-                            '$q',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: safeTokenCount == q ? Colors.white : const Color(0xFF475569),
-                            ),
-                          ),
-                        ),
-                      ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Divider(height: 1, color: Color(0xFFDDD6FE)),
+                ),
+                if (isNarrow) ...[
+                  buildStartField(),
+                  const SizedBox(height: 12),
+                  buildQuantityField(),
+                ] else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: buildStartField()),
+                      const SizedBox(width: 12),
+                      Expanded(child: buildQuantityField()),
                     ],
-                  ],
-                ),
+                  ),
                 const SizedBox(height: 12),
-                // Range Summary Preview Banner
+                // Range Summary Preview Banner + Prev/Next Block Stepper + Multi-Volume Split Option
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -1486,30 +1872,85 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFFE9D5FF)),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.qr_code_2_rounded, size: 28, color: AppTheme.brandPurple),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
+                        children: [
+                          const Icon(Icons.qr_code_2_rounded, size: 28, color: AppTheme.brandPurple),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '$startId → $endId',
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2E1065),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  effectiveSplitIntoVolumes
+                                      ? '$count forms ($totalPages pages) • Split into $plannedVolumeCount PDFs (up to $defaultVolumeChunkSize forms/file)'
+                                      : '$count forms ($totalPages pages) • Header boxes pre-printed with token & QR code',
+                                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF6B21A8)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!isNarrow) ...[
+                            const SizedBox(width: 8),
+                            buildBlockStepButtons(),
+                          ],
+                        ],
+                      ),
+                      if (isNarrow) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: buildBlockStepButtons(),
+                        ),
+                      ],
+                      if (showSplitOption) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Divider(height: 1, color: Color(0xFFF3E8FF)),
+                        ),
+                        Row(
                           children: [
-                            Text(
-                              '$startId → $endId',
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF2E1065),
+                            const Icon(Icons.library_books_outlined, size: 16, color: AppTheme.brandPurple),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Split into print-ready PDF volumes ($plannedVolumeCount files • $defaultVolumeChunkSize forms/PDF)',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF3B0764),
+                                    ),
+                                  ),
+                                  const Text(
+                                    'Prevents browser & printer spooler memory overload on large runs',
+                                    style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$count forms ($totalPages pages) • Header boxes pre-printed with token & QR code',
-                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF6B21A8)),
+                            Switch.adaptive(
+                              key: const Key('split_large_batch_volumes_switch'),
+                              value: effectiveSplitIntoVolumes,
+                              activeColor: AppTheme.brandPurple,
+                              onChanged: (val) => setState(() => _userSplitVolumesOverride = val),
                             ),
                           ],
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),

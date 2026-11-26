@@ -316,14 +316,14 @@ class PdfReportService {
   ) async {
     var doc = await build();
     await Future.delayed(Duration.zero);
-    await doc.save();
+    final firstPassBytes = await doc.save();
     if (_nePending.isNotEmpty) {
       await _renderPendingNepali();
       doc = await build();
       await Future.delayed(Duration.zero);
       return await doc.save();
     }
-    return doc.save();
+    return firstPassBytes;
   }
 
   static set testTheme(pw.ThemeData? theme) => _cachedTheme = theme;
@@ -8274,10 +8274,47 @@ class PdfReportService {
   }) async {
     final theme = await getPdfTheme();
     final logoImage = await loadLogoImage();
+    final year = camp.startDate.year;
+    final campCode = camp.campCode.trim().toUpperCase();
+
+    // Pre-warm Devanagari glyph cache on a single template form when count > 1
+    // so _saveWithNepali does not rebuild all `count` forms twice on cold cache.
+    if (count > 1) {
+      final warmupPdf = pw.Document(theme: theme);
+      final warmupId = PatientModel.generatePatientId(
+        campCode: campCode,
+        sequenceNumber: startSequence,
+        year: year,
+      );
+      await _addPatientRegistrationFormPages(
+        warmupPdf,
+        camp: camp,
+        preprintedPatientId: warmupId,
+        doctor: doctor,
+        blankDoctorLines: blankDoctorLines,
+        allDoctorsChecklist: allDoctorsChecklist,
+        nurse: nurse,
+        blankNurseLines: blankNurseLines,
+        allNursesChecklist: allNursesChecklist,
+        page1Layout: page1Layout,
+        organizationName: organizationName,
+        diagnoses: diagnoses,
+        medications: medications,
+        referralHospitals: referralHospitals,
+        visitReasons: visitReasons,
+        chiefComplaints: chiefComplaints,
+        logoImage: logoImage,
+      );
+      await warmupPdf.save();
+      if (_nePending.isNotEmpty) {
+        await _renderPendingNepali();
+      }
+    }
+
+    final int progressStride = count <= 50 ? 1 : (count ~/ 50).clamp(2, 25);
+
     return _saveWithNepali(() async {
       final pdf = pw.Document(theme: theme);
-      final year = camp.startDate.year;
-      final campCode = camp.campCode.trim().toUpperCase();
 
       for (int i = 0; i < count; i++) {
         final seq = startSequence + i;
@@ -8287,13 +8324,16 @@ class PdfReportService {
           year: year,
         );
 
-        onProgress?.call(
-          i + 1,
-          count,
-          'Building form ${i + 1} of $count (${((i + 1) / count * 100).toInt()}%)...',
-        );
-        // Yield to the UI event loop every form to allow animation frames and progress updates
-        await Future.delayed(const Duration(milliseconds: 1));
+        final bool shouldReport =
+            (i == 0) || (i == count - 1) || ((i + 1) % progressStride == 0);
+        if (shouldReport) {
+          onProgress?.call(
+            i + 1,
+            count,
+            'Building form ${i + 1} of $count (${((i + 1) / count * 100).toInt()}%)...',
+          );
+          await Future.delayed(Duration.zero);
+        }
 
         await _addPatientRegistrationFormPages(
           pdf,
@@ -8320,7 +8360,7 @@ class PdfReportService {
         count,
         'Finalizing PDF document (${count * 2} pages)...',
       );
-      await Future.delayed(const Duration(milliseconds: 5));
+      await Future.delayed(Duration.zero);
       return pdf;
     });
   }
@@ -8340,10 +8380,37 @@ class PdfReportService {
   }) async {
     final theme = await getPdfTheme();
     final logoImage = await loadLogoImage();
+    final year = camp.startDate.year;
+    final campCode = camp.campCode.trim().toUpperCase();
+
+    if (count > 1) {
+      final warmupPdf = pw.Document(theme: theme);
+      final warmupId = PatientModel.generatePatientId(
+        campCode: campCode,
+        sequenceNumber: startSequence,
+        year: year,
+      );
+      _addBlankFollowUpSlipPage(
+        warmupPdf,
+        camp: camp,
+        preprintedTokenId: warmupId,
+        doctor: doctor,
+        blankDoctorLines: blankDoctorLines,
+        nurse: nurse,
+        blankNurseLines: blankNurseLines,
+        organizationName: organizationName,
+        logoImage: logoImage,
+      );
+      await warmupPdf.save();
+      if (_nePending.isNotEmpty) {
+        await _renderPendingNepali();
+      }
+    }
+
+    final int progressStride = count <= 50 ? 1 : (count ~/ 50).clamp(2, 25);
+
     return _saveWithNepali(() async {
       final pdf = pw.Document(theme: theme);
-      final year = camp.startDate.year;
-      final campCode = camp.campCode.trim().toUpperCase();
 
       for (int i = 0; i < count; i++) {
         final seq = startSequence + i;
@@ -8353,13 +8420,16 @@ class PdfReportService {
           year: year,
         );
 
-        onProgress?.call(
-          i + 1,
-          count,
-          'Building follow-up sheet ${i + 1} of $count (${((i + 1) / count * 100).toInt()}%)...',
-        );
-        // Yield to the UI event loop every form to allow animation frames and progress updates
-        await Future.delayed(const Duration(milliseconds: 1));
+        final bool shouldReport =
+            (i == 0) || (i == count - 1) || ((i + 1) % progressStride == 0);
+        if (shouldReport) {
+          onProgress?.call(
+            i + 1,
+            count,
+            'Building follow-up sheet ${i + 1} of $count (${((i + 1) / count * 100).toInt()}%)...',
+          );
+          await Future.delayed(Duration.zero);
+        }
 
         _addBlankFollowUpSlipPage(
           pdf,
@@ -8378,7 +8448,7 @@ class PdfReportService {
         count,
         'Finalizing PDF document ($count pages)...',
       );
-      await Future.delayed(const Duration(milliseconds: 5));
+      await Future.delayed(Duration.zero);
       return pdf;
     });
   }

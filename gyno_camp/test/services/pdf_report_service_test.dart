@@ -637,14 +637,25 @@ void main() {
         createdAt: DateTime(2026, 3, 20),
       );
 
+      final progressSteps = <int>[];
       final bytes = await pdfService.generatePreNumberedBlankFollowUpSlipsPdf(
         camp: camp,
         startSequence: 10,
-        count: 2,
+        count: 60,
+        onProgress: (current, total, _) {
+          expect(total, equals(60));
+          progressSteps.add(current);
+        },
       );
 
       expect(bytes, isNotEmpty);
       expect(utf8.decode(bytes.sublist(0, 5)), equals('%PDF-'));
+      expect(progressSteps, isNotEmpty);
+      expect(progressSteps.first, equals(1));
+      expect(progressSteps.last, equals(60));
+      for (int i = 1; i < progressSteps.length; i++) {
+        expect(progressSteps[i], greaterThanOrEqualTo(progressSteps[i - 1]));
+      }
     });
 
     test('generatePatientTokenSlipPdf generates valid A5 token pass PDF with barcodes', () async {
