@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,25 +50,54 @@ class FakeCampRepoForResponsive implements ICampRepository {
   Future<CampModel?> getCampById(String id) async => testCamps.first;
 
   @override
-  Future<CampModel> createCamp(CampModel camp, {required String createdByUserId, required String deviceId}) async => camp;
+  Future<CampModel> createCamp(
+    CampModel camp, {
+    required String createdByUserId,
+    required String deviceId,
+  }) async => camp;
 
   @override
-  Future<CampModel> updateCamp(CampModel camp, {required String adminUserId, required String deviceId}) async => camp;
+  Future<CampModel> updateCamp(
+    CampModel camp, {
+    required String adminUserId,
+    required String deviceId,
+  }) async => camp;
 
   @override
-  Future<bool> deleteCamp(String campId, {required String adminUserId, required String deviceId}) async => true;
+  Future<bool> deleteCamp(
+    String campId, {
+    required String adminUserId,
+    required String deviceId,
+  }) async => true;
 
   @override
-  Future<bool> archiveCamp(String campId, {required String adminUserId, required String deviceId}) async => true;
+  Future<bool> archiveCamp(
+    String campId, {
+    required String adminUserId,
+    required String deviceId,
+  }) async => true;
 
   @override
-  Future<bool> assignStaff(String campId, List<String> staffIds, {required String adminUserId, required String deviceId}) async => true;
+  Future<bool> assignStaff(
+    String campId,
+    List<String> staffIds, {
+    required String adminUserId,
+    required String deviceId,
+  }) async => true;
 
   @override
-  Future<bool> openCamp(String campId, {required String adminUserId, required String deviceId}) async => true;
+  Future<bool> openCamp(
+    String campId, {
+    required String adminUserId,
+    required String deviceId,
+  }) async => true;
 
   @override
-  Future<bool> closeCamp(String campId, {required String adminUserId, required String deviceId}) async => true;
+  Future<bool> closeCamp(
+    String campId, {
+    required String adminUserId,
+    required String deviceId,
+  }) async => true;
 }
 
 class FakeAuthRepoForResponsive implements IAuthRepository {
@@ -81,10 +111,17 @@ class FakeAuthRepoForResponsive implements IAuthRepository {
   void setCurrentUser(UserModel? u) {}
 
   @override
-  Future<UserModel?> login({required String email, String? password, required String deviceId}) async => user;
+  Future<UserModel?> login({
+    required String email,
+    String? password,
+    required String deviceId,
+  }) async => user;
 
   @override
-  Future<UserModel?> loginAsRole({required UserRole role, required String deviceId}) async => user;
+  Future<UserModel?> loginAsRole({
+    required UserRole role,
+    required String deviceId,
+  }) async => user;
 
   @override
   Future<void> logout({required String deviceId}) async {}
@@ -96,25 +133,45 @@ class FakeAuthRepoForResponsive implements IAuthRepository {
   Future<UserModel?> getUserById(String id) async => user;
 
   @override
-  Future<List<UserModel>> getAllUsers({bool includeInactive = false}) async => user != null ? [user!] : [];
+  Future<List<UserModel>> getAllUsers({bool includeInactive = false}) async =>
+      user != null ? [user!] : [];
 
   @override
-  Future<UserModel> createUser({required UserModel user, required String adminUserId, required String deviceId}) async => user;
+  Future<UserModel> createUser({
+    required UserModel user,
+    required String adminUserId,
+    required String deviceId,
+  }) async => user;
 
   @override
-  Future<UserModel> updateUser({required UserModel user, required String adminUserId, required String deviceId}) async => user;
+  Future<UserModel> updateUser({
+    required UserModel user,
+    required String adminUserId,
+    required String deviceId,
+  }) async => user;
 
   @override
-  Future<void> deleteUser({required String userId, required String adminUserId, required String deviceId}) async {}
+  Future<void> deleteUser({
+    required String userId,
+    required String adminUserId,
+    required String deviceId,
+  }) async {}
 
   @override
-  Future<List<String>> getValidCampsForUser(List<String> assignedCampIds) async => assignedCampIds;
+  Future<List<String>> getValidCampsForUser(
+    List<String> assignedCampIds,
+  ) async => assignedCampIds;
 
   @override
-  Future<Map<String, dynamic>> sendForgotPasswordOtp(String email) async => {'success': true};
+  Future<Map<String, dynamic>> sendForgotPasswordOtp(String email) async => {
+    'success': true,
+  };
 
   @override
-  Future<Map<String, dynamic>> verifyResetCode(String email, String code) async => {'success': true};
+  Future<Map<String, dynamic>> verifyResetCode(
+    String email,
+    String code,
+  ) async => {'success': true};
 
   @override
   Future<Map<String, dynamic>> resetPasswordWithCode({
@@ -131,45 +188,105 @@ class FakePatientRepoForResponsive implements IPatientRepository {
   FakePatientRepoForResponsive(this.patients);
 
   @override
-  Future<PatientModel> registerPatient(PatientModel patient, {required String createdByUserId, required String createdByUserName, required String createdByUserRole, required String deviceId}) async => patient;
+  Future<PatientModel> registerPatient(
+    PatientModel patient, {
+    required String createdByUserId,
+    required String createdByUserName,
+    required String createdByUserRole,
+    required String deviceId,
+  }) async => patient;
 
   @override
-  Future<PatientModel> updatePatient(PatientModel patient, {required String updatedByUserId, required String updatedByUserName, required String updatedByUserRole, required String deviceId}) async => patient;
+  Future<PatientModel> updatePatient(
+    PatientModel patient, {
+    required String updatedByUserId,
+    required String updatedByUserName,
+    required String updatedByUserRole,
+    required String deviceId,
+  }) async => patient;
 
   @override
-  Future<List<PatientModel>> getPatientsByCamp([String? campId, List<String>? allowedCampIds]) async => patients;
+  Future<List<PatientModel>> getPatientsByCamp([
+    String? campId,
+    List<String>? allowedCampIds,
+  ]) async => patients;
 
   @override
   Future<PatientModel?> getPatientByPatientId(String patientId) async =>
-      patients.firstWhere((p) => p.patientId == patientId, orElse: () => patients.first);
+      patients.firstWhere(
+        (p) => p.patientId == patientId,
+        orElse: () => patients.first,
+      );
 
   @override
-  Future<List<PatientModel>> searchPatients({required String campId, required String query}) async => patients;
+  Future<List<PatientModel>> searchPatients({
+    required String campId,
+    required String query,
+  }) async => patients;
 
   @override
-  Future<DuplicateCheckResult> checkDuplicate({required String campId, required String firstName, required String surname, required int age, required String mobile, required String ward, String? spouseOrFatherName, String? maritalStatus}) async => const DuplicateCheckResult.none();
+  Future<DuplicateCheckResult> checkDuplicate({
+    required String campId,
+    required String firstName,
+    required String surname,
+    required int age,
+    required String mobile,
+    required String ward,
+    String? spouseOrFatherName,
+    String? maritalStatus,
+  }) async => const DuplicateCheckResult.none();
 
   @override
-  Future<ClinicalVisitModel> saveClinicalVisit(ClinicalVisitModel visit, {required String createdByUserId, required String deviceId}) async => visit;
+  Future<ClinicalVisitModel> saveClinicalVisit(
+    ClinicalVisitModel visit, {
+    required String createdByUserId,
+    required String deviceId,
+  }) async => visit;
 
   @override
-  Future<List<ClinicalVisitModel>> getClinicalVisits(String patientId, {String? patientUuid}) async => [];
+  Future<List<ClinicalVisitModel>> getClinicalVisits(
+    String patientId, {
+    String? patientUuid,
+  }) async => [];
 
   @override
-  Future<ClinicalVisitModel?> getLatestClinicalVisit(String patientId, {String? patientUuid}) async => null;
+  Future<ClinicalVisitModel?> getLatestClinicalVisit(
+    String patientId, {
+    String? patientUuid,
+  }) async => null;
 
   @override
   Future<bool> isPatientIdTaken(String patientId) async =>
       patients.any((p) => p.patientId == patientId);
 
   @override
-  Future<void> deletePatient(String patientIdOrUuid, {String deletedByUserId = 'usr-local', String deletedByUserName = 'Field Staff', String deletedByUserRole = 'DATA_TAKER', String deviceId = 'dev-local'}) async {}
+  Future<void> deletePatient(
+    String patientIdOrUuid, {
+    String deletedByUserId = 'usr-local',
+    String deletedByUserName = 'Field Staff',
+    String deletedByUserRole = 'DATA_TAKER',
+    String deviceId = 'dev-local',
+  }) async {}
 
   @override
-  Future<void> deleteClinicalVisit(String visitId, {String deletedByUserId = 'usr-local', String deletedByUserName = 'Field Staff', String deletedByUserRole = 'DATA_TAKER', String deviceId = 'dev-local'}) async {}
+  Future<void> deleteClinicalVisit(
+    String visitId, {
+    String deletedByUserId = 'usr-local',
+    String deletedByUserName = 'Field Staff',
+    String deletedByUserRole = 'DATA_TAKER',
+    String deviceId = 'dev-local',
+  }) async {}
 
   @override
-  Future<ClinicalVisitModel> recordNurseSeenQuickVisit({required PatientModel patient, required String nurseName, List<String> attendingNurses = const [], String? treatmentLevel, String? notes, required String userId, required String deviceId}) async => throw UnimplementedError();
+  Future<ClinicalVisitModel> recordNurseSeenQuickVisit({
+    required PatientModel patient,
+    required String nurseName,
+    List<String> attendingNurses = const [],
+    String? treatmentLevel,
+    String? notes,
+    required String userId,
+    required String deviceId,
+  }) async => throw UnimplementedError();
 }
 
 class FakeReportingRepoForResponsive implements IReportingRepository {
@@ -194,7 +311,8 @@ class FakeReportingRepoForResponsive implements IReportingRepository {
   }) async => summary;
 
   @override
-  Future<Uint8List> generatePdfReport(CampReportSummaryModel summary) async => Uint8List(0);
+  Future<Uint8List> generatePdfReport(CampReportSummaryModel summary) async =>
+      Uint8List(0);
 
   @override
   Future<Uint8List> generateIndividualPatientPdf({
@@ -206,7 +324,8 @@ class FakeReportingRepoForResponsive implements IReportingRepository {
   }) async => Uint8List(0);
 
   @override
-  Future<List<int>> generateExcelReport(CampReportSummaryModel summary) async => [];
+  Future<List<int>> generateExcelReport(CampReportSummaryModel summary) async =>
+      [];
 
   @override
   Future<String> saveReportToFile({
@@ -345,7 +464,9 @@ void main() {
   }) {
     final fakeCampRepo = FakeCampRepoForResponsive();
     final fakePatientRepo = FakePatientRepoForResponsive(patients);
-    final fakeReportingRepo = FakeReportingRepoForResponsive(summary ?? mockSummary);
+    final fakeReportingRepo = FakeReportingRepoForResponsive(
+      summary ?? mockSummary,
+    );
 
     final activeCamp = fakeCampRepo.testCamps.first;
     return ProviderScope(
@@ -388,26 +509,34 @@ void main() {
   }
 
   group('Super Admin Dashboard Responsiveness', () {
-    testWidgets('renders cleanly on mobile viewport (360x640) with zero RenderFlex overflow', (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
+    testWidgets(
+      'renders cleanly on mobile viewport (360x640) with zero RenderFlex overflow',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(createResponsiveApp(user: adminUser));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(createResponsiveApp(user: adminUser));
+        await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
-      expect(find.text('SECURE ROOT SESSION ACTIVE'), findsOneWidget);
-      expect(find.text('Super Admin Command Console'), findsOneWidget);
-      expect(find.text('New Camp'), findsOneWidget);
-      expect(find.text('Switch Camp'), findsWidgets);
-      expect(find.text('Disaster Recovery & Data Export Operations'), findsOneWidget);
-      expect(find.text('Export Audit Log'), findsOneWidget);
-      expect(find.text('Database Backup'), findsOneWidget);
-      expect(find.text('Restore Database'), findsOneWidget);
-    });
+        expect(tester.takeException(), isNull);
+        expect(find.text('SECURE ROOT SESSION ACTIVE'), findsOneWidget);
+        expect(find.text('Super Admin Command Console'), findsOneWidget);
+        expect(find.text('New Camp'), findsOneWidget);
+        expect(find.text('Switch Camp'), findsWidgets);
+        expect(
+          find.text('Disaster Recovery & Data Export Operations'),
+          findsNothing,
+        );
+        expect(find.text('Export Audit Log'), findsNothing);
+        expect(find.text('Database Backup'), findsNothing);
+        expect(find.text('Restore Database'), findsNothing);
+      },
+    );
 
-    testWidgets('renders cleanly on desktop viewport (1280x1000)', (tester) async {
+    testWidgets('renders cleanly on desktop viewport (1280x1000)', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1280, 1000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -416,51 +545,70 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Super Admin Command Console • Field Operations & Clinical Governance'), findsOneWidget);
+      expect(
+        find.text(
+          'Super Admin Command Console • Field Operations & Clinical Governance',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('New Camp'), findsOneWidget);
       expect(find.text('Switch Camp'), findsWidgets);
     });
   });
 
   group('Data Taker Dashboard Responsiveness', () {
-    testWidgets('renders cleanly on mobile viewport (360x640) with stacked station tiles and zero overflow', (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
+    testWidgets(
+      'renders cleanly on mobile viewport (360x640) with stacked station tiles and zero overflow',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
 
-      FlutterError.onError = FlutterError.presentError;
-      await tester.pumpWidget(createResponsiveApp(user: dataTakerUser, patients: samplePatients));
-      await tester.pump(const Duration(milliseconds: 2000));
-      await tester.pumpAndSettle();
+        FlutterError.onError = FlutterError.presentError;
+        await tester.pumpWidget(
+          createResponsiveApp(user: dataTakerUser, patients: samplePatients),
+        );
+        await tester.pump(const Duration(milliseconds: 2000));
+        await tester.pumpAndSettle();
 
-      final dataTakerErr = tester.takeException();
-      if (dataTakerErr != null) {
-        if (dataTakerErr is FlutterError) {
-          // ignore: avoid_print
-          print('DATA_TAKER_MOBILE_ERROR_DEEP: ${dataTakerErr.toStringDeep()}');
-        } else {
-          // ignore: avoid_print
-          print('DATA_TAKER_MOBILE_ERROR: $dataTakerErr');
+        final dataTakerErr = tester.takeException();
+        if (dataTakerErr != null) {
+          if (dataTakerErr is FlutterError) {
+            // ignore: avoid_print
+            print(
+              'DATA_TAKER_MOBILE_ERROR_DEEP: ${dataTakerErr.toStringDeep()}',
+            );
+          } else {
+            // ignore: avoid_print
+            print('DATA_TAKER_MOBILE_ERROR: $dataTakerErr');
+          }
         }
-      }
-      expect(dataTakerErr, isNull);
-      expect(find.text('LIVE FIELD STATION ACTIVE'), findsOneWidget);
-      expect(find.text('Register Patient (दर्ता)'), findsOneWidget);
-      expect(find.text('Scan Yellow Form (स्क्यान)'), findsOneWidget);
-      expect(find.text('Patient Roll & Triage (सूची)'), findsOneWidget);
-      expect(find.text('Offline Sync Hub (सिंक)'), findsOneWidget);
-      expect(find.text('Recent Station Intakes'), findsOneWidget);
-      expect(find.text('Camp Clinical Summary & Lead Handover'), findsOneWidget);
-      expect(find.text('Camp Summary'), findsOneWidget);
-      expect(find.byType(RefreshIndicator), findsOneWidget);
-    });
+        expect(dataTakerErr, isNull);
+        expect(find.text('LIVE FIELD STATION ACTIVE'), findsOneWidget);
+        expect(find.text('Register Patient (दर्ता)'), findsOneWidget);
+        expect(find.text('Scan Yellow Form (स्क्यान)'), findsOneWidget);
+        expect(find.text('Patient Roll & Triage (सूची)'), findsOneWidget);
+        expect(find.text('Offline Sync Hub (सिंक)'), findsOneWidget);
+        expect(find.text('Recent Station Intakes'), findsOneWidget);
+        expect(
+          find.text('Camp Clinical Summary & Lead Handover'),
+          findsOneWidget,
+        );
+        expect(find.text('Camp Summary'), findsOneWidget);
+        expect(find.byType(RefreshIndicator), findsOneWidget);
+      },
+    );
 
-    testWidgets('renders cleanly on desktop viewport (1280x1000)', (tester) async {
+    testWidgets('renders cleanly on desktop viewport (1280x1000)', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1280, 1000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(createResponsiveApp(user: dataTakerUser, patients: samplePatients));
+      await tester.pumpWidget(
+        createResponsiveApp(user: dataTakerUser, patients: samplePatients),
+      );
       await tester.pump(const Duration(milliseconds: 2000));
       await tester.pumpAndSettle();
 
@@ -472,45 +620,54 @@ void main() {
   });
 
   group('Data Analyst Workstation Responsiveness', () {
-    testWidgets('renders POP-Q 2x2 grid and patient registry list cleanly on mobile (360x640)', (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
+    testWidgets(
+      'renders POP-Q 2x2 grid and patient registry list cleanly on mobile (360x640)',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(createResponsiveApp(
-        user: dataAnalystUser,
-        patients: samplePatients,
-        summary: mockSummary,
-      ));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          createResponsiveApp(
+            user: dataAnalystUser,
+            patients: samplePatients,
+            summary: mockSummary,
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      final analystErr = tester.takeException();
-      if (analystErr != null) {
-        // ignore: avoid_print
-        print('DATA_ANALYST_MOBILE_ERROR: $analystErr');
-      }
-      expect(analystErr, isNull);
-      expect(find.text('CLINICAL DATA ANALYST WORKSTATION'), findsOneWidget);
-      expect(find.text('Stage 0 (Normal)'), findsOneWidget);
-      expect(find.text('Stage I (Mild)'), findsOneWidget);
-      expect(find.text('Stage II (Moderate)'), findsOneWidget);
-      expect(find.text('Stage III-IV (Severe)'), findsOneWidget);
-      await tester.tap(find.textContaining('Camp-Wise Patients'));
-      await tester.pumpAndSettle();
-      expect(find.text('Maya Devi Shrestha'), findsOneWidget);
-      expect(find.text('PDF Dossier'), findsWidgets);
-    });
+        final analystErr = tester.takeException();
+        if (analystErr != null) {
+          // ignore: avoid_print
+          print('DATA_ANALYST_MOBILE_ERROR: $analystErr');
+        }
+        expect(analystErr, isNull);
+        expect(find.text('CLINICAL DATA ANALYST WORKSTATION'), findsOneWidget);
+        expect(find.text('Stage 0 (Normal)'), findsOneWidget);
+        expect(find.text('Stage I (Mild)'), findsOneWidget);
+        expect(find.text('Stage II (Moderate)'), findsOneWidget);
+        expect(find.text('Stage III-IV (Severe)'), findsOneWidget);
+        await tester.tap(find.textContaining('Camp-Wise Patients'));
+        await tester.pumpAndSettle();
+        expect(find.text('Maya Devi Shrestha'), findsOneWidget);
+        expect(find.text('PDF Dossier'), findsWidgets);
+      },
+    );
 
-    testWidgets('renders cleanly on desktop viewport (1280x1000)', (tester) async {
+    testWidgets('renders cleanly on desktop viewport (1280x1000)', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1280, 1000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(createResponsiveApp(
-        user: dataAnalystUser,
-        patients: samplePatients,
-        summary: mockSummary,
-      ));
+      await tester.pumpWidget(
+        createResponsiveApp(
+          user: dataAnalystUser,
+          patients: samplePatients,
+          summary: mockSummary,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);

@@ -224,7 +224,7 @@ void main() {
       expect(find.text('Tamper-Evident System Audit Ledger'), findsOneWidget);
     });
 
-    testWidgets('renders Disaster Recovery dock and opening Quick Camp Switcher modal', (tester) async {
+    testWidgets('hides Disaster Recovery dock and opens Quick Camp Switcher modal', (tester) async {
       tester.view.physicalSize = const Size(1280, 1200);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -232,9 +232,9 @@ void main() {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      expect(find.text('Disaster Recovery & Data Export Operations'), findsOneWidget);
-      expect(find.text('Export Audit Log'), findsOneWidget);
-      expect(find.text('Database Backup'), findsOneWidget);
+      expect(find.text('Disaster Recovery & Data Export Operations'), findsNothing);
+      expect(find.text('Export Audit Log'), findsNothing);
+      expect(find.text('Database Backup'), findsNothing);
 
       // Tap Switch Camp button in header
       final switchBtn = find.widgetWithText(OutlinedButton, 'Switch Camp').first;

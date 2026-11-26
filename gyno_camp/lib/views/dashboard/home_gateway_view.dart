@@ -1743,132 +1743,134 @@ class HomeGatewayView extends ConsumerWidget {
               ),
               const SizedBox(height: 28),
 
-              // 6. DISASTER RECOVERY & 1-TAP SYSTEM ACTIONS DOCK
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: LayoutBuilder(
-                  builder: (ctx, constraints) {
-                    final isCompact = constraints.maxWidth < 680;
-                    final actionButtons = Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.brandPurple,
-                            side: const BorderSide(color: AppTheme.brandPurple),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: const Icon(Icons.download_rounded, size: 16),
-                          label: const Text('Export Audit Log', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                          onPressed: () => _exportAuditLogs(context, auditLogs.logs),
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.brandPurple,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: const Icon(Icons.backup_table_rounded, size: 16),
-                          label: const Text('Database Backup', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                          onPressed: () => _exportDatabaseBackup(context),
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF4338CA),
-                            side: const BorderSide(color: Color(0xFF4338CA)),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: const Icon(Icons.settings_backup_restore_rounded, size: 16),
-                          label: const Text('Restore Database', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                          onPressed: () => _showRestoreDatabaseDialog(context, ref),
-                        ),
-                      ],
-                    );
-
-                    if (isCompact) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              // 6. DISASTER RECOVERY & 1-TAP SYSTEM ACTIONS DOCK (hidden from UI)
+              if (const bool.fromEnvironment('SHOW_DISASTER_RECOVERY')) ...[
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      final isCompact = constraints.maxWidth < 680;
+                      final actionButtons = Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE2E8F0),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(Icons.storage_rounded, color: Color(0xFF334155), size: 22),
-                              ),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Disaster Recovery & Data Export Operations',
-                                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      'Safeguard clinical records with 1-tap local snapshots and proof-of-work exports.',
-                                      style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.brandPurple,
+                              side: const BorderSide(color: AppTheme.brandPurple),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.download_rounded, size: 16),
+                            label: const Text('Export Audit Log', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            onPressed: () => _exportAuditLogs(context, auditLogs.logs),
                           ),
-                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.brandPurple,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.backup_table_rounded, size: 16),
+                            label: const Text('Database Backup', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            onPressed: () => _exportDatabaseBackup(context),
+                          ),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF4338CA),
+                              side: const BorderSide(color: Color(0xFF4338CA)),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.settings_backup_restore_rounded, size: 16),
+                            label: const Text('Restore Database', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            onPressed: () => _showRestoreDatabaseDialog(context, ref),
+                          ),
+                        ],
+                      );
+
+                      if (isCompact) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE2E8F0),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.storage_rounded, color: Color(0xFF334155), size: 22),
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Disaster Recovery & Data Export Operations',
+                                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Safeguard clinical records with 1-tap local snapshots and proof-of-work exports.',
+                                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            actionButtons,
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.storage_rounded, color: Color(0xFF334155), size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Disaster Recovery & Data Export Operations',
+                                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Safeguard clinical records with 1-tap local database snapshots and proof-of-work audit exports.',
+                                  style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
                           actionButtons,
                         ],
                       );
-                    }
-
-                    return Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE2E8F0),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.storage_rounded, color: Color(0xFF334155), size: 22),
-                        ),
-                        const SizedBox(width: 14),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Disaster Recovery & Data Export Operations',
-                                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Safeguard clinical records with 1-tap local database snapshots and proof-of-work audit exports.',
-                                style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        actionButtons,
-                      ],
-                    );
-                  },
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(height: 28),
+                const SizedBox(height: 28),
+              ],
 
               // 7. LIVE AUDIT ACTIVITY FEED
               Row(
