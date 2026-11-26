@@ -43,7 +43,6 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
   late Future<List<OfflineScanQueueItem>> _scanPhotosFuture;
   final IOcrRepository _ocrRepo = OcrRepository();
   late PatientModel _patient;
-  final Set<int> _dlIdx = {};
   bool _dlDossier = false;
   int _mobileTabIndex = 1; // 0 = Profile & Obstetric Overview, 1 = Clinical Timeline & Encounters
 
@@ -65,29 +64,6 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
         patientId: _patient.patientId,
       );
     });
-  }
-
-  Future<void> _dlSlip(ClinicalVisitModel v, int i) async {
-    setState(() => _dlIdx.add(i));
-    try {
-      final bytes = await PdfReportService().generateFollowUpEncounterSlipPdf(
-        patient: _patient, visit: v, camp: widget.camp, organizationName: widget.orgName,
-      );
-      final filename = ReportFilenameHelper.encounterSlip(_patient.patientId, v.visitDate);
-      final result = await FileDownloadHelper.saveAndDownloadFile(
-        bytes: bytes,
-        filename: filename,
-        mimeType: 'application/pdf',
-        autoOpen: true,
-      );
-      if (mounted) {
-        FileDownloadHelper.showDownloadFeedback(context, result, forceForegroundModal: true);
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerRose));
-    } finally {
-      if (mounted) setState(() => _dlIdx.remove(i));
-    }
   }
 
   @override
@@ -809,13 +785,12 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
     return ListView.builder(
       padding: EdgeInsets.fromLTRB(isMobile ? 12 : 0, 14, 14, 24),
       itemCount: visits.length,
-      itemBuilder: (ctx, i) => _card(visits[i], i, fmt, isMobile: isMobile),
+      itemBuilder: (ctx, i) => _card(visits[i], i, fmt),
     );
   }
 
-  Widget _card(ClinicalVisitModel v, int i, DateFormat fmt, {bool isMobile = false}) {
+  Widget _card(ClinicalVisitModel v, int i, DateFormat fmt) {
     final isF = v.isFollowUp;
-    final isDl = _dlIdx.contains(i);
     final ac = isF ? AppTheme.brandMagenta : AppTheme.brandPurple;
     final bg = isF ? const Color(0xFFFDF2F8) : AppTheme.brandPurpleLight;
 
@@ -971,21 +946,6 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
                       }
                     }
                   },
-                ),
-                const SizedBox(width: 4),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ac,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    elevation: 0,
-                  ),
-                  icon: isDl
-                      ? const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.download_rounded, size: 14),
-                  label: Text(isDl ? 'Downloading...' : (isMobile ? 'Slip' : 'Download Slip'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: isDl ? null : () => _dlSlip(v, i),
                 ),
               ],
             ),

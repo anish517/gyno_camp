@@ -107,6 +107,8 @@ void main() {
     expect(find.text('Calcium + Vit D3'), findsNothing);
     expect(find.text('Other Medication: Calcium + Vit D3'), findsOneWidget);
     expect(find.textContaining('Rx:'), findsNothing);
+    expect(find.text('Download Slip'), findsNothing);
+    expect(find.text('Full Clinical Dossier (PDF)'), findsOneWidget);
   });
 
   testWidgets('ClinicalHistoryPanel mobile layout renders Encounter and Profile tabs without overflow', (tester) async {
@@ -172,6 +174,9 @@ void main() {
     expect(find.text('Clinical History & Dossier'), findsOneWidget);
     expect(find.text('1st testing camp'), findsOneWidget);
     expect(find.text('KAMALA RAI'), findsNothing);
+    expect(find.text('Slip'), findsNothing);
+    expect(find.text('Download Slip'), findsNothing);
+    expect(find.text('Full Dossier (PDF)'), findsOneWidget);
     expect(find.text('Visit Date (Treatment Date): 2083-04-15 BS (2026-07-31 AD)'), findsOneWidget);
 
     await tester.tap(find.text('Patient Profile & History'));
