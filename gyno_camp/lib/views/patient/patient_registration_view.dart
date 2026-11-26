@@ -1,6 +1,5 @@
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -484,91 +483,6 @@ class _PatientRegistrationViewState
     }
   }
 
-  Future<void> _confirmAndFillSamplePatient() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.auto_fix_high_rounded, color: AppTheme.primaryTeal),
-            SizedBox(width: 8),
-            Expanded(child: Text('Populate Demo Sample?')),
-          ],
-        ),
-        content: const Text(
-          'This will fill the registration form with demo sample patient data (SUNTALI TAMANG, age 48) for demonstration and testing.\n\nAre you sure you want to proceed?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryTeal,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.of(dialogCtx).pop(true),
-            child: const Text('Fill Sample'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      _fillSamplePatient();
-    }
-  }
-
-  void _fillSamplePatient() {
-    final camp = ref.read(userActiveCampProvider);
-    final province = (camp?.province.isNotEmpty == true)
-        ? camp!.province
-        : 'Bagmati';
-    final ward = (camp?.ward.isNotEmpty == true) ? camp!.ward : '03';
-    final district = (camp?.district.isNotEmpty == true)
-        ? camp!.district
-        : 'Kathmandu';
-    final municipality = (camp?.municipality.isNotEmpty == true)
-        ? camp!.municipality
-        : 'Budhanilkantha Municipality';
-
-    _firstNameController.text = 'SUNTALI';
-    _surnameController.text = 'TAMANG';
-    _ageController.text = '48';
-    _wardController.text = ward;
-    _districtController.text = district.toUpperCase();
-    _municipalityController.text = municipality.toUpperCase();
-    _spouseOrFatherController.text = 'DORJE TAMANG';
-    _maritalAgeController.text = '18';
-    _mobileController.text = '9841555666';
-    _contactPersonController.text = 'PASANG TAMANG (SON)';
-    _contactMobileController.text = '9811223344';
-
-    final vm = ref.read(patientRegistrationProvider.notifier);
-    vm.updateField(
-      firstName: 'SUNTALI',
-      surname: 'TAMANG',
-      age: 48,
-      province: province,
-      ward: ward,
-      district: district.toUpperCase(),
-      municipality: municipality.toUpperCase(),
-      spouseOrFatherName: 'DORJE TAMANG',
-      relationshipType: 'Husband',
-      maritalStatus: 'married',
-      maritalAge: 18,
-      mobile: '9841555666',
-      contactPerson: 'PASANG TAMANG (SON)',
-      contactMobile: '9811223344',
-      consentTreatment: true,
-      consentStoreMedicalInfo: true,
-    );
-    // Note: Do not auto-select reasons on demo fill; let the user explicitly choose the visit reason(s) to test.
-    setState(() {});
-    _triggerLiveDuplicateCheck();
-  }
-
   void _clearForm() {
     if (widget.patientToEdit != null) {
       _applyPatientToEdit(widget.patientToEdit!);
@@ -637,12 +551,6 @@ class _PatientRegistrationViewState
           ],
         ),
         actions: [
-          if (kDebugMode)
-            IconButton(
-              tooltip: 'Demo Sample',
-              icon: const Icon(Icons.auto_fix_high_rounded, size: 20),
-              onPressed: _confirmAndFillSamplePatient,
-            ),
           IconButton(
             tooltip: 'Print Blank Grid Form (खाली फाराम)',
             icon: const Icon(Icons.print_outlined, size: 20),

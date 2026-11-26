@@ -222,7 +222,7 @@ void main() {
       );
     });
 
-    testWidgets('Demo sample button opens confirmation dialog before populating', (tester) async {
+    testWidgets('Demo sample icon button is hidden from registration AppBar', (tester) async {
       tester.view.physicalSize = const Size(1280, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -232,87 +232,8 @@ void main() {
       await tester.pumpWidget(createTestWidget(fakePatientRepo: fakeRepo));
       await tester.pumpAndSettle();
 
-      // Find magic wand demo button in AppBar
-      final demoButton = find.byIcon(Icons.auto_fix_high_rounded);
-      expect(demoButton, findsOneWidget);
-
-      // Tap demo button
-      await tester.tap(demoButton);
-      await tester.pumpAndSettle();
-
-      // Confirmation dialog should be displayed
-      expect(find.text('Populate Demo Sample?'), findsOneWidget);
-      expect(
-        find.text(
-          'This will fill the registration form with demo sample patient data (SUNTALI TAMANG, age 48) for demonstration and testing.\n\nAre you sure you want to proceed?',
-        ),
-        findsOneWidget,
-      );
-
-      // Tap Cancel
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-
-      // Dialog should be dismissed and form should remain empty
-      expect(find.text('Populate Demo Sample?'), findsNothing);
-
-      // Tap submit again - still empty, should show validation error
-      final submitButton = find.widgetWithText(
-        ElevatedButton,
-        'Register Patient & Start Clinical Form (Station 1 → 2)',
-      );
-      await tester.ensureVisible(submitButton);
-      await tester.pumpAndSettle();
-      await tester.tap(submitButton);
-      await tester.pumpAndSettle();
-
-      expect(fakeRepo.storedPatients, isEmpty);
-      expect(
-        find.text('First name is required (पहिलो नाम अनिवार्य छ).'),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('Confirming demo sample fills data and can be submitted', (tester) async {
-      tester.view.physicalSize = const Size(1280, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-
-      final fakeRepo = _FakePatientRepository();
-
-      await tester.pumpWidget(createTestWidget(fakePatientRepo: fakeRepo));
-      await tester.pumpAndSettle();
-
-      // Tap demo button and confirm
-      final demoButton = find.byIcon(Icons.auto_fix_high_rounded);
-      await tester.tap(demoButton);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Fill Sample'));
-      await tester.pumpAndSettle();
-
-      // Tap a visit reason to satisfy the required visit reason validation
-      final reasonTile = find.textContaining('Something Hanging Out').first;
-      await tester.ensureVisible(reasonTile);
-      await tester.pumpAndSettle();
-      await tester.tap(reasonTile);
-      await tester.pumpAndSettle();
-
-      // Tap submit button
-      final submitButton = find.widgetWithText(
-        ElevatedButton,
-        'Register Patient & Start Clinical Form (Station 1 → 2)',
-      );
-      await tester.ensureVisible(submitButton);
-      await tester.pumpAndSettle();
-      await tester.tap(submitButton);
-      await tester.pumpAndSettle();
-
-      // Exactly 1 patient registered with sample data
-      expect(fakeRepo.storedPatients.length, 1);
-      expect(fakeRepo.storedPatients.first.firstName, 'SUNTALI');
-      expect(fakeRepo.storedPatients.first.surname, 'TAMANG');
-      expect(fakeRepo.storedPatients.first.age, 48);
+      expect(find.byIcon(Icons.auto_fix_high_rounded), findsNothing);
+      expect(find.byTooltip('Demo Sample'), findsNothing);
     });
   });
 }
