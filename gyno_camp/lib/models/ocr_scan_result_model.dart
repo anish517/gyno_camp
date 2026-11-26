@@ -707,7 +707,8 @@ class OfflineScanQueueItem {
   bool get hasPage2 => (page2ImageBase64 != null && page2ImageBase64!.isNotEmpty) || (page2ImagePath != null && page2ImagePath!.isNotEmpty);
   bool get hasAnyImage => hasPage1 || hasPage2;
   bool get isCompleted => status == 'completed';
-  bool get isPendingOrFailed => status == 'pending' || status == 'failed' || status == 'processing';
+  bool get isConflict => status == 'conflict';
+  bool get isPendingOrFailed => status == 'pending' || status == 'failed' || status == 'processing' || status == 'conflict';
   bool get needsReview => reviewStatus == 'needs_review';
   bool get isVerified => reviewStatus == 'verified';
   String? get patientIdHint =>

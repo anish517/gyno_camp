@@ -114,6 +114,28 @@ class _FormScanViewState extends ConsumerState<FormScanView>
     final authState = ref.watch(authStateProvider);
     final deviceState = ref.watch(deviceSecurityProvider);
 
+    ref.listen<OcrScanState>(ocrScanProvider, (previous, next) {
+      if (next.scanResult != null && next.scanResult != previous?.scanResult) {
+        final prevToken = (previous?.scanResult?.demographics['patientId'] ??
+                previous?.scanResult?.demographics['patientTokenId'] ??
+                '')
+            .toString()
+            .trim();
+        final nextToken = (next.scanResult?.demographics['patientId'] ??
+                next.scanResult?.demographics['patientTokenId'] ??
+                '')
+            .toString()
+            .trim();
+        if (previous?.scanResult == null || prevToken != nextToken) {
+          final camp = ref.read(userActiveCampProvider);
+          ocrVm.validateExtractedScan(
+            campId: camp?.id,
+            campCode: camp?.campCode,
+          );
+        }
+      }
+    });
+
     void handleBackNavigation() {
       if (ocrState.hasScanResult) {
         ocrVm.returnToCaptureSlots();
@@ -821,14 +843,27 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                 ref
                                     .read(syncStateProvider.notifier)
                                     .refreshPendingCounts();
+                                final conflictCount = ref
+                                    .read(ocrScanProvider)
+                                    .offlineQueue
+                                    .where((i) => i.isConflict)
+                                    .length;
+                                final String syncMsg;
+                                if (count > 0 && conflictCount > 0) {
+                                  syncMsg =
+                                      '✅ Extracted & synced $count offline scan(s). ⚠️ $conflictCount scan(s) paused due to Token ID conflict — resolve below.';
+                                } else if (count == 0 && conflictCount > 0) {
+                                  syncMsg =
+                                      '⚠️ $conflictCount queued scan(s) paused due to Token ID conflict. Tap the item below to change or auto-generate its Token ID.';
+                                } else if (count > 0) {
+                                  syncMsg =
+                                      '✅ Extracted & synced $count offline scan(s)! Photos retained below for review & correction.';
+                                } else {
+                                  syncMsg =
+                                      'Could not extract scans yet — please check Internet connection.';
+                                }
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      count > 0
-                                          ? '✅ Extracted & synced $count offline scan(s)! Photos retained below for review & correction.'
-                                          : 'Could not extract scans yet — please check Internet connection.',
-                                    ),
-                                  ),
+                                  SnackBar(content: Text(syncMsg)),
                                 );
                               }
                             },
@@ -897,7 +932,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                 'Status: ${item.status.toUpperCase()}${item.errorMessage != null ? " (${item.errorMessage})" : ""}',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: item.status == 'failed'
+                                  color: (item.status == 'failed' || item.isConflict)
                                       ? Colors.red.shade700
                                       : Colors.blueGrey,
                                 ),
@@ -922,11 +957,17 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Extract & Commit Now',
-                          icon: const Icon(
-                            Icons.cloud_upload_outlined,
+                          tooltip: item.isConflict
+                              ? 'Resolve Token ID Conflict'
+                              : 'Extract & Commit Now',
+                          icon: Icon(
+                            item.isConflict
+                                ? Icons.edit_note_rounded
+                                : Icons.cloud_upload_outlined,
                             size: 18,
-                            color: Colors.indigo,
+                            color: item.isConflict
+                                ? Colors.red.shade700
+                                : Colors.indigo,
                           ),
                           onPressed: ocrState.isProcessing
                               ? null
@@ -3166,6 +3207,88 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                           if ((currentDemo['ward'] as String? ?? '').trim().isEmpty &&
                               activeCamp.ward.trim().isNotEmpty) {
                             ocrVm.updateDemographic('ward', activeCamp.ward.trim(), campId: activeCamp.id);
+                          }
+
+                          final rawTokenCandidate =
+                              (currentDemo['patientId'] as String? ??
+                                      currentDemo['patientTokenId'] as String? ??
+                                      '')
+                                  .trim();
+                          final hasTokenConflict =
+                              await ocrVm.checkPatientIdAvailability(
+                            rawTokenCandidate,
+                            campCode: activeCamp.campCode,
+                          );
+                          if (!context.mounted) return;
+                          if (hasTokenConflict) {
+                            _tabController.animateTo(0);
+                            final conflictReason = ref
+                                    .read(ocrScanProvider)
+                                    .patientIdConflictReason ??
+                                'Patient Token ID "$rawTokenCandidate" is already registered in the camp database.';
+                            final autoGenerate = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                title: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline_rounded,
+                                      color: Color(0xFFDC2626),
+                                      size: 28,
+                                    ),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        'Token ID Conflict (टोकन नं. दोहोरिएको छ)',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: Color(0xFF991B1B),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                content: Text(
+                                  '$conflictReason\n\nTo prevent overwriting an existing patient or creating duplicate records, please edit the Token ID in Tab 1 or auto-generate the next free 5-digit ID.',
+                                  style: const TextStyle(fontSize: 13.5),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Edit Token ID'),
+                                  ),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryPurple,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    icon: const Icon(Icons.autorenew, size: 18),
+                                    label: const Text('Auto-Generate Free ID'),
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (autoGenerate == true && context.mounted) {
+                              ocrVm.updateDemographic(
+                                'patientId',
+                                '',
+                                campId: activeCamp.id,
+                                campCode: activeCamp.campCode,
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Cleared conflicting Token ID — next available 5-digit ID will be auto-generated when you commit.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return;
                           }
 
                           if (ocrState.duplicateResult.hasDuplicate) {

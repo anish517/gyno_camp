@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:gyno_camp/core/database/database_service.dart';
+import 'package:gyno_camp/core/services/gemini_ocr_service.dart';
 import 'package:gyno_camp/core/services/nepali_localization_service.dart';
 import 'package:gyno_camp/core/services/ocr_form_service.dart';
 import 'package:gyno_camp/core/services/report_aggregation_service.dart';
@@ -13,6 +14,8 @@ import 'package:gyno_camp/models/patient_model.dart';
 import 'package:gyno_camp/repositories/audit_repository.dart';
 import 'package:gyno_camp/repositories/ocr_repository.dart';
 import 'package:gyno_camp/repositories/patient_repository.dart';
+import 'package:gyno_camp/repositories/sync_repository.dart';
+import 'package:gyno_camp/viewmodels/ocr_scan_viewmodel.dart';
 
 void main() {
   setUpAll(() {
@@ -201,7 +204,28 @@ void main() {
       // 2083-08-01 BS converts to ~Nov 2026 AD (never year 2083 AD!)
       expect(saved1.intakeDate.year, lessThan(2035));
 
-      // Re-committing same patientId updates existing patient instead of throwing UNIQUE constraint error
+      // Fresh re-commit of the same patientId WITHOUT existingPatientUuid must be rejected with TokenIdConflictException
+      // (preventing silent overwrite and duplicate clinical_visits rows)
+      final conflictingScan = merged.copyWith(
+        demographics: {...merged.demographics, 'firstName': 'Unintended Overwrite'},
+      );
+      await expectLater(
+        ocrRepo.commitVerifiedScan(
+          verifiedScan: conflictingScan,
+          campId: 'camp-ktm-01',
+          campCode: 'KTM01',
+          userId: 'usr-1',
+          userName: 'Staff',
+          userRole: 'DataTaker',
+          deviceId: 'dev-1',
+        ),
+        throwsA(isA<TokenIdConflictException>()),
+      );
+      final unchangedAfterConflict = await patientRepo.getPatientByPatientId(expectedNormId);
+      expect(unchangedAfterConflict?.firstName, 'Gita');
+      expect((await patientRepo.getClinicalVisits(expectedNormId)).length, 1);
+
+      // Explicit Review & Correction update (existingPatientUuid supplied) updates existing patient & visit in-place
       final updatedScan = merged.copyWith(
         demographics: {...merged.demographics, 'firstName': 'Gita Devi'},
       );
@@ -213,9 +237,12 @@ void main() {
         userName: 'Staff',
         userRole: 'DataTaker',
         deviceId: 'dev-1',
+        existingPatientUuid: saved1.id,
       );
       expect(saved2.id, saved1.id);
       expect(saved2.firstName, 'Gita Devi');
+      expect((await patientRepo.getClinicalVisits(expectedNormId)).length, 1);
+      expect((await patientRepo.getPatientsByCamp('camp-ktm-01')).length, 1);
 
       // Test quick Nurse Seen and deletion of clinical visit and patient
       final nurseVisit = await patientRepo.recordNurseSeenQuickVisit(
@@ -839,5 +866,126 @@ void main() {
         isEmpty,
       );
     });
+
+    test('syncAndProcessAllOfflineScans pauses duplicate Token ID items as conflict, caches extraction, and resolves without re-calling Gemini', () async {
+      final fakeGemini = _FakeGeminiOcrService();
+      final offlineOcrRepo = OcrRepository(
+        databaseService: dbService,
+        ocrService: const OcrFormService(),
+        patientRepository: patientRepo,
+        auditRepository: auditRepo,
+        geminiService: fakeGemini,
+      );
+      final syncRepo = SyncRepository(
+        databaseService: dbService,
+        auditRepository: auditRepo,
+      );
+
+      final dummyImg = Uint8List.fromList([10, 20, 30, 40]);
+
+      // Queue two offline scans that both extract Token ID '00105' (e.g., same paper form photographed twice offline)
+      final item1 = await offlineOcrRepo.enqueueOfflineScan(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        page1Bytes: dummyImg,
+        userId: 'usr-1',
+        userName: 'Staff',
+        userRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      final item2 = await offlineOcrRepo.enqueueOfflineScan(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        page1Bytes: dummyImg,
+        userId: 'usr-1',
+        userName: 'Staff',
+        userRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+      );
+
+      // 1. First auto-sync: item1 commits ('00105'), item2 pauses as 'conflict' with cached extracted_json
+      final syncedCount = await offlineOcrRepo.syncAndProcessAllOfflineScans();
+      expect(syncedCount, 1);
+      expect(fakeGemini.extractCallCount, 2);
+
+      final queueAfterSync = await offlineOcrRepo.getOfflineScanQueue(campId: 'camp-ktm-01');
+      final q1 = queueAfterSync.firstWhere((i) => i.id == item1.id);
+      final q2 = queueAfterSync.firstWhere((i) => i.id == item2.id);
+      expect(q1.isCompleted, isTrue);
+      expect(q2.isConflict, isTrue);
+      expect(q2.isPendingOrFailed, isTrue);
+      expect(q2.errorMessage, contains('00105'));
+      expect(q2.parsedExtractedResult, isNotNull);
+
+      // Sync badge includes 'conflict' items, while getPendingOfflineScanCount() returns 0 so SyncVM does not loop
+      expect(await offlineOcrRepo.getPendingOfflineScanCount(), 0);
+      final pendingCounts = await syncRepo.getPendingCounts();
+      expect(pendingCounts['offline_scans'], 1);
+
+      // 2. Subsequent auto-sync must NOT re-call Gemini on the 'conflict' item
+      final syncedAgain = await offlineOcrRepo.syncAndProcessAllOfflineScans();
+      expect(syncedAgain, 0);
+      expect(fakeGemini.extractCallCount, 2);
+
+      // 3. Operator opens conflicted item in ViewModel -> uses cached extraction (0 new Gemini calls), flags conflict, resolves via Auto-Generate
+      final vm = OcrScanViewModel(
+        repository: offlineOcrRepo,
+        patientRepository: patientRepo,
+      );
+      final opened = await vm.processSingleOfflineQueueItem(q2);
+      expect(opened, isTrue);
+      expect(fakeGemini.extractCallCount, 2);
+      expect(vm.state.isPatientIdConflict, isTrue);
+
+      vm.updateDemographic('patientId', '', campId: 'camp-ktm-01', campCode: 'KTM01');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(vm.state.isPatientIdConflict, isFalse);
+
+      final resolvedPatient = await vm.confirmAndCommit(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        userId: 'usr-1',
+        userName: 'Staff',
+        deviceId: 'dev-1',
+      );
+      expect(resolvedPatient, isNotNull);
+      expect(resolvedPatient!.patientId, '00106');
+      expect((await patientRepo.getPatientsByCamp('camp-ktm-01')).length, 2);
+    });
   });
+}
+
+class _FakeGeminiOcrService extends GeminiOcrService {
+  int extractCallCount = 0;
+
+  @override
+  Future<OcrScanResultModel> extractFromBytes(
+    Uint8List rawBytes, {
+    String imagePath = '',
+    int pageNumber = 0,
+  }) async {
+    extractCallCount++;
+    return OcrScanResultModel(
+      pageNumber: pageNumber,
+      rawText: 'Offline mock Yellow Form',
+      demographics: const {
+        'patientId': '00105',
+        'firstName': 'Sita',
+        'surname': 'Khadka',
+        'age': 34,
+        'ward': '03',
+        'intakeDate': '2083-08-09',
+      },
+      obstetrics: const {'deliveries': 2, 'livingChildren': 2, 'abortions': 0},
+      popStaging: const {'anteriorStage': 1, 'middleStage': 0, 'posteriorStage': 0, 'highestPopStage': 1},
+      vitals: const {'systolicBp': 120, 'diastolicBp': 80},
+      diagnoses: const ['UTI'],
+      medications: const ['Ciprofloxacin'],
+      fieldConfidences: const {'firstName': 0.95},
+      overallConfidence: 0.95,
+      intakeDate: '2083-08-09',
+      scannedAt: DateTime(2026, 11, 25),
+    );
+  }
 }

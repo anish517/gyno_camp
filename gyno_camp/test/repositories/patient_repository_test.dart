@@ -433,6 +433,96 @@ void main() {
       final foundLegacy = await patientRepo.getPatientByPatientId('GC-0007-2026-00012');
       expect(foundLegacy?.id, 'pat-legacy-012');
     });
+
+    test('getPatientsByCamp, searchPatients, and getPatientByPatientId never duplicate a patient with multiple same-date or mixed-key clinical visits', () async {
+      final p = await patientRepo.registerPatient(
+        PatientModel(
+          id: 'pat-single-99',
+          patientId: '00099',
+          campId: 'camp-ktm-01',
+          campCode: '1111',
+          intakeDate: DateTime(2026, 11, 25),
+          firstName: 'Sunita',
+          surname: 'Tamang',
+          age: 52,
+          mobile: '9800000099',
+          ward: '04',
+          createdAt: DateTime(2026, 11, 25, 9, 0),
+          createdByUserId: 'usr-1',
+          createdByDeviceId: 'dev-1',
+        ),
+        createdByUserId: 'usr-1',
+        createdByUserName: 'Staff',
+        createdByUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+
+      final sameDay = DateTime(2026, 11, 25);
+      // Visit 1 linked by Token ID '00099'
+      await patientRepo.saveClinicalVisit(
+        ClinicalVisitModel(
+          id: 'vis-99-a',
+          patientId: p.patientId,
+          campId: 'camp-ktm-01',
+          visitDate: sameDay,
+          highestPopStage: 1,
+          diagnoses: const ['UTI'],
+          createdAt: DateTime(2026, 11, 25, 10, 0),
+          createdByUserId: 'usr-1',
+        ),
+        createdByUserId: 'usr-1',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      // Visit 2 linked by Token ID '00099' with the exact same visitDate
+      await patientRepo.saveClinicalVisit(
+        ClinicalVisitModel(
+          id: 'vis-99-b',
+          patientId: p.patientId,
+          campId: 'camp-ktm-01',
+          visitDate: sameDay,
+          highestPopStage: 2,
+          diagnoses: const ['POP'],
+          createdAt: DateTime(2026, 11, 25, 11, 0),
+          createdByUserId: 'usr-1',
+        ),
+        createdByUserId: 'usr-1',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      // Visit 3 linked by patient UUID p.id with the exact same visitDate
+      await patientRepo.saveClinicalVisit(
+        ClinicalVisitModel(
+          id: 'vis-99-c',
+          patientId: p.id,
+          campId: 'camp-ktm-01',
+          visitDate: sameDay,
+          highestPopStage: 3,
+          diagnoses: const ['POP', 'cystitis'],
+          createdAt: DateTime(2026, 11, 25, 12, 0),
+          createdByUserId: 'usr-1',
+        ),
+        createdByUserId: 'usr-1',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+
+      final byCamp = await patientRepo.getPatientsByCamp('camp-ktm-01');
+      expect(byCamp.length, 1);
+      expect(byCamp.single.patientId, '00099');
+      expect(byCamp.single.highestPopStage, 3);
+
+      final searched = await patientRepo.searchPatients(campId: 'camp-ktm-01', query: '00099');
+      expect(searched.length, 1);
+      expect(searched.single.id, p.id);
+
+      final byToken = await patientRepo.getPatientByPatientId('00099');
+      expect(byToken, isNotNull);
+      expect(byToken!.highestPopStage, 3);
+    });
   });
 }
 

@@ -469,19 +469,17 @@ class PatientRepository implements IPatientRepository {
                ELSE NULL
              END AS treatment_level
       FROM ${DatabaseTables.tablePatients} p
-      LEFT JOIN (
-        SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
-               cv1.primary_doctor_name, cv1.attending_doctor_names,
-               cv1.primary_nurse_name, cv1.attending_nurse_names,
-               cv1.medications, cv1.custom_medication, cv1.counseling,
-               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_json
-        FROM ${DatabaseTables.tableClinicalVisits} cv1
-        WHERE cv1.visit_date = (
-          SELECT MAX(cv2.visit_date)
+      LEFT JOIN ${DatabaseTables.tableClinicalVisits} cv
+        ON cv.id = (
+          SELECT cv2.id
           FROM ${DatabaseTables.tableClinicalVisits} cv2
-          WHERE cv2.patient_id = cv1.patient_id
+          WHERE cv2.patient_id = p.patient_id COLLATE NOCASE OR cv2.patient_id = p.id
+          ORDER BY cv2.visit_date DESC,
+                   COALESCE(cv2.updated_at, cv2.created_at) DESC,
+                   cv2.created_at DESC,
+                   cv2.id DESC
+          LIMIT 1
         )
-      ) cv ON cv.patient_id = p.patient_id COLLATE NOCASE OR cv.patient_id = p.id
       $whereClause
       ORDER BY p.created_at DESC
     ''';
@@ -524,19 +522,17 @@ class PatientRepository implements IPatientRepository {
                ELSE NULL
              END AS treatment_level
       FROM ${DatabaseTables.tablePatients} p
-      LEFT JOIN (
-        SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
-               cv1.primary_doctor_name, cv1.attending_doctor_names,
-               cv1.primary_nurse_name, cv1.attending_nurse_names,
-               cv1.medications, cv1.custom_medication, cv1.counseling,
-               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_json
-        FROM ${DatabaseTables.tableClinicalVisits} cv1
-        WHERE cv1.visit_date = (
-          SELECT MAX(cv2.visit_date)
+      LEFT JOIN ${DatabaseTables.tableClinicalVisits} cv
+        ON cv.id = (
+          SELECT cv2.id
           FROM ${DatabaseTables.tableClinicalVisits} cv2
-          WHERE cv2.patient_id = cv1.patient_id
+          WHERE cv2.patient_id = p.patient_id COLLATE NOCASE OR cv2.patient_id = p.id
+          ORDER BY cv2.visit_date DESC,
+                   COALESCE(cv2.updated_at, cv2.created_at) DESC,
+                   cv2.created_at DESC,
+                   cv2.id DESC
+          LIMIT 1
         )
-      ) cv ON cv.patient_id = p.patient_id COLLATE NOCASE OR cv.patient_id = p.id
       WHERE p.patient_id = ? COLLATE NOCASE OR p.patient_id = ? COLLATE NOCASE OR p.id = ?
       LIMIT 1
     ''', [trimmed, paddedCandidate, trimmed]);
@@ -576,19 +572,17 @@ class PatientRepository implements IPatientRepository {
                ELSE NULL
              END AS treatment_level
       FROM ${DatabaseTables.tablePatients} p
-      LEFT JOIN (
-        SELECT cv1.patient_id, cv1.highest_pop_stage, cv1.diagnoses, cv1.surgery_done, cv1.surgery_type, cv1.is_follow_up,
-               cv1.primary_doctor_name, cv1.attending_doctor_names,
-               cv1.primary_nurse_name, cv1.attending_nurse_names,
-               cv1.medications, cv1.custom_medication, cv1.counseling,
-               cv1.pessary_type, cv1.pessary_size, cv1.surgical_referral, cv1.treatment_level, cv1.anamnesis_json
-        FROM ${DatabaseTables.tableClinicalVisits} cv1
-        WHERE cv1.visit_date = (
-          SELECT MAX(cv2.visit_date)
+      LEFT JOIN ${DatabaseTables.tableClinicalVisits} cv
+        ON cv.id = (
+          SELECT cv2.id
           FROM ${DatabaseTables.tableClinicalVisits} cv2
-          WHERE cv2.patient_id = cv1.patient_id
+          WHERE cv2.patient_id = p.patient_id COLLATE NOCASE OR cv2.patient_id = p.id
+          ORDER BY cv2.visit_date DESC,
+                   COALESCE(cv2.updated_at, cv2.created_at) DESC,
+                   cv2.created_at DESC,
+                   cv2.id DESC
+          LIMIT 1
         )
-      ) cv ON cv.patient_id = p.patient_id COLLATE NOCASE OR cv.patient_id = p.id
       WHERE p.camp_id = ? AND (
         LOWER(p.patient_id) LIKE ? OR
         LOWER(p.first_name) LIKE ? OR

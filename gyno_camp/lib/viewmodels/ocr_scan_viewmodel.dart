@@ -474,7 +474,13 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         activeArchiveItemId: item.id,
         reviewingPatientUuid: item.committedPatientUuid,
         reviewingVisitId: item.committedVisitId,
+        clearPatientIdConflict: true,
+        duplicateResult: const DuplicateCheckResult.none(),
         successMessage: 'Queued offline scan extracted! Review & commit below.',
+      );
+      await validateExtractedScan(
+        campId: item.campId,
+        campCode: item.campCode,
       );
       return true;
     } catch (e) {
@@ -542,6 +548,9 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
           scanResult: state.hasPage2 ? OcrScanResultModel.merge(res, state.page2Scan!) : null,
           successMessage: 'Page 1 (Demographics & Obstetric History) parsed.',
         );
+        if (state.scanResult != null) {
+          await validateExtractedScan();
+        }
       } else if (sampleType == 'page2') {
         final text = _captureService.getSampleFormText('page2');
         final res = await _repository.processTextScan(text, pageNumber: 2, imagePath: 'test_samples/yellow_form_sample_page2.jpg');
@@ -552,6 +561,9 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
           scanResult: state.hasPage1 ? OcrScanResultModel.merge(state.page1Scan!, res) : null,
           successMessage: 'Page 2 (POP Exam, Vitals & Treatment) parsed.',
         );
+        if (state.scanResult != null) {
+          await validateExtractedScan();
+        }
       } else {
         // Full 2-page combined
         final text1 = _captureService.getSampleFormText('page1');
@@ -567,6 +579,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
           scanResult: merged,
           successMessage: 'Complete 2-Page Yellow Form successfully digitized & merged.',
         );
+        await validateExtractedScan();
       }
     } catch (e) {
       if (!mounted) return;
@@ -737,6 +750,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         scanResult: merged,
         successMessage: 'Both Page 1 (Front) & Page 2 (Back) successfully imported & merged!',
       );
+      await validateExtractedScan();
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString();
@@ -802,6 +816,7 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         scanResult: merged,
         successMessage: 'Both Page 1 (Front) & Page 2 (Back) scanned, deskewed & merged!',
       );
+      await validateExtractedScan();
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString();
@@ -827,6 +842,9 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     } else if (state.hasPage2) {
       state = state.copyWith(scanResult: state.page2Scan);
     }
+    if (state.scanResult != null) {
+      unawaited(validateExtractedScan());
+    }
   }
 
   /// Returns from verification pane to the dual-slot capture screen.
@@ -839,7 +857,11 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       resetScan();
       return;
     }
-    state = state.copyWith(clearScanResult: true);
+    state = state.copyWith(
+      clearScanResult: true,
+      clearPatientIdConflict: true,
+      duplicateResult: const DuplicateCheckResult.none(),
+    );
   }
 
   /// Switches active inspection tab between Page 1 and Page 2
@@ -849,10 +871,21 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
   /// Clears a specific page slot
   void clearSlot(int pageNumber) {
+    final willClearScan = pageNumber == 1 ? !state.hasPage2 : !state.hasPage1;
     if (pageNumber == 1) {
-      state = state.copyWith(clearPage1: true, clearScanResult: !state.hasPage2);
+      state = state.copyWith(
+        clearPage1: true,
+        clearScanResult: willClearScan,
+        clearPatientIdConflict: willClearScan,
+        duplicateResult: willClearScan ? const DuplicateCheckResult.none() : null,
+      );
     } else {
-      state = state.copyWith(clearPage2: true, clearScanResult: !state.hasPage1);
+      state = state.copyWith(
+        clearPage2: true,
+        clearScanResult: willClearScan,
+        clearPatientIdConflict: willClearScan,
+        duplicateResult: willClearScan ? const DuplicateCheckResult.none() : null,
+      );
     }
   }
 
@@ -887,12 +920,19 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     }
   }
 
-  /// Checks whether a scanned or manually entered patient token ID is already taken
-  Future<void> checkPatientIdAvailability(String candidateId, {String? campCode}) async {
+  /// Checks whether a scanned or manually entered patient token ID is already taken.
+  /// Returns `true` when [candidateId] conflicts with an existing patient record.
+  Future<bool> checkPatientIdAvailability(String candidateId, {String? campCode}) async {
     final clean = candidateId.trim();
     if (clean.isEmpty) {
-      state = state.copyWith(clearPatientIdConflict: true);
-      return;
+      if (mounted) {
+        state = state.copyWith(
+          clearPatientIdConflict: true,
+          errorMessage: state.errorMessage,
+          successMessage: state.successMessage,
+        );
+      }
+      return false;
     }
     final normalized = PatientModel.normalizePatientId(
       rawInput: clean,
@@ -900,28 +940,70 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     );
     final target = normalized.isNotEmpty ? normalized : clean;
     final existing = await _patientRepository.getPatientByPatientId(target);
-    if (!mounted) return;
+    if (!mounted) return false;
     final isOwnRecord = existing != null &&
         state.reviewingPatientUuid != null &&
         state.reviewingPatientUuid!.isNotEmpty &&
         existing.id == state.reviewingPatientUuid;
     final isTaken = !isOwnRecord &&
         (existing != null || await _patientRepository.isPatientIdTaken(target));
-    if (!mounted) return;
+    if (!mounted) return isTaken;
     if (isTaken) {
+      final ownerLabel = existing != null && existing.fullName.trim().isNotEmpty
+          ? ' to ${existing.fullName}'
+          : '';
       state = state.copyWith(
         isPatientIdConflict: true,
-        patientIdConflictReason: 'Token ID "$target" is already registered in the local database.',
+        patientIdConflictReason:
+            'Token ID "$target" is already registered$ownerLabel. Change the Token ID or tap Auto-Generate.',
+        errorMessage: state.errorMessage,
+        successMessage: state.successMessage,
       );
+      return true;
     } else {
-      state = state.copyWith(clearPatientIdConflict: true);
+      state = state.copyWith(
+        clearPatientIdConflict: true,
+        errorMessage: state.errorMessage,
+        successMessage: state.successMessage,
+      );
+      return false;
+    }
+  }
+
+  /// Validates both Token ID uniqueness and demographic duplicate rules for the current [scanResult].
+  Future<void> validateExtractedScan({String? campId, String? campCode}) async {
+    final scan = state.scanResult;
+    if (scan == null) {
+      if (mounted) {
+        state = state.copyWith(
+          clearPatientIdConflict: true,
+          duplicateResult: const DuplicateCheckResult.none(),
+          errorMessage: state.errorMessage,
+          successMessage: state.successMessage,
+        );
+      }
+      return;
+    }
+    final demo = scan.demographics;
+    final rawToken =
+        (demo['patientId'] as String? ?? demo['patientTokenId'] as String? ?? '').trim();
+    await checkPatientIdAvailability(rawToken, campCode: campCode);
+    if (!mounted) return;
+    final effectiveCampId =
+        (campId != null && campId.trim().isNotEmpty) ? campId.trim() : _scopedCampId;
+    if (effectiveCampId != null && effectiveCampId.isNotEmpty) {
+      await runLiveDuplicateCheck(effectiveCampId);
     }
   }
 
   /// Runs duplicate detection against SQLite camp registry
   Future<void> runLiveDuplicateCheck(String campId) async {
     if (state.scanResult == null) {
-      state = state.copyWith(duplicateResult: const DuplicateCheckResult.none());
+      state = state.copyWith(
+        duplicateResult: const DuplicateCheckResult.none(),
+        errorMessage: state.errorMessage,
+        successMessage: state.successMessage,
+      );
       return;
     }
     final demo = state.scanResult!.demographics;
@@ -934,7 +1016,11 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     final maritalStatus = demo['maritalStatus'] as String?;
 
     if (firstName.trim().isEmpty && mobile.trim().isEmpty) {
-      state = state.copyWith(duplicateResult: const DuplicateCheckResult.none());
+      state = state.copyWith(
+        duplicateResult: const DuplicateCheckResult.none(),
+        errorMessage: state.errorMessage,
+        successMessage: state.successMessage,
+      );
       return;
     }
 
@@ -951,7 +1037,11 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     );
 
     if (!mounted) return;
-    state = state.copyWith(duplicateResult: result);
+    state = state.copyWith(
+      duplicateResult: result,
+      errorMessage: state.errorMessage,
+      successMessage: state.successMessage,
+    );
   }
 
   /// Updates an obstetric / anamnesis field during human verification
@@ -1537,6 +1627,15 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       );
       unawaited(loadOfflineQueue(campId: campId));
       return savedPatient;
+    } on TokenIdConflictException catch (conflictErr) {
+      if (!mounted) return null;
+      state = state.copyWith(
+        isSaving: false,
+        isPatientIdConflict: true,
+        patientIdConflictReason: conflictErr.message,
+        errorMessage: conflictErr.message,
+      );
+      return null;
     } catch (e) {
       if (!mounted) return null;
       state = state.copyWith(

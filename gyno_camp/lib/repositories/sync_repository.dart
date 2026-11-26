@@ -56,7 +56,7 @@ class SyncRepository implements ISyncRepository {
     int offlineScanCount = 0;
     try {
       offlineScanCount = Sqflite.firstIntValue(await db.rawQuery(
-            "SELECT COUNT(*) FROM ${DatabaseTables.tableOfflineScanQueue} WHERE status IN ('pending', 'failed')",
+            "SELECT COUNT(*) FROM ${DatabaseTables.tableOfflineScanQueue} WHERE status IN ('pending', 'failed', 'conflict')",
           )) ??
           0;
     } catch (_) {}

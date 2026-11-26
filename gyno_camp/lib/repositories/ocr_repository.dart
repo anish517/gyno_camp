@@ -51,6 +51,21 @@ enum OcrEngineMode {
   offlineOnly,
 }
 
+class TokenIdConflictException implements Exception {
+  final String tokenId;
+  final String existingPatientName;
+  final String message;
+
+  const TokenIdConflictException({
+    required this.tokenId,
+    required this.existingPatientName,
+    required this.message,
+  });
+
+  @override
+  String toString() => message;
+}
+
 abstract class IOcrRepository {
   Future<OcrScanResultModel> processTextScan(String text, {int pageNumber = 0, String? imagePath});
   Future<OcrScanResultModel> processImageScan(
@@ -84,6 +99,7 @@ abstract class IOcrRepository {
     String? page2ImagePath,
     String reviewStatus = 'verified',
     bool preservePhotoArchive = true,
+    bool allowUpdateExistingByTokenId = false,
   });
 
   Future<OfflineScanQueueItem> enqueueOfflineScan({
@@ -381,6 +397,7 @@ class OcrRepository implements IOcrRepository {
     String? page2ImagePath,
     String reviewStatus = 'verified',
     bool preservePhotoArchive = true,
+    bool allowUpdateExistingByTokenId = false,
   }) async {
     final demo = verifiedScan.demographics;
     final obs = verifiedScan.obstetrics;
@@ -524,23 +541,48 @@ class OcrRepository implements IOcrRepository {
       createdByDeviceId: deviceId,
     );
 
-    // Save or Update Patient in SQLite (if reviewing an existing committed patient or Token ID already exists, update existing record in-place)
+    // Save or Update Patient in SQLite:
+    // - Explicit Review & Correction Mode (existingPatientUuid supplied) updates that patient in-place,
+    //   while still rejecting edits that collide with a DIFFERENT patient's Token ID.
+    // - Fresh OCR scans reject already-registered Token IDs unless allowUpdateExistingByTokenId is true.
     PatientModel? existingPatient;
-    if (existingPatientUuid != null && existingPatientUuid.trim().isNotEmpty) {
-      final db = await DatabaseService().database;
+    final cleanExistingUuid = existingPatientUuid?.trim() ?? '';
+    if (cleanExistingUuid.isNotEmpty) {
+      final db = await _databaseService.database;
       final rows = await db.query(
         DatabaseTables.tablePatients,
         where: 'id = ?',
-        whereArgs: [existingPatientUuid.trim()],
+        whereArgs: [cleanExistingUuid],
         limit: 1,
       );
       if (rows.isNotEmpty) {
         existingPatient = PatientModel.fromMap(rows.first);
       }
+      if (normalizedPatientId.isNotEmpty) {
+        final tokenOwner = await _patientRepository.getPatientByPatientId(normalizedPatientId);
+        if (tokenOwner != null && tokenOwner.id != cleanExistingUuid) {
+          throw TokenIdConflictException(
+            tokenId: normalizedPatientId,
+            existingPatientName: tokenOwner.fullName,
+            message:
+                'Patient Token ID "$normalizedPatientId" is already registered to ${tokenOwner.fullName}. Please enter an unused Token ID or leave blank to auto-generate.',
+          );
+        }
+      }
+    } else if (normalizedPatientId.isNotEmpty) {
+      final tokenOwner = await _patientRepository.getPatientByPatientId(normalizedPatientId);
+      if (tokenOwner != null) {
+        if (!allowUpdateExistingByTokenId) {
+          throw TokenIdConflictException(
+            tokenId: normalizedPatientId,
+            existingPatientName: tokenOwner.fullName,
+            message:
+                'Patient Token ID "$normalizedPatientId" is already registered to ${tokenOwner.fullName}. Please change the Token ID or leave blank to auto-generate.',
+          );
+        }
+        existingPatient = tokenOwner;
+      }
     }
-    existingPatient ??= normalizedPatientId.isNotEmpty
-        ? await _patientRepository.getPatientByPatientId(normalizedPatientId)
-        : null;
 
     final PatientRepository? concreteRepo =
         _patientRepository is PatientRepository ? _patientRepository : null;
@@ -828,9 +870,7 @@ class OcrRepository implements IOcrRepository {
     String resolvedVisitId = 'vis-${_uuid.v4()}';
     if (existingVisitId != null && existingVisitId.trim().isNotEmpty) {
       resolvedVisitId = existingVisitId.trim();
-    } else if (existingPatient != null &&
-        ((archiveItemId != null && archiveItemId.trim().isNotEmpty) ||
-            (existingPatientUuid != null && existingPatientUuid.trim().isNotEmpty))) {
+    } else if (existingPatient != null) {
       final latestVisit = await _patientRepository.getLatestClinicalVisit(
         registeredPatient.patientId,
         patientUuid: registeredPatient.id,
@@ -1546,46 +1586,49 @@ class OcrRepository implements IOcrRepository {
 
   @override
   Future<OcrScanResultModel> extractQueuedOfflineItem(OfflineScanQueueItem item) async {
-    OcrScanResultModel? scan1;
-    OcrScanResultModel? scan2;
+    OcrScanResultModel? result = item.parsedExtractedResult;
 
-    if (item.page1ImageBase64 != null && item.page1ImageBase64!.isNotEmpty) {
-      final bytes1 = base64Decode(item.page1ImageBase64!);
-      scan1 = await _geminiService.extractFromBytes(
-        bytes1,
-        imagePath: item.page1ImagePath ?? 'offline_page1.jpg',
-        pageNumber: 1,
-      );
-    } else if (item.page1ImagePath != null && item.page1ImagePath!.isNotEmpty) {
-      scan1 = await _geminiService.extractFromImage(
-        XFile(item.page1ImagePath!),
-        pageNumber: 1,
-      );
-    }
+    if (result == null) {
+      OcrScanResultModel? scan1;
+      OcrScanResultModel? scan2;
 
-    if (item.page2ImageBase64 != null && item.page2ImageBase64!.isNotEmpty) {
-      final bytes2 = base64Decode(item.page2ImageBase64!);
-      scan2 = await _geminiService.extractFromBytes(
-        bytes2,
-        imagePath: item.page2ImagePath ?? 'offline_page2.jpg',
-        pageNumber: 2,
-      );
-    } else if (item.page2ImagePath != null && item.page2ImagePath!.isNotEmpty) {
-      scan2 = await _geminiService.extractFromImage(
-        XFile(item.page2ImagePath!),
-        pageNumber: 2,
-      );
-    }
+      if (item.page1ImageBase64 != null && item.page1ImageBase64!.isNotEmpty) {
+        final bytes1 = base64Decode(item.page1ImageBase64!);
+        scan1 = await _geminiService.extractFromBytes(
+          bytes1,
+          imagePath: item.page1ImagePath ?? 'offline_page1.jpg',
+          pageNumber: 1,
+        );
+      } else if (item.page1ImagePath != null && item.page1ImagePath!.isNotEmpty) {
+        scan1 = await _geminiService.extractFromImage(
+          XFile(item.page1ImagePath!),
+          pageNumber: 1,
+        );
+      }
 
-    OcrScanResultModel result;
-    if (scan1 != null && scan2 != null) {
-      result = OcrScanResultModel.merge(scan1, scan2);
-    } else if (scan1 != null) {
-      result = scan1;
-    } else if (scan2 != null) {
-      result = scan2;
-    } else {
-      throw const GeminiOcrException('Offline scan item contains no readable image data.');
+      if (item.page2ImageBase64 != null && item.page2ImageBase64!.isNotEmpty) {
+        final bytes2 = base64Decode(item.page2ImageBase64!);
+        scan2 = await _geminiService.extractFromBytes(
+          bytes2,
+          imagePath: item.page2ImagePath ?? 'offline_page2.jpg',
+          pageNumber: 2,
+        );
+      } else if (item.page2ImagePath != null && item.page2ImagePath!.isNotEmpty) {
+        scan2 = await _geminiService.extractFromImage(
+          XFile(item.page2ImagePath!),
+          pageNumber: 2,
+        );
+      }
+
+      if (scan1 != null && scan2 != null) {
+        result = OcrScanResultModel.merge(scan1, scan2);
+      } else if (scan1 != null) {
+        result = scan1;
+      } else if (scan2 != null) {
+        result = scan2;
+      } else {
+        throw const GeminiOcrException('Offline scan item contains no readable image data.');
+      }
     }
 
     // Apply any operator-supplied hints recorded when queued offline
@@ -1636,6 +1679,7 @@ class OcrRepository implements IOcrRepository {
 
     int processedCount = 0;
     for (final item in items) {
+      OcrScanResultModel? extracted;
       try {
         await db.update(
           DatabaseTables.tableOfflineScanQueue,
@@ -1644,7 +1688,7 @@ class OcrRepository implements IOcrRepository {
           whereArgs: [item.id],
         );
 
-        final extracted = await extractQueuedOfflineItem(item);
+        extracted = await extractQueuedOfflineItem(item);
         await commitVerifiedScan(
           verifiedScan: extracted,
           campId: item.campId,
@@ -1662,6 +1706,18 @@ class OcrRepository implements IOcrRepository {
         );
 
         processedCount++;
+      } on TokenIdConflictException catch (conflictErr) {
+        await db.update(
+          DatabaseTables.tableOfflineScanQueue,
+          {
+            'status': 'conflict',
+            'error_message': conflictErr.message,
+            if (extracted != null) 'extracted_json': jsonEncode(extracted.toMap()),
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [item.id],
+        );
       } catch (e) {
         await db.update(
           DatabaseTables.tableOfflineScanQueue,
