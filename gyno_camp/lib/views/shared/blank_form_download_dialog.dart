@@ -65,6 +65,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
   NurseProfile? _selectedNurse;
   bool _includeBlankNurseLine = false; // used only when the camp has no nurses
   bool _isGenerating = false;
+  bool _cancelRequested = false;
   String? _progressMessage;
   double? _progressValue;
 
@@ -102,9 +103,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
     return _userSplitVolumesOverride ?? (safeTokenCount >= 500);
   }
 
+  int get splitVolumeCount => (safeTokenCount / defaultVolumeChunkSize).ceil();
+
   int get plannedVolumeCount {
     if (!effectiveSplitIntoVolumes) return 1;
-    return (safeTokenCount / defaultVolumeChunkSize).ceil();
+    return splitVolumeCount;
   }
 
   void _applyBulkRange({required int start, required int count}) {
@@ -236,11 +239,24 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
     } catch (_) {}
   }
 
+  void _handleCancelOrClose() {
+    if (_isGenerating) {
+      setState(() {
+        _cancelRequested = true;
+        _progressMessage = 'Cancelling generation...';
+        _progressValue = null;
+      });
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
   Future<void> _generateAndDownload() async {
     setState(() {
       _isGenerating = true;
+      _cancelRequested = false;
       _progressMessage = 'Preparing PDF document...';
-      _progressValue = 0.0;
+      _progressValue = null;
     });
     final messenger = ScaffoldMessenger.of(context);
 
@@ -326,6 +342,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
           DownloadResult? lastResult;
 
           for (int volIdx = 0; volIdx < totalVolumes; volIdx++) {
+            if (_cancelRequested) break;
             final volOffset = volIdx * defaultVolumeChunkSize;
             final volStartSeq = startSeq + volOffset;
             final remaining = count - volOffset;
@@ -353,13 +370,16 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                 referralHospitals: referralHospitals,
                 visitReasons: visitReasons,
                 chiefComplaints: chiefComplaints,
-                onProgress: (current, total, _) {
-                  if (mounted) {
+                isCancelled: () => _cancelRequested || !mounted,
+                onProgress: (current, total, status) {
+                  if (mounted && !_cancelRequested) {
+                    final isFinalizingVol = status.startsWith('Finalizing');
                     final overallDone = volOffset + current;
                     setState(() {
-                      _progressMessage =
-                          'Volume ${volIdx + 1}/$totalVolumes • Form $overallDone of $count (${(overallDone / count * 100).toInt()}%)...';
-                      _progressValue = overallDone / count;
+                      _progressMessage = isFinalizingVol
+                          ? 'Volume ${volIdx + 1}/$totalVolumes • Finalizing PDF ($volCount forms)...'
+                          : 'Volume ${volIdx + 1}/$totalVolumes • Form $overallDone of $count (${(overallDone / count * 100).toInt()}%)...';
+                      _progressValue = isFinalizingVol ? null : overallDone / count;
                     });
                   }
                 },
@@ -376,19 +396,26 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                 nurse: nurseToUse,
                 blankNurseLines: blankNurse,
                 organizationName: orgName,
-                onProgress: (current, total, _) {
-                  if (mounted) {
+                isCancelled: () => _cancelRequested || !mounted,
+                onProgress: (current, total, status) {
+                  if (mounted && !_cancelRequested) {
+                    final isFinalizingVol = status.startsWith('Finalizing');
                     final overallDone = volOffset + current;
                     setState(() {
-                      _progressMessage =
-                          'Volume ${volIdx + 1}/$totalVolumes • Sheet $overallDone of $count (${(overallDone / count * 100).toInt()}%)...';
-                      _progressValue = overallDone / count;
+                      _progressMessage = isFinalizingVol
+                          ? 'Volume ${volIdx + 1}/$totalVolumes • Finalizing PDF ($volCount sheets)...'
+                          : 'Volume ${volIdx + 1}/$totalVolumes • Sheet $overallDone of $count (${(overallDone / count * 100).toInt()}%)...';
+                      _progressValue = isFinalizingVol ? null : overallDone / count;
                     });
                   }
                 },
               );
               volFilename =
                   'Blank_FollowUpSlips_${campCode}_${volStartPad}_to_${volEndPad}_Part${volIdx + 1}of$totalVolumes.pdf';
+            }
+
+            if (_cancelRequested || volBytes.isEmpty) {
+              break;
             }
 
             lastResult = await FileDownloadHelper.saveAndDownloadFile(
@@ -403,6 +430,10 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             if (volIdx < totalVolumes - 1) {
               await Future.delayed(const Duration(milliseconds: 120));
             }
+          }
+
+          if (_cancelRequested) {
+            return;
           }
 
           if (mounted && lastResult != null) {
@@ -442,11 +473,13 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             referralHospitals: referralHospitals,
             visitReasons: visitReasons,
             chiefComplaints: chiefComplaints,
+            isCancelled: () => _cancelRequested || !mounted,
             onProgress: (current, total, status) {
-              if (mounted) {
+              if (mounted && !_cancelRequested) {
+                final isFinalizing = status.startsWith('Finalizing');
                 setState(() {
                   _progressMessage = status;
-                  _progressValue = current / total;
+                  _progressValue = isFinalizing ? null : (current / total) * 0.92;
                 });
               }
             },
@@ -462,11 +495,13 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
             organizationName: orgName,
+            isCancelled: () => _cancelRequested || !mounted,
             onProgress: (current, total, status) {
-              if (mounted) {
+              if (mounted && !_cancelRequested) {
+                final isFinalizing = status.startsWith('Finalizing');
                 setState(() {
                   _progressMessage = status;
-                  _progressValue = current / total;
+                  _progressValue = isFinalizing ? null : (current / total) * 0.92;
                 });
               }
             },
@@ -654,6 +689,10 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
         }
       }
 
+      if (_cancelRequested || pdfBytes.isEmpty) {
+        return;
+      }
+
       final result = await FileDownloadHelper.saveAndDownloadFile(
         bytes: pdfBytes,
         filename: filename,
@@ -677,6 +716,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
       if (mounted) {
         setState(() {
           _isGenerating = false;
+          _cancelRequested = false;
           _progressMessage = null;
           _progressValue = null;
         });
@@ -1077,18 +1117,16 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                                   ),
                                 ],
                               ),
-                              if (_progressValue != null) ...[
-                                const SizedBox(height: 6),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(2),
-                                  child: LinearProgressIndicator(
-                                    value: _progressValue,
-                                    backgroundColor: AppTheme.brandPurple.withOpacity(0.15),
-                                    valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
-                                    minHeight: 4,
-                                  ),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(2),
+                                child: LinearProgressIndicator(
+                                  value: _progressValue,
+                                  backgroundColor: AppTheme.brandPurple.withOpacity(0.15),
+                                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                                  minHeight: 4,
                                 ),
-                              ],
+                              ),
                             ],
                           ),
                         ),
@@ -1123,14 +1161,14 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                             ),
                             const SizedBox(height: 8),
                             OutlinedButton(
-                              onPressed: _isGenerating ? null : () => Navigator.pop(context),
+                              onPressed: _cancelRequested ? null : _handleCancelOrClose,
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF64748B),
                                 side: const BorderSide(color: Color(0xFFCBD5E1)),
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
-                              child: const Text('Cancel', style: TextStyle(fontSize: 13)),
+                              child: Text(_isGenerating ? 'Stop' : 'Cancel', style: const TextStyle(fontSize: 13)),
                             ),
                           ],
                         )
@@ -1139,14 +1177,14 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             OutlinedButton(
-                              onPressed: _isGenerating ? null : () => Navigator.pop(context),
+                              onPressed: _cancelRequested ? null : _handleCancelOrClose,
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF64748B),
                                 side: const BorderSide(color: Color(0xFFCBD5E1)),
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
-                              child: const Text('Cancel'),
+                              child: Text(_isGenerating ? 'Stop' : 'Cancel'),
                             ),
                             const SizedBox(width: 12),
                             Flexible(
@@ -1928,7 +1966,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Split into print-ready PDF volumes ($plannedVolumeCount files • $defaultVolumeChunkSize forms/PDF)',
+                                    'Split into print-ready PDF volumes ($splitVolumeCount files • $defaultVolumeChunkSize forms/PDF)',
                                     style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,

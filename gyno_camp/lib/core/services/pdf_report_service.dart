@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart' show rootBundle, FontLoader;
 import 'package:flutter/painting.dart' as fp;
 import 'package:intl/intl.dart';
@@ -315,13 +315,13 @@ class PdfReportService {
     Future<pw.Document> Function() build,
   ) async {
     var doc = await build();
-    await Future.delayed(Duration.zero);
-    final firstPassBytes = await doc.save();
+    await Future.delayed(const Duration(milliseconds: 4));
+    final firstPassBytes = await doc.save(enableEventLoopBalancing: true);
     if (_nePending.isNotEmpty) {
       await _renderPendingNepali();
       doc = await build();
-      await Future.delayed(Duration.zero);
-      return await doc.save();
+      await Future.delayed(const Duration(milliseconds: 4));
+      return await doc.save(enableEventLoopBalancing: true);
     }
     return firstPassBytes;
   }
@@ -8271,16 +8271,20 @@ class PdfReportService {
     List<LookupItemModel>? visitReasons,
     List<LookupItemModel>? chiefComplaints,
     void Function(int current, int total, String status)? onProgress,
+    bool Function()? isCancelled,
   }) async {
     final theme = await getPdfTheme();
     final logoImage = await loadLogoImage();
     final year = camp.startDate.year;
     final campCode = camp.campCode.trim().toUpperCase();
+    // On Flutter Web, pure-Dart JS zlib Deflate across hundreds/thousands of pages
+    // runs on the main UI thread and stalls finalization for minutes in debug/JS builds.
+    final bool shouldCompress = !(kIsWeb && count > 150);
 
     // Pre-warm Devanagari glyph cache on a single template form when count > 1
     // so _saveWithNepali does not rebuild all `count` forms twice on cold cache.
     if (count > 1) {
-      final warmupPdf = pw.Document(theme: theme);
+      final warmupPdf = pw.Document(theme: theme, compress: false);
       final warmupId = PatientModel.generatePatientId(
         campCode: campCode,
         sequenceNumber: startSequence,
@@ -8305,18 +8309,27 @@ class PdfReportService {
         chiefComplaints: chiefComplaints,
         logoImage: logoImage,
       );
-      await warmupPdf.save();
+      await warmupPdf.save(enableEventLoopBalancing: true);
       if (_nePending.isNotEmpty) {
         await _renderPendingNepali();
       }
     }
 
-    final int progressStride = count <= 50 ? 1 : (count ~/ 50).clamp(2, 25);
+    if (isCancelled?.call() == true) {
+      return Uint8List(0);
+    }
 
-    return _saveWithNepali(() async {
-      final pdf = pw.Document(theme: theme);
+    final int progressStride = count <= 50 ? 1 : (count ~/ 50).clamp(2, 20);
+
+    final bytes = await _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme, compress: shouldCompress);
+      final frameWatch = Stopwatch()..start();
 
       for (int i = 0; i < count; i++) {
+        if (isCancelled?.call() == true) {
+          return pw.Document(theme: theme, compress: false);
+        }
+
         final seq = startSequence + i;
         final patientId = PatientModel.generatePatientId(
           campCode: campCode,
@@ -8332,7 +8345,11 @@ class PdfReportService {
             count,
             'Building form ${i + 1} of $count (${((i + 1) / count * 100).toInt()}%)...',
           );
-          await Future.delayed(Duration.zero);
+        }
+
+        if (shouldReport || frameWatch.elapsedMilliseconds >= 12) {
+          await Future.delayed(const Duration(milliseconds: 4));
+          frameWatch.reset();
         }
 
         await _addPatientRegistrationFormPages(
@@ -8360,9 +8377,14 @@ class PdfReportService {
         count,
         'Finalizing PDF document (${count * 2} pages)...',
       );
-      await Future.delayed(Duration.zero);
+      await Future.delayed(const Duration(milliseconds: 16));
       return pdf;
     });
+
+    if (isCancelled?.call() == true) {
+      return Uint8List(0);
+    }
+    return bytes;
   }
 
   /// Generates a batch PDF containing 1-page blank Follow-Up Encounter Slips
@@ -8377,14 +8399,16 @@ class PdfReportService {
     bool blankNurseLines = false,
     String organizationName = AppConstants.defaultOrganizationName,
     void Function(int current, int total, String status)? onProgress,
+    bool Function()? isCancelled,
   }) async {
     final theme = await getPdfTheme();
     final logoImage = await loadLogoImage();
     final year = camp.startDate.year;
     final campCode = camp.campCode.trim().toUpperCase();
+    final bool shouldCompress = !(kIsWeb && count > 150);
 
     if (count > 1) {
-      final warmupPdf = pw.Document(theme: theme);
+      final warmupPdf = pw.Document(theme: theme, compress: false);
       final warmupId = PatientModel.generatePatientId(
         campCode: campCode,
         sequenceNumber: startSequence,
@@ -8401,18 +8425,27 @@ class PdfReportService {
         organizationName: organizationName,
         logoImage: logoImage,
       );
-      await warmupPdf.save();
+      await warmupPdf.save(enableEventLoopBalancing: true);
       if (_nePending.isNotEmpty) {
         await _renderPendingNepali();
       }
     }
 
-    final int progressStride = count <= 50 ? 1 : (count ~/ 50).clamp(2, 25);
+    if (isCancelled?.call() == true) {
+      return Uint8List(0);
+    }
 
-    return _saveWithNepali(() async {
-      final pdf = pw.Document(theme: theme);
+    final int progressStride = count <= 50 ? 1 : (count ~/ 50).clamp(2, 20);
+
+    final bytes = await _saveWithNepali(() async {
+      final pdf = pw.Document(theme: theme, compress: shouldCompress);
+      final frameWatch = Stopwatch()..start();
 
       for (int i = 0; i < count; i++) {
+        if (isCancelled?.call() == true) {
+          return pw.Document(theme: theme, compress: false);
+        }
+
         final seq = startSequence + i;
         final tokenId = PatientModel.generatePatientId(
           campCode: campCode,
@@ -8428,7 +8461,11 @@ class PdfReportService {
             count,
             'Building follow-up sheet ${i + 1} of $count (${((i + 1) / count * 100).toInt()}%)...',
           );
-          await Future.delayed(Duration.zero);
+        }
+
+        if (shouldReport || frameWatch.elapsedMilliseconds >= 12) {
+          await Future.delayed(const Duration(milliseconds: 4));
+          frameWatch.reset();
         }
 
         _addBlankFollowUpSlipPage(
@@ -8448,9 +8485,14 @@ class PdfReportService {
         count,
         'Finalizing PDF document ($count pages)...',
       );
-      await Future.delayed(Duration.zero);
+      await Future.delayed(const Duration(milliseconds: 16));
       return pdf;
     });
+
+    if (isCancelled?.call() == true) {
+      return Uint8List(0);
+    }
+    return bytes;
   }
 
   /// Generates an A5 Patient Token Slip & Triage Routing Pass with QR & Barcode

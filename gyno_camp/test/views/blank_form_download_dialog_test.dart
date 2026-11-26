@@ -183,13 +183,17 @@ void main() {
         expect(find.text('00501 → 01500'), findsOneWidget);
         expect(find.text('Download 1000 Pre-Numbered Forms (4 PDFs)'), findsOneWidget);
 
-        // Toggle off multi-volume split -> single combined file label
+        // Toggle off multi-volume split -> single combined file label, while switch label still shows true volume count (4 files)
         final splitSwitch = find.byKey(const Key('split_large_batch_volumes_switch'));
         await tester.ensureVisible(splitSwitch);
         await tester.tap(splitSwitch);
         await tester.pumpAndSettle();
 
         expect(find.text('Download 1000 Pre-Numbered Forms'), findsOneWidget);
+        expect(
+          find.text('Split into print-ready PDF volumes (4 files • 250 forms/PDF)'),
+          findsOneWidget,
+        );
       },
     );
 
