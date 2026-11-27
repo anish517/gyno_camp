@@ -4131,13 +4131,15 @@ class PdfReportService {
     final cyan = PdfColor.fromHex('30026E'); // WFWSN Logo Royal Violet
     final cyanBg = PdfColor.fromHex('F5F3FF'); // Soft Violet Tint
     final dark = PdfColor.fromHex('1E293B');
-    final gray = PdfColor.fromHex('CBD5E1');
-    final borderMuted = PdfColor.fromHex('94A3B8');
+    final gray = PdfColor.fromHex('94A3B8');
+    final borderMuted = PdfColor.fromHex('64748B');
+    final borderCheckbox = PdfColor.fromHex('334155');
     const boxBg = PdfColors.white;
 
     final bool showDoctor = camp?.showDoctorOnForms ?? true;
     final bool showNurse =
-        camp?.showNurseOnForms ?? (nurse != null || allNursesChecklist);
+        blankNurseLines ||
+        (camp?.showNurseOnForms ?? (nurse != null || allNursesChecklist));
     final List<String> campDoctors = camp?.doctorNames.isNotEmpty == true
         ? camp!.doctorNames
               .map(
@@ -4248,9 +4250,9 @@ class PdfReportService {
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         build: (ctx) {
-          pw.TextStyle bold({double size = 7.6, PdfColor? color}) =>
+          pw.TextStyle bold({double size = 8.6, PdfColor? color}) =>
               pw.TextStyle(
                 fontSize: size,
                 fontWeight: pw.FontWeight.bold,
@@ -4260,48 +4262,51 @@ class PdfReportService {
           pw.Widget secHeader(String titleEn, String titleNe) {
             return pw.Container(
               width: double.infinity,
-              margin: const pw.EdgeInsets.only(top: 3.5, bottom: 2.5),
+              margin: const pw.EdgeInsets.only(top: 2.0, bottom: 3.5),
               padding: const pw.EdgeInsets.symmetric(
-                horizontal: 6,
-                vertical: 2.2,
+                horizontal: 8,
+                vertical: 3.6,
               ),
               decoration: pw.BoxDecoration(
                 color: cyan,
-                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2.5)),
               ),
               child: pw.Row(
                 children: [
                   pw.Text(
                     titleEn,
                     style: pw.TextStyle(
-                      fontSize: 8.0,
+                      fontSize: 9.2,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColors.white,
                     ),
                   ),
                   if (titleNe.isNotEmpty) ...[
-                    pw.SizedBox(width: 5),
-                    ne(titleNe, size: 7.5, bold: true, color: 0xFFFFFFFF),
+                    pw.SizedBox(width: 6),
+                    ne(titleNe, size: 8.5, bold: true, color: 0xFFFFFFFF),
                   ],
                 ],
               ),
             );
           }
 
-          pw.Widget blankBox(String label, {int flex = 1, double h = 13.5}) =>
+          pw.Widget blankBox(String label, {int flex = 1, double h = 18.5}) =>
               pw.Expanded(
                 flex: flex,
                 child: pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 2.5),
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 3.0),
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      ne(label, size: 7.1, bold: true, color: 0xFF334155),
-                      pw.SizedBox(height: 1),
+                      ne(label, size: 8.1, bold: true, color: 0xFF1E293B),
+                      pw.SizedBox(height: 2.0),
                       pw.Container(
                         height: h,
                         decoration: pw.BoxDecoration(
-                          border: pw.Border.all(color: borderMuted, width: 0.6),
+                          border: pw.Border.all(color: borderMuted, width: 0.75),
+                          borderRadius: const pw.BorderRadius.all(
+                            pw.Radius.circular(1.5),
+                          ),
                           color: boxBg,
                         ),
                       ),
@@ -4312,10 +4317,10 @@ class PdfReportService {
 
           pw.Widget cb(
             String label, {
-            double right = 6,
-            double bottom = 1.8,
-            double boxSize = 9.2,
-            double fontSize = 7.4,
+            double right = 7,
+            double bottom = 2.4,
+            double boxSize = 10.5,
+            double fontSize = 8.5,
           }) => pw.Padding(
             padding: pw.EdgeInsets.only(right: right, bottom: bottom),
             child: pw.Row(
@@ -4326,30 +4331,30 @@ class PdfReportService {
                   width: boxSize,
                   height: boxSize,
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('F8FAFC'),
-                    border: pw.Border.all(color: borderMuted, width: 0.9),
+                    color: PdfColors.white,
+                    border: pw.Border.all(color: borderCheckbox, width: 0.95),
                     borderRadius: const pw.BorderRadius.all(
-                      pw.Radius.circular(1.8),
+                      pw.Radius.circular(2.0),
                     ),
                   ),
                 ),
-                pw.SizedBox(width: 3),
-                ne(label, size: fontSize, color: 0xFF1E293B),
+                pw.SizedBox(width: 3.8),
+                ne(label, size: fontSize, color: 0xFF0F172A),
               ],
             ),
           );
 
-          pw.Widget labeledLine(String label, {double h = 13.0}) => pw.Row(
+          pw.Widget labeledLine(String label, {double h = 16.5}) => pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.end,
             children: [
-              ne(label, size: 7.3, bold: true, color: 0xFF1E293B),
-              pw.SizedBox(width: 4),
+              ne(label, size: 8.4, bold: true, color: 0xFF0F172A),
+              pw.SizedBox(width: 5),
               pw.Expanded(
                 child: pw.Container(
                   height: h,
                   decoration: pw.BoxDecoration(
                     border: pw.Border(
-                      bottom: pw.BorderSide(color: borderMuted, width: 0.6),
+                      bottom: pw.BorderSide(color: borderMuted, width: 0.75),
                     ),
                   ),
                 ),
@@ -4357,22 +4362,59 @@ class PdfReportService {
             ],
           );
 
+          pw.Widget notesBox(
+            String label, {
+            int guideLines = 2,
+            double height = 38.0,
+          }) => pw.Container(
+            width: double.infinity,
+            height: height,
+            padding: const pw.EdgeInsets.symmetric(
+              horizontal: 7.0,
+              vertical: 4.0,
+            ),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.white,
+              border: pw.Border.all(color: borderMuted, width: 0.75),
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2.5)),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                ne(label, size: 8.2, bold: true, color: 0xFF0F172A),
+                pw.Expanded(
+                  child: pw.Column(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+                    children: List.generate(
+                      guideLines,
+                      (_) => pw.Container(
+                        height: 0.55,
+                        color: PdfColor.fromHex('CBD5E1'),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+
           pw.Widget buildMultiColumnCheckboxes(
             List<String> items, {
             int columns = 4,
-            double fontSize = 7.1,
+            double fontSize = 8.3,
+            double boxSize = 10.4,
           }) {
             if (items.isEmpty) return pw.SizedBox.shrink();
             final perCol = (items.length / columns).ceil();
             return pw.Container(
               width: double.infinity,
               padding: const pw.EdgeInsets.symmetric(
-                horizontal: 5,
-                vertical: 3,
+                horizontal: 7,
+                vertical: 5,
               ),
               decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: gray, width: 0.6),
-                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+                border: pw.Border.all(color: gray, width: 0.7),
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2.5)),
               ),
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -4387,44 +4429,44 @@ class PdfReportService {
                   return pw.Expanded(
                     child: pw.Padding(
                       padding: pw.EdgeInsets.only(
-                        right: colIdx < columns - 1 ? 5 : 0,
+                        right: colIdx < columns - 1 ? 6 : 0,
                       ),
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: slice
                             .map(
                               (item) => pw.Padding(
-                                padding: const pw.EdgeInsets.only(bottom: 1.6),
+                                padding: const pw.EdgeInsets.only(bottom: 2.6),
                                 child: pw.Row(
                                   crossAxisAlignment:
                                       pw.CrossAxisAlignment.start,
                                   children: [
                                     pw.Padding(
                                       padding: const pw.EdgeInsets.only(
-                                        top: 0.5,
+                                        top: 0.6,
                                       ),
                                       child: pw.Container(
-                                        width: 8.8,
-                                        height: 8.8,
+                                        width: boxSize,
+                                        height: boxSize,
                                         decoration: pw.BoxDecoration(
-                                          color: PdfColor.fromHex('F8FAFC'),
+                                          color: PdfColors.white,
                                           border: pw.Border.all(
-                                            color: borderMuted,
-                                            width: 0.9,
+                                            color: borderCheckbox,
+                                            width: 0.95,
                                           ),
                                           borderRadius:
                                               const pw.BorderRadius.all(
-                                                pw.Radius.circular(1.8),
+                                                pw.Radius.circular(2.0),
                                               ),
                                         ),
                                       ),
                                     ),
-                                    pw.SizedBox(width: 3),
+                                    pw.SizedBox(width: 4),
                                     pw.Expanded(
                                       child: ne(
                                         item,
                                         size: fontSize,
-                                        color: 0xFF1E293B,
+                                        color: 0xFF0F172A,
                                       ),
                                     ),
                                   ],
@@ -4443,8 +4485,8 @@ class PdfReportService {
           pw.Widget buildCharBoxes(
             String val, {
             int maxBoxes = 5,
-            double boxSize = 11.5,
-            double boxMargin = 1.3,
+            double boxSize = 14.0,
+            double boxMargin = 1.6,
           }) {
             final cleanVal = val.trim().replaceAll(RegExp(r'\s+'), ' ');
             final chars = cleanVal.toUpperCase().split('');
@@ -4455,17 +4497,20 @@ class PdfReportService {
                 final char = rawChar == '□' ? '' : rawChar;
                 return pw.Container(
                   width: boxSize,
-                  height: boxSize + 1.5,
+                  height: boxSize + 3.0,
                   margin: pw.EdgeInsets.only(right: boxMargin),
                   decoration: pw.BoxDecoration(
                     color: boxBg,
-                    border: pw.Border.all(color: borderMuted, width: 0.7),
+                    border: pw.Border.all(color: borderCheckbox, width: 0.85),
+                    borderRadius: const pw.BorderRadius.all(
+                      pw.Radius.circular(1.5),
+                    ),
                   ),
                   child: pw.Center(
                     child: pw.Text(
                       char,
                       style: pw.TextStyle(
-                        fontSize: 8.5,
+                        fontSize: 10.2,
                         fontWeight: pw.FontWeight.bold,
                         color: dark,
                       ),
@@ -4477,41 +4522,37 @@ class PdfReportService {
           }
 
           final nurseWidgets = _buildNurseSignatureBlock(
-            cb: (label, _) => cb(label, right: 4, bottom: 1.2, fontSize: 7.0),
+            cb: (label, _) =>
+                cb(label, right: 5, bottom: 1.8, boxSize: 9.8, fontSize: 8.0),
             campNurses: campNurses,
             showNurse: showNurse,
             blankNurseLines: blankNurseLines,
             nurse: allNursesChecklist ? null : nurse,
             primary: cyan,
             dark: dark,
-            width: 225,
-            fsSmall: 6.8,
+            width: 240,
+            fsSmall: 8.2,
           );
 
           final DoctorProfile? effectiveDoctor = allDoctorsChecklist
               ? null
               : doctor;
 
-          return pw.FittedBox(
-            fit: pw.BoxFit.scaleDown,
-            alignment: pw.Alignment.topCenter,
-            child: pw.SizedBox(
-              width: 559,
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
+          final headerAndIdentityBlock = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
               // ── Header + Patient Token & Identity ──
               pw.Container(
                 padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 5,
+                  horizontal: 10,
+                  vertical: 6.5,
                 ),
                 decoration: pw.BoxDecoration(
                   color: cyanBg,
                   borderRadius: const pw.BorderRadius.all(
                     pw.Radius.circular(4),
                   ),
-                  border: pw.Border.all(color: cyan, width: 1.0),
+                  border: pw.Border.all(color: cyan, width: 1.1),
                 ),
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -4523,8 +4564,8 @@ class PdfReportService {
                         children: [
                           if (logoImage != null)
                             pw.Padding(
-                              padding: const pw.EdgeInsets.only(right: 8),
-                              child: pw.Image(logoImage, width: 38, height: 38),
+                              padding: const pw.EdgeInsets.only(right: 9),
+                              child: pw.Image(logoImage, width: 42, height: 42),
                             ),
                           pw.Expanded(
                             child: pw.Column(
@@ -4533,35 +4574,37 @@ class PdfReportService {
                                 pw.Text(
                                   sanitizeText(organizationName.toUpperCase()),
                                   style: pw.TextStyle(
-                                    fontSize: 9.2,
+                                    fontSize: 10.5,
                                     fontWeight: pw.FontWeight.bold,
                                     color: cyan,
                                   ),
                                 ),
+                                pw.SizedBox(height: 1),
                                 pw.Row(
                                   children: [
                                     pw.Text(
                                       'FOLLOW-UP VISIT ASSESSMENT SHEET',
                                       style: pw.TextStyle(
-                                        fontSize: 11.5,
+                                        fontSize: 12.8,
                                         fontWeight: pw.FontWeight.bold,
                                         color: dark,
                                       ),
                                     ),
                                     pw.SizedBox(width: 6),
                                     ne(
-                                      '(फलो-अप जाँच फाराम — कृपया ठूला अक्षरमा भर्नुहोस्)',
-                                      size: 7.4,
-                                      color: 0xFF475569,
+                                      '(फलो-अप जाँच फाराम — ठूला अक्षरमा भर्नुहोस्)',
+                                      size: 8.2,
+                                      color: 0xFF334155,
                                     ),
                                   ],
                                 ),
+                                pw.SizedBox(height: 1.5),
                                 pw.Text(
                                   camp != null
                                       ? 'Camp: ${sanitizeText(camp.name)} (${camp.campCode}) | Venue: ${sanitizeText(camp.venue)}, ${sanitizeText(camp.district)}'
                                       : 'Camp: ________________________ | Venue: ________________________',
                                   style: pw.TextStyle(
-                                    fontSize: 7.5,
+                                    fontSize: 8.4,
                                     fontWeight: pw.FontWeight.bold,
                                     color: secondary,
                                   ),
@@ -4577,9 +4620,9 @@ class PdfReportService {
                       children: [
                         pw.Text(
                           'PATIENT TOKEN ID',
-                          style: bold(size: 7.2, color: cyan),
+                          style: bold(size: 8.0, color: cyan),
                         ),
-                        pw.SizedBox(height: 1.5),
+                        pw.SizedBox(height: 2),
                         (preprintedTokenId != null &&
                                 preprintedTokenId.isNotEmpty)
                             ? pw.Row(
@@ -4591,27 +4634,28 @@ class PdfReportService {
                                     preprintedTokenId,
                                     maxBoxes: preprintedTokenId.length,
                                     boxSize: preprintedTokenId.length > 16
-                                        ? 9.0
+                                        ? 9.5
                                         : (preprintedTokenId.length <= 6
-                                              ? 11.5
-                                              : 10.2),
+                                              ? 13.5
+                                              : 11.2),
                                   ),
-                                  pw.SizedBox(width: 4),
+                                  pw.SizedBox(width: 5),
                                   pw.BarcodeWidget(
                                     barcode: pw.Barcode.qrCode(),
                                     data: preprintedTokenId,
-                                    width: 22,
-                                    height: 22,
+                                    width: 26,
+                                    height: 26,
                                   ),
                                 ],
                               )
-                            : buildCharBoxes('', maxBoxes: 5, boxSize: 11.5),
-                        pw.SizedBox(height: 1.5),
+                            : buildCharBoxes('', maxBoxes: 5, boxSize: 14.0),
+                        pw.SizedBox(height: 2),
                         pw.Text(
                           'Visit Date (BS/AD): ____-__-__',
-                          style: const pw.TextStyle(
-                            fontSize: 6.8,
-                            color: PdfColors.grey700,
+                          style: pw.TextStyle(
+                            fontSize: 7.6,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.grey800,
                           ),
                         ),
                       ],
@@ -4619,84 +4663,101 @@ class PdfReportService {
                   ],
                 ),
               ),
-              pw.SizedBox(height: 3),
-
-              // ── Patient Identity Strip (matches Patient Header Card in Follow-Up Visit Assessment) ──
+              pw.SizedBox(height: 5),
+              // ── Patient Identity Strip ──
               pw.Container(
                 padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 3,
+                  horizontal: 5,
+                  vertical: 4.5,
                 ),
                 decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: gray, width: 0.7),
+                  border: pw.Border.all(color: gray, width: 0.75),
                   borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
                 ),
                 child: pw.Row(
                   children: [
-                    blankBox('Patient Name (बिरामीको नाम)', flex: 30, h: 13),
-                    blankBox('Age (उमेर)', flex: 9, h: 13),
-                    blankBox('Ward (वडा)', flex: 9, h: 13),
-                    blankBox('Mobile (फोन नं.)', flex: 18, h: 13),
-                    blankBox('Municipality (पालिका)', flex: 19, h: 13),
-                    blankBox('District (जिल्ला)', flex: 15, h: 13),
+                    blankBox('Patient Name (बिरामीको नाम)', flex: 30, h: 18.5),
+                    blankBox('Age (उमेर)', flex: 9, h: 18.5),
+                    blankBox('Ward (वडा)', flex: 9, h: 18.5),
+                    blankBox('Mobile (फोन नं.)', flex: 18, h: 18.5),
+                    blankBox('Municipality (पालिका)', flex: 19, h: 18.5),
+                    blankBox('District (जिल्ला)', flex: 15, h: 18.5),
                   ],
                 ),
               ),
+            ],
+          );
 
-              // ── SECTION 1: Follow-Up Complaints & New Issues ──
+          final section1Block = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
               secHeader(
                 '1. FOLLOW-UP COMPLAINTS & NEW ISSUES',
                 '(फलो-अप समस्याहरू)',
               ),
-              buildMultiColumnCheckboxes(followUpComplaints, columns: 3),
-              pw.SizedBox(height: 2),
-              labeledLine(
-                'NEW ISSUES / OBSERVATIONS (नयाँ देखिएका समस्या तथा कैफियत) [BLOCK LETTERS]:',
-                h: 13.5,
+              buildMultiColumnCheckboxes(
+                followUpComplaints,
+                columns: 2,
+                fontSize: 8.6,
+                boxSize: 10.6,
               ),
+              pw.SizedBox(height: 3.5),
+              notesBox(
+                'NEW ISSUES / OBSERVATIONS (नयाँ देखिएका समस्या तथा कैफियत) [BLOCK LETTERS]:',
+                guideLines: 1,
+                height: 24.0,
+              ),
+            ],
+          );
 
-              // ── SECTION 2: Physical Vitals Check & Screening Labs ──
+          final section2Block = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
               secHeader(
                 '2. PHYSICAL VITALS CHECK & SCREENING LABS',
                 '(शारीरिक जाँच तथा ल्याब)',
               ),
               pw.Row(
                 children: [
-                  blankBox('Systolic BP (mmHg)', flex: 20, h: 13),
-                  blankBox('Diastolic BP (mmHg)', flex: 20, h: 13),
-                  blankBox('Pulse Rate (bpm)', flex: 20, h: 13),
-                  blankBox('SpO2 (%)', flex: 18, h: 13),
-                  blankBox('Blood Glucose (mg/dL)', flex: 22, h: 13),
+                  blankBox('Systolic BP (mmHg)', flex: 20, h: 18.5),
+                  blankBox('Diastolic BP (mmHg)', flex: 20, h: 18.5),
+                  blankBox('Pulse Rate (bpm)', flex: 20, h: 18.5),
+                  blankBox('SpO2 (%)', flex: 18, h: 18.5),
+                  blankBox('Blood Glucose (mg/dL)', flex: 22, h: 18.5),
                 ],
               ),
-              pw.SizedBox(height: 2.5),
+              pw.SizedBox(height: 4.5),
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   ne(
                     'Urine Test (पिसाब): ',
-                    size: 7.3,
+                    size: 8.5,
                     bold: true,
-                    color: 0xFF1E293B,
+                    color: 0xFF0F172A,
                   ),
-                  cb('Not Done', bottom: 0, right: 5),
-                  cb('Normal / Neg (-)', bottom: 0, right: 5),
-                  cb('Positive (+)', bottom: 0, right: 10),
+                  cb('Not Done', bottom: 0, right: 6),
+                  cb('Normal / Neg (-)', bottom: 0, right: 6),
+                  cb('Positive (+)', bottom: 0, right: 12),
                   ne(
                     'Pregnancy / UPT: ',
-                    size: 7.3,
+                    size: 8.5,
                     bold: true,
-                    color: 0xFF1E293B,
+                    color: 0xFF0F172A,
                   ),
-                  cb('Not Indicated', bottom: 0, right: 5),
-                  cb('Negative (-)', bottom: 0, right: 5),
+                  cb('Not Indicated', bottom: 0, right: 6),
+                  cb('Negative (-)', bottom: 0, right: 6),
                   cb('Positive (+)', bottom: 0, right: 0),
                 ],
               ),
-              pw.SizedBox(height: 2),
-              labeledLine('ECG Findings / Notes [BLOCK LETTERS]:', h: 12.5),
+              pw.SizedBox(height: 3.0),
+              labeledLine('ECG Findings / Notes [BLOCK LETTERS]:', h: 16.5),
+            ],
+          );
 
-              // ── SECTION 3: Pelvic Floor & POP Re-Staging ──
+          final section3Block = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
               secHeader(
                 '3. PELVIC FLOOR & POP RE-STAGING',
                 '(श्रोणी जाँच तथा आङ खस्ने स्टेज)',
@@ -4704,29 +4765,29 @@ class PdfReportService {
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  pw.Text('Uterus Inside ', style: bold(size: 7.3)),
-                  ne('(पाठेघर भित्रै छ?): ', size: 7.3, bold: true),
-                  cb('Yes', bottom: 0, right: 5),
-                  cb('No', bottom: 0, right: 10),
-                  pw.Text('Pelvic Floor Muscle ', style: bold(size: 7.3)),
-                  ne('(पेल्भिक मांसपेशी): ', size: 7.3, bold: true),
-                  cb('Normal (सामान्य)', bottom: 0, right: 5),
-                  cb('Weak (कमजोर)', bottom: 0, right: 5),
+                  pw.Text('Uterus Inside ', style: bold(size: 8.5)),
+                  ne('(पाठेघर भित्रै छ?): ', size: 8.4, bold: true),
+                  cb('Yes', bottom: 0, right: 6),
+                  cb('No', bottom: 0, right: 12),
+                  pw.Text('Pelvic Floor Muscle ', style: bold(size: 8.5)),
+                  ne('(पेल्भिक मांसपेशी): ', size: 8.4, bold: true),
+                  cb('Normal (सामान्य)', bottom: 0, right: 6),
+                  cb('Weak (कमजोर)', bottom: 0, right: 6),
                   cb('Hypertonic (कडा)', bottom: 0, right: 0),
                 ],
               ),
-              pw.SizedBox(height: 2.5),
+              pw.SizedBox(height: 4.0),
               pw.Container(
                 width: double.infinity,
                 padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 3,
+                  horizontal: 8,
+                  vertical: 5,
                 ),
                 decoration: pw.BoxDecoration(
                   color: PdfColor.fromHex('F8FAFC'),
-                  border: pw.Border.all(color: gray, width: 0.6),
+                  border: pw.Border.all(color: gray, width: 0.7),
                   borderRadius: const pw.BorderRadius.all(
-                    pw.Radius.circular(2),
+                    pw.Radius.circular(2.5),
                   ),
                 ),
                 child: pw.Column(
@@ -4738,10 +4799,10 @@ class PdfReportService {
                             children: [
                               pw.Text(
                                 'Anterior (Cystocele): ',
-                                style: bold(size: 7.3),
+                                style: bold(size: 8.5),
                               ),
                               for (final s in [0, 1, 2, 3])
-                                cb('S$s', bottom: 0, right: 4.5, boxSize: 8.8),
+                                cb('S$s', bottom: 0, right: 5.5, boxSize: 10.4),
                             ],
                           ),
                         ),
@@ -4750,16 +4811,16 @@ class PdfReportService {
                             children: [
                               pw.Text(
                                 'Apical (Uterine/Apex): ',
-                                style: bold(size: 7.3),
+                                style: bold(size: 8.5),
                               ),
                               for (final s in [0, 1, 2, 3, 4])
-                                cb('S$s', bottom: 0, right: 4.0, boxSize: 8.8),
+                                cb('S$s', bottom: 0, right: 5.0, boxSize: 10.4),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    pw.SizedBox(height: 2),
+                    pw.SizedBox(height: 4.0),
                     pw.Row(
                       children: [
                         pw.Expanded(
@@ -4767,10 +4828,10 @@ class PdfReportService {
                             children: [
                               pw.Text(
                                 'Posterior (Rectocele): ',
-                                style: bold(size: 7.3),
+                                style: bold(size: 8.5),
                               ),
                               for (final s in [0, 1, 2, 3])
-                                cb('S$s', bottom: 0, right: 4.5, boxSize: 8.8),
+                                cb('S$s', bottom: 0, right: 5.5, boxSize: 10.4),
                             ],
                           ),
                         ),
@@ -4779,10 +4840,10 @@ class PdfReportService {
                             children: [
                               pw.Text(
                                 'Overall Highest Stage: ',
-                                style: bold(size: 7.3, color: secondary),
+                                style: bold(size: 8.5, color: secondary),
                               ),
                               for (final s in [0, 1, 2, 3, 4])
-                                cb('S$s', bottom: 0, right: 4.0, boxSize: 8.8),
+                                cb('S$s', bottom: 0, right: 5.0, boxSize: 10.4),
                             ],
                           ),
                         ),
@@ -4791,296 +4852,342 @@ class PdfReportService {
                   ],
                 ),
               ),
+            ],
+          );
 
-              // ── SECTION 4: Diagnoses & Surgical Evaluation ──
+          final section4Block = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
               secHeader(
                 '4. DIAGNOSES & SURGICAL EVALUATION',
                 '(निदान तथा शल्यक्रिया मूल्याङ्कन)',
               ),
-              buildMultiColumnCheckboxes(effectiveDiagnoses, columns: 4),
-              pw.SizedBox(height: 2),
+              buildMultiColumnCheckboxes(
+                effectiveDiagnoses,
+                columns: 4,
+                fontSize: 8.3,
+                boxSize: 10.4,
+              ),
+              pw.SizedBox(height: 4.0),
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   ne(
                     'Surgery Performed (शल्यक्रिया भएको?): ',
-                    size: 7.2,
+                    size: 8.4,
                     bold: true,
                   ),
-                  cb('No', bottom: 0, right: 5),
-                  cb('Yes', bottom: 0, right: 8),
-                  pw.Text('Surgical Route: ', style: bold(size: 7.2)),
-                  cb('Open surgery', bottom: 0, right: 5),
-                  cb('Laparoscopy', bottom: 0, right: 5),
+                  cb('No', bottom: 0, right: 6),
+                  cb('Yes', bottom: 0, right: 12),
+                  pw.Text('Surgical Route: ', style: bold(size: 8.4)),
+                  cb('Open surgery', bottom: 0, right: 6),
+                  cb('Laparoscopy', bottom: 0, right: 6),
                   cb('Vaginal route', bottom: 0, right: 0),
                 ],
               ),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 3.5),
               pw.Wrap(
                 crossAxisAlignment: pw.WrapCrossAlignment.center,
                 children: [
                   ne(
                     'Surgical Referral Center (सिफारिस अस्पताल): ',
-                    size: 7.2,
+                    size: 8.4,
                     bold: true,
                   ),
-                  cb('No Surgical Referral', bottom: 1, right: 5),
+                  cb('No Surgical Referral', bottom: 1.5, right: 6),
                   for (final h in partnerHospitals)
-                    cb(h, bottom: 1, right: 5),
-                  cb('Other: ____________', bottom: 1, right: 0),
+                    cb(h, bottom: 1.5, right: 6),
+                  cb('Other: ________________', bottom: 1.5, right: 0),
                 ],
               ),
+            ],
+          );
 
-              // ── SECTION 5: Prescription & Follow-Up Destination ──
+          final section5Block = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
               secHeader(
                 '5. PRESCRIPTION & FOLLOW-UP DESTINATION',
                 '(औषधि तथा थप फलो-अप)',
               ),
-              buildMultiColumnCheckboxes(effectiveMedications, columns: 4),
-              pw.SizedBox(height: 2),
+              buildMultiColumnCheckboxes(
+                effectiveMedications,
+                columns: 4,
+                fontSize: 8.3,
+                boxSize: 10.4,
+              ),
+              pw.SizedBox(height: 4.0),
               pw.Wrap(
                 crossAxisAlignment: pw.WrapCrossAlignment.center,
                 children: [
                   ne(
                     'Specialized Counseling (परामर्श): ',
-                    size: 7.2,
+                    size: 8.4,
                     bold: true,
                   ),
                   for (final c in counselingOptions)
-                    cb(c, bottom: 1, right: 5, boxSize: 8.6, fontSize: 7.0),
+                    cb(c, bottom: 2.0, right: 6, boxSize: 10.2, fontSize: 8.2),
                 ],
               ),
-              pw.SizedBox(height: 1.5),
+              pw.SizedBox(height: 3.0),
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  pw.Text('Pessary Fitted / Type: ', style: bold(size: 7.2)),
-                  cb('None', bottom: 0, right: 5),
-                  cb('ring', bottom: 0, right: 5),
-                  cb('ring with support', bottom: 0, right: 5),
-                  cb('ring with knob', bottom: 0, right: 8),
-                  ne('Size (साइज): ', size: 7.2, bold: true),
+                  pw.Text('Pessary Fitted / Type: ', style: bold(size: 8.4)),
+                  cb('None', bottom: 0, right: 6),
+                  cb('ring', bottom: 0, right: 6),
+                  cb('ring with support', bottom: 0, right: 6),
+                  cb('ring with knob', bottom: 0, right: 12),
+                  ne('Size (साइज): ', size: 8.4, bold: true),
                   pw.Container(
-                    width: 34,
-                    height: 12,
+                    width: 42,
+                    height: 15,
                     decoration: pw.BoxDecoration(
                       border: pw.Border(
-                        bottom: pw.BorderSide(color: borderMuted, width: 0.7),
+                        bottom: pw.BorderSide(color: borderMuted, width: 0.8),
                       ),
                     ),
                   ),
-                  pw.Text(' mm', style: const pw.TextStyle(fontSize: 7.2)),
+                  pw.Text(' mm', style: bold(size: 8.2)),
                 ],
               ),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 3.5),
               pw.Wrap(
                 crossAxisAlignment: pw.WrapCrossAlignment.center,
                 children: [
                   ne(
                     'Further Follow-Up Needed? (थप फलो-अप): ',
-                    size: 7.2,
+                    size: 8.4,
                     bold: true,
                   ),
-                  cb('Yes', bottom: 1, right: 4),
-                  cb('No', bottom: 1, right: 8),
-                  pw.Text('Destination: ', style: bold(size: 7.2)),
-                  cb('None', bottom: 1, right: 5),
-                  cb('Health Post (स्वास्थ्य चौकी)', bottom: 1, right: 5),
-                  cb('GynaeSupport Nurse (गाइने नर्स)', bottom: 1, right: 5),
+                  cb('Yes', bottom: 1.5, right: 5),
+                  cb('No', bottom: 1.5, right: 12),
+                  pw.Text('Destination: ', style: bold(size: 8.4)),
+                  cb('None', bottom: 1.5, right: 6),
+                  cb('Health Post (स्वास्थ्य चौकी)', bottom: 1.5, right: 6),
+                  cb('GynaeSupport Nurse (गाइने नर्स)', bottom: 1.5, right: 6),
                   for (final h in partnerHospitals)
-                    cb(h, bottom: 1, right: 5),
+                    cb(h, bottom: 1.5, right: 6),
                 ],
               ),
-              pw.SizedBox(height: 1.5),
-              labeledLine(
+              pw.SizedBox(height: 3.5),
+              notesBox(
                 'FINAL FOLLOW-UP NOTES / COUNSELING [BLOCK LETTERS]:',
-                h: 13.0,
+                guideLines: 2,
+                height: 36.0,
               ),
+            ],
+          );
 
-              pw.SizedBox(height: 8),
-
-              // ── Attending Nurse(s) & Examining Doctor(s) Signatures ──
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
-                children: [
-                  if (showNurse)
-                    pw.SizedBox(
-                      width: 235,
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: nurseWidgets.isNotEmpty
-                            ? nurseWidgets
-                            : [
-                                pw.Container(
-                                  width: 120,
-                                  height: 0.8,
-                                  color: PdfColors.black,
-                                ),
-                                pw.SizedBox(height: 2),
-                                pw.Text(
-                                  'Attending / Assisting Nurse',
-                                  style: bold(size: 6.8),
-                                ),
-                                pw.Text(
-                                  'Signature & NNC:',
-                                  style: const pw.TextStyle(
-                                    fontSize: 6.0,
-                                    color: PdfColors.grey600,
-                                  ),
-                                ),
-                              ],
-                      ),
-                    )
-                  else
-                    pw.Spacer(),
+          final signaturesBlock = pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 6),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: [
+                if (showNurse)
                   pw.SizedBox(
-                    width: 295,
+                    width: 245,
                     child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
-                      children: [
-                        if (!showDoctor || blankDoctorLines) ...[
-                          pw.SizedBox(height: 8),
-                          pw.Container(
-                            width: 140,
-                            height: 0.8,
-                            color: PdfColors.black,
-                          ),
-                          pw.SizedBox(height: 2),
-                          pw.Text(
-                            'Attending / Examining Doctor',
-                            style: bold(size: 6.8),
-                          ),
-                          pw.Text(
-                            'Doctor Signature & NMC: _______________________',
-                            style: const pw.TextStyle(
-                              fontSize: 6.0,
-                              color: PdfColors.grey600,
-                            ),
-                          ),
-                        ] else if (effectiveDoctor != null) ...[
-                          pw.Container(
-                            width: 130,
-                            height: 0.8,
-                            color: PdfColors.black,
-                          ),
-                          pw.SizedBox(height: 2),
-                          pw.Text(
-                            effectiveDoctor.displayName,
-                            style: bold(size: 7.2),
-                          ),
-                          pw.Text(
-                            effectiveDoctor.hasNmc
-                                ? 'Attending Doctor | NMC No: ${effectiveDoctor.nmcNumber}'
-                                : 'Attending Doctor | NMC Certified',
-                            style: const pw.TextStyle(
-                              fontSize: 6.0,
-                              color: PdfColors.grey700,
-                            ),
-                          ),
-                        ] else if (campDoctors.isNotEmpty &&
-                            (allDoctorsChecklist || campDoctors.length > 1)) ...[
-                          pw.Row(
-                            mainAxisSize: pw.MainAxisSize.min,
-                            children: [
-                              pw.Text(
-                                'Attending Doctor(s) (',
-                                style: bold(size: 7.0, color: secondary),
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: nurseWidgets.isNotEmpty
+                          ? nurseWidgets
+                          : [
+                              pw.SizedBox(height: 18),
+                              pw.Container(
+                                width: 150,
+                                height: 0.85,
+                                color: PdfColors.black,
                               ),
-                              ne(
-                                'जाँच गर्ने चिकित्सक',
-                                size: 7.0,
-                                bold: true,
-                                color: 0xFF81005D,
+                              pw.SizedBox(height: 3),
+                              pw.Text(
+                                'Attending / Assisting Nurse',
+                                style: bold(size: 8.4),
                               ),
                               pw.Text(
-                                '):',
-                                style: bold(size: 7.0, color: secondary),
-                              ),
-                            ],
-                          ),
-                          pw.SizedBox(height: 1.5),
-                          pw.Wrap(
-                            spacing: 3,
-                            runSpacing: 1,
-                            alignment: pw.WrapAlignment.end,
-                            children: [
-                              ...campDoctors.map(
-                                (doc) => cb(
-                                  DoctorProfile.parse(doc).formattedLabel,
-                                  right: 4,
-                                  bottom: 1,
-                                  boxSize: 8.5,
-                                  fontSize: 6.8,
+                                'Nurse Signature & NNC No.: _______________',
+                                style: const pw.TextStyle(
+                                  fontSize: 7.5,
+                                  color: PdfColors.grey700,
                                 ),
                               ),
-                              cb(
-                                'Other: ____',
-                                right: 0,
-                                bottom: 1,
-                                boxSize: 8.5,
-                                fontSize: 6.8,
-                              ),
                             ],
-                          ),
-                          pw.SizedBox(height: 8),
-                          pw.Container(
-                            width: 130,
-                            height: 0.8,
-                            color: PdfColors.black,
-                          ),
-                          pw.SizedBox(height: 2),
-                          pw.Text(
-                            'Doctor Signature & NMC: ______________',
-                            style: const pw.TextStyle(
-                              fontSize: 6.0,
-                              color: PdfColors.grey600,
-                            ),
-                          ),
-                        ] else if (campDoctors.length == 1) ...[
-                          pw.Container(
-                            width: 130,
-                            height: 0.8,
-                            color: PdfColors.black,
-                          ),
-                          pw.SizedBox(height: 2),
-                          pw.Text(
-                            DoctorProfile.parse(campDoctors.first).displayName,
-                            style: bold(size: 7.2),
-                          ),
-                          pw.Text(
-                            DoctorProfile.parse(campDoctors.first).hasNmc
-                                ? 'Attending Doctor | NMC No: ${DoctorProfile.parse(campDoctors.first).nmcNumber}'
-                                : 'Attending Doctor | NMC Certified',
-                            style: const pw.TextStyle(
-                              fontSize: 6.0,
-                              color: PdfColors.grey700,
-                            ),
-                          ),
-                        ] else ...[
-                          pw.Container(
-                            width: 140,
-                            height: 0.8,
-                            color: PdfColors.black,
-                          ),
-                          pw.SizedBox(height: 2),
-                          pw.Text(
-                            'Attending / Examining Doctor',
-                            style: bold(size: 6.8),
-                          ),
-                          pw.Text(
-                            'Doctor Signature & NMC No.: _______________',
-                            style: const pw.TextStyle(
-                              fontSize: 6.0,
-                              color: PdfColors.grey600,
-                            ),
-                          ),
-                        ],
-                      ],
                     ),
+                  )
+                else
+                  pw.Spacer(),
+                pw.SizedBox(
+                  width: 300,
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      if (!showDoctor || blankDoctorLines) ...[
+                        pw.SizedBox(height: 18),
+                        pw.Container(
+                          width: 160,
+                          height: 0.85,
+                          color: PdfColors.black,
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          'Attending / Examining Doctor',
+                          style: bold(size: 8.4),
+                        ),
+                        pw.Text(
+                          'Doctor Signature & NMC: ___________________',
+                          style: const pw.TextStyle(
+                            fontSize: 7.5,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else if (effectiveDoctor != null) ...[
+                        pw.SizedBox(height: 18),
+                        pw.Container(
+                          width: 155,
+                          height: 0.85,
+                          color: PdfColors.black,
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          effectiveDoctor.displayName,
+                          style: bold(size: 8.6),
+                        ),
+                        pw.Text(
+                          effectiveDoctor.hasNmc
+                              ? 'Attending Doctor | NMC No: ${effectiveDoctor.nmcNumber}'
+                              : 'Attending Doctor | NMC Certified',
+                          style: const pw.TextStyle(
+                            fontSize: 7.6,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else if (campDoctors.isNotEmpty &&
+                          (allDoctorsChecklist || campDoctors.length > 1)) ...[
+                        pw.Row(
+                          mainAxisSize: pw.MainAxisSize.min,
+                          children: [
+                            pw.Text(
+                              'Attending Doctor(s) (',
+                              style: bold(size: 8.2, color: secondary),
+                            ),
+                            ne(
+                              'जाँच गर्ने चिकित्सक',
+                              size: 8.2,
+                              bold: true,
+                              color: 0xFF81005D,
+                            ),
+                            pw.Text(
+                              '):',
+                              style: bold(size: 8.2, color: secondary),
+                            ),
+                          ],
+                        ),
+                        pw.SizedBox(height: 2.0),
+                        pw.Wrap(
+                          spacing: 4,
+                          runSpacing: 1.5,
+                          alignment: pw.WrapAlignment.end,
+                          children: [
+                            ...campDoctors.map(
+                              (doc) => cb(
+                                DoctorProfile.parse(doc).formattedLabel,
+                                right: 5,
+                                bottom: 1.5,
+                                boxSize: 9.8,
+                                fontSize: 8.0,
+                              ),
+                            ),
+                            cb(
+                              'Other: _____',
+                              right: 0,
+                              bottom: 1.5,
+                              boxSize: 9.8,
+                              fontSize: 8.0,
+                            ),
+                          ],
+                        ),
+                        pw.SizedBox(height: 14),
+                        pw.Container(
+                          width: 155,
+                          height: 0.85,
+                          color: PdfColors.black,
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          'Doctor Signature & NMC: ______________',
+                          style: const pw.TextStyle(
+                            fontSize: 7.5,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else if (campDoctors.length == 1) ...[
+                        pw.SizedBox(height: 18),
+                        pw.Container(
+                          width: 155,
+                          height: 0.85,
+                          color: PdfColors.black,
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          DoctorProfile.parse(campDoctors.first).displayName,
+                          style: bold(size: 8.6),
+                        ),
+                        pw.Text(
+                          DoctorProfile.parse(campDoctors.first).hasNmc
+                              ? 'Attending Doctor | NMC No: ${DoctorProfile.parse(campDoctors.first).nmcNumber}'
+                              : 'Attending Doctor | NMC Certified',
+                          style: const pw.TextStyle(
+                            fontSize: 7.6,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ] else ...[
+                        pw.SizedBox(height: 18),
+                        pw.Container(
+                          width: 160,
+                          height: 0.85,
+                          color: PdfColors.black,
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          'Attending / Examining Doctor',
+                          style: bold(size: 8.4),
+                        ),
+                        pw.Text(
+                          'Doctor Signature & NMC No.: _______________',
+                          style: const pw.TextStyle(
+                            fontSize: 7.5,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
+              ],
+            ),
+          );
+
+          return pw.FittedBox(
+            fit: pw.BoxFit.scaleDown,
+            alignment: pw.Alignment.topCenter,
+            child: pw.ConstrainedBox(
+              constraints: const pw.BoxConstraints(
+                minWidth: 559,
+                maxWidth: 559,
+                minHeight: 813,
               ),
+              child: pw.Column(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  headerAndIdentityBlock,
+                  section1Block,
+                  section2Block,
+                  section3Block,
+                  section4Block,
+                  section5Block,
+                  signaturesBlock,
                 ],
               ),
             ),
@@ -5140,8 +5247,8 @@ class PdfReportService {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.SizedBox(height: 12),
-              signLine(120),
+              pw.SizedBox(height: 18),
+              signLine(150),
               pw.SizedBox(height: 3),
               pw.Text(
                 'Attending Nurse',
@@ -5153,11 +5260,10 @@ class PdfReportService {
               pw.Text(
                 'Nurse Name, Signature & NNC: ______________',
                 style: const pw.TextStyle(
-                  fontSize: 6,
-                  color: PdfColors.grey600,
+                  fontSize: 7.5,
+                  color: PdfColors.grey700,
                 ),
               ),
-              pw.SizedBox(height: 6),
             ],
           ),
         ),
@@ -5172,8 +5278,9 @@ class PdfReportService {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              signLine(120),
-              pw.SizedBox(height: 2),
+              pw.SizedBox(height: 18),
+              signLine(150),
+              pw.SizedBox(height: 3),
               pw.Text(
                 sanitizeText(nurse.displayName),
                 style: pw.TextStyle(
@@ -5183,21 +5290,14 @@ class PdfReportService {
                 ),
               ),
               pw.Text(
-                'Attending Nurse',
+                nurse.hasRegistration
+                    ? 'Attending Nurse | NNC No: ${sanitizeText(nurse.registrationNumber)}'
+                    : 'Attending Nurse | NNC Certified',
                 style: const pw.TextStyle(
-                  fontSize: 6.2,
+                  fontSize: 7.5,
                   color: PdfColors.grey700,
                 ),
               ),
-              if (nurse.hasRegistration)
-                pw.Text(
-                  'NNC No: ${sanitizeText(nurse.registrationNumber)}',
-                  style: const pw.TextStyle(
-                    fontSize: 6,
-                    color: PdfColors.grey600,
-                  ),
-                ),
-              pw.SizedBox(height: 6),
             ],
           ),
         ),
@@ -5255,16 +5355,15 @@ class PdfReportService {
                 ],
               ),
               pw.SizedBox(height: 14),
-              signLine(120),
+              signLine(150),
               pw.SizedBox(height: 3),
               pw.Text(
                 'Nurse Signature & NNC No.: ______________',
                 style: const pw.TextStyle(
-                  fontSize: 6,
+                  fontSize: 7.5,
                   color: PdfColors.grey700,
                 ),
               ),
-              pw.SizedBox(height: 6),
             ],
           ),
         ),

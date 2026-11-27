@@ -35,6 +35,27 @@ Future<String?> _extractPdfTextIfAvailable(Uint8List bytes) async {
   }
 }
 
+Future<String?> _extractPdfBboxIfAvailable(Uint8List bytes) async {
+  const pdftotextPath = r'C:\Program Files\Git\mingw64\bin\pdftotext.exe';
+  if (!File(pdftotextPath).existsSync()) return null;
+  final tempDir = await Directory.systemTemp.createTemp('gyno_followup_bbox_');
+  try {
+    final pdfFile = File('${tempDir.path}/out.pdf');
+    final htmlFile = File('${tempDir.path}/out.html');
+    await pdfFile.writeAsBytes(bytes, flush: true);
+    final result = await Process.run(
+      pdftotextPath,
+      ['-bbox', pdfFile.path, htmlFile.path],
+    );
+    if (result.exitCode != 0 || !htmlFile.existsSync()) return null;
+    return await htmlFile.readAsString();
+  } finally {
+    try {
+      await tempDir.delete(recursive: true);
+    } catch (_) {}
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -436,6 +457,61 @@ void main() {
             expect(extracted, isNot(contains('Temp (°F)')));
             expect(extracted, isNot(contains('Significantly Improved')));
             expect(extracted, isNot(contains('Pessary Clean & In-Situ')));
+          }
+        },
+      );
+
+      test(
+        'Blank Follow-Up Slip with default lookups + BlankDoctor & BlankNurse fills full A4 height with legible fonts and no bottom void',
+        () async {
+          final simpleCamp = CampModel(
+            id: 'camp-1111',
+            campCode: '1111',
+            name: 'Bhaktapur, Bhaktapur, Bagmati',
+            venue: 'Health Post',
+            district: 'Bhaktapur',
+            municipality: 'Bhaktapur',
+            ward: '01',
+            doctorNames: const ['Dr. Anish Tiwari'],
+            nurseNames: const [],
+            startDate: DateTime(2026, 11, 27),
+            endDate: DateTime(2026, 11, 28),
+            createdAt: now,
+          );
+
+          final bytes = await pdfService.generateBlankFollowUpSlipPdf(
+            camp: simpleCamp,
+            blankDoctorLines: true,
+            blankNurseLines: true,
+            organizationName: 'Women for Women Sodesi Nepal',
+          );
+
+          expect(_countPdfPages(bytes), equals(1));
+
+          final extracted = await _extractPdfTextIfAvailable(bytes);
+          if (extracted != null) {
+            expect(extracted, contains('Attending Nurse'));
+            expect(extracted, contains('Attending / Examining Doctor'));
+            expect(extracted, isNot(contains('Dr. Anish Tiwari')));
+          }
+
+          final bboxHtml = await _extractPdfBboxIfAvailable(bytes);
+          if (bboxHtml != null) {
+            final yMaxMatches = RegExp(r'yMax="([0-9.]+)"')
+                .allMatches(bboxHtml)
+                .map((m) => double.parse(m.group(1)!))
+                .toList();
+            final yMinMatches = RegExp(r'yMin="([0-9.]+)"')
+                .allMatches(bboxHtml)
+                .map((m) => double.parse(m.group(1)!))
+                .toList();
+            expect(yMinMatches.reduce((a, b) => a < b ? a : b), lessThan(35.0));
+            // Bottom signature text must reach near the bottom of the 841.89pt A4 page (> 800pt),
+            // proving there is no large empty whitespace void at the bottom.
+            expect(
+              yMaxMatches.reduce((a, b) => a > b ? a : b),
+              greaterThan(800.0),
+            );
           }
         },
       );
