@@ -24,8 +24,14 @@ import '../../viewmodels/patient_registration_viewmodel.dart';
 class PatientFollowUpFormView extends ConsumerStatefulWidget {
   final PatientModel patient;
   final CampModel? camp;
+  final ClinicalVisitModel? initialFollowUpVisit;
 
-  const PatientFollowUpFormView({super.key, required this.patient, this.camp});
+  const PatientFollowUpFormView({
+    super.key,
+    required this.patient,
+    this.camp,
+    this.initialFollowUpVisit,
+  });
 
   @override
   ConsumerState<PatientFollowUpFormView> createState() =>
@@ -39,7 +45,6 @@ class _PatientFollowUpFormViewState
   // Prior visits history
   bool _isLoadingHistory = true;
   List<ClinicalVisitModel> _pastVisits = [];
-  ClinicalVisitModel? _latestVisit;
   final Set<int> _dlSlipIdx = {};
 
   // Form Fields
@@ -97,7 +102,78 @@ class _PatientFollowUpFormViewState
             .setCampScope(widget.patient.campId);
       });
     }
+    if (widget.initialFollowUpVisit != null) {
+      _populateFromFollowUpVisit(widget.initialFollowUpVisit!);
+    }
     _loadPatientHistory();
+  }
+
+  void _populateFromFollowUpVisit(ClinicalVisitModel visit) {
+    final rawReasons = visit.anamnesisComplaints['reasons'];
+    if (rawReasons is List) {
+      for (final r in rawReasons) {
+        if (r != null && r.toString().trim().isNotEmpty) {
+          _selectedComplaints.add(r.toString());
+        }
+      }
+    }
+    final newIssues =
+        (visit.anamnesisComplaints['new_issues'] as String?) ??
+        visit.followUpNotes ??
+        '';
+    if (newIssues.trim().isNotEmpty) {
+      _newIssuesController.text = newIssues.trim();
+    }
+    if (visit.outtakeNotes != null && visit.outtakeNotes!.trim().isNotEmpty) {
+      _followUpNotesController.text = visit.outtakeNotes!.trim();
+    }
+    _selectedDiagnoses.addAll(visit.diagnoses);
+    _selectedMedications.addAll(visit.medications);
+    _selectedCounseling.addAll(visit.counseling);
+    _anteriorStage = visit.popAnteriorStage;
+    _middleStage = visit.popMiddleStage;
+    _posteriorStage = visit.popPosteriorStage;
+    _uterusInside = visit.uterusInside;
+    _pelvicFloorTone = visit.pelvicFloorTone;
+    _surgeryDone = visit.surgeryDone;
+    _selectedSurgeryType = visit.surgeryType;
+    _surgicalReferral = visit.surgicalReferral;
+    _urineTest = visit.urineTest;
+    _pregnancyTest = visit.pregnancyTest;
+    _pessaryType = visit.pessaryType;
+    _pessarySize = visit.pessarySize;
+    _followUpDestination = visit.followUpDestination;
+    _followUpNeeded = visit.followUpNeeded;
+    if (visit.systolicBp != null) {
+      _systolicController.text = visit.systolicBp.toString();
+    }
+    if (visit.diastolicBp != null) {
+      _diastolicController.text = visit.diastolicBp.toString();
+    }
+    if (visit.pulse != null) {
+      _pulseController.text = visit.pulse.toString();
+    }
+    if (visit.spo2 != null) {
+      _spo2Controller.text = visit.spo2.toString();
+    }
+    if (visit.glucose != null) {
+      _glucoseController.text = visit.glucose.toString();
+    }
+    if (visit.ecgNotes != null && visit.ecgNotes!.isNotEmpty) {
+      _ecgNotesController.text = visit.ecgNotes!;
+    }
+    if (visit.attendingDoctorNames.isNotEmpty) {
+      _selectedDoctors.addAll(visit.attendingDoctorNames);
+    } else if (visit.primaryDoctorName != null &&
+        visit.primaryDoctorName!.trim().isNotEmpty) {
+      _selectedDoctors.add(visit.primaryDoctorName!.trim());
+    }
+    if (visit.attendingNurseNames.isNotEmpty) {
+      _selectedNurses.addAll(visit.attendingNurseNames);
+    } else if (visit.primaryNurseName != null &&
+        visit.primaryNurseName!.trim().isNotEmpty) {
+      _selectedNurses.add(visit.primaryNurseName!.trim());
+    }
   }
 
   @override
@@ -125,70 +201,6 @@ class _PatientFollowUpFormViewState
       if (mounted) {
         setState(() {
           _pastVisits = visits;
-          if (visits.isNotEmpty) {
-            _latestVisit = visits.first;
-            // Pre-seed known ongoing diagnoses and baseline values
-            _selectedDiagnoses.addAll(_latestVisit!.diagnoses);
-            _anteriorStage = _latestVisit!.popAnteriorStage;
-            _middleStage = _latestVisit!.popMiddleStage;
-            _posteriorStage = _latestVisit!.popPosteriorStage;
-            _uterusInside = _latestVisit!.uterusInside;
-            _pelvicFloorTone = _latestVisit!.pelvicFloorTone;
-            _surgeryDone = _latestVisit!.surgeryDone;
-            _selectedSurgeryType = _latestVisit!.surgeryType;
-            final histSurgRef = _latestVisit!.surgicalReferral;
-            _surgicalReferral =
-                (histSurgRef != null &&
-                    histSurgRef.trim().isNotEmpty &&
-                    !RegExp(r'^\(.*\)$').hasMatch(histSurgRef.trim()) &&
-                    !histSurgRef.toLowerCase().contains('scheer') &&
-                    !histSurgRef.toLowerCase().contains('model'))
-                ? histSurgRef.trim()
-                : null;
-            _urineTest = _latestVisit!.urineTest;
-            _pregnancyTest = _latestVisit!.pregnancyTest;
-            _pessaryType = _latestVisit!.pessaryType;
-            _pessarySize = _latestVisit!.pessarySize;
-            final histFollowDest = _latestVisit!.followUpDestination;
-            _followUpDestination =
-                (histFollowDest != null &&
-                    histFollowDest.trim().isNotEmpty &&
-                    !RegExp(r'^\(.*\)$').hasMatch(histFollowDest.trim()) &&
-                    histFollowDest.trim().toLowerCase() != 'no follow up needed' &&
-                    !histFollowDest.toLowerCase().contains('scheer') &&
-                    !histFollowDest.toLowerCase().contains('model'))
-                ? (histFollowDest.trim().toLowerCase() == 'local health post'
-                    ? 'Health Post'
-                    : histFollowDest.trim())
-                : null;
-            _followUpNeeded = _latestVisit!.followUpNeeded;
-            _selectedCounseling.addAll(_latestVisit!.counseling);
-            if (_latestVisit!.systolicBp != null) {
-              _systolicController.text = _latestVisit!.systolicBp.toString();
-            }
-            if (_latestVisit!.diastolicBp != null) {
-              _diastolicController.text = _latestVisit!.diastolicBp.toString();
-            }
-            if (_latestVisit!.pulse != null) {
-              _pulseController.text = _latestVisit!.pulse.toString();
-            }
-            if (_latestVisit!.spo2 != null) {
-              _spo2Controller.text = _latestVisit!.spo2.toString();
-            }
-            if (_latestVisit!.glucose != null) {
-              _glucoseController.text = _latestVisit!.glucose.toString();
-            }
-            if (_latestVisit!.ecgNotes != null &&
-                _latestVisit!.ecgNotes!.isNotEmpty) {
-              _ecgNotesController.text = _latestVisit!.ecgNotes!;
-            }
-            if (_latestVisit!.attendingDoctorNames.isNotEmpty) {
-              _selectedDoctors.addAll(_latestVisit!.attendingDoctorNames);
-            }
-            if (_latestVisit!.attendingNurseNames.isNotEmpty) {
-              _selectedNurses.addAll(_latestVisit!.attendingNurseNames);
-            }
-          }
           _isLoadingHistory = false;
         });
       }
@@ -264,19 +276,20 @@ class _PatientFollowUpFormViewState
       'new_issues': _newIssuesController.text.trim().toUpperCase(),
     };
 
+    final editingVisit = widget.initialFollowUpVisit;
     final newVisit = ClinicalVisitModel(
-      id: '', // Will be assigned UUID by repository
+      id: editingVisit?.id ?? '', // Assigned UUID by repository when empty
       patientId: widget.patient.patientId,
-      campId: widget.camp?.id ?? widget.patient.campId,
-      visitDate: DateTime.now(),
-      deliveries: _latestVisit?.deliveries,
-      livingChildren: _latestVisit?.livingChildren,
-      abortions: _latestVisit?.abortions,
+      campId: editingVisit?.campId ?? widget.camp?.id ?? widget.patient.campId,
+      visitDate: editingVisit?.visitDate ?? DateTime.now(),
+      deliveries: editingVisit?.deliveries,
+      livingChildren: editingVisit?.livingChildren,
+      abortions: editingVisit?.abortions,
       uterusInside: _uterusInside,
-      vulvaRemarks: _latestVisit?.vulvaRemarks,
-      vaginaRemarks: _latestVisit?.vaginaRemarks,
-      cervixRemarks: _latestVisit?.cervixRemarks,
-      uterusRemarks: _latestVisit?.uterusRemarks,
+      vulvaRemarks: editingVisit?.vulvaRemarks,
+      vaginaRemarks: editingVisit?.vaginaRemarks,
+      cervixRemarks: editingVisit?.cervixRemarks,
+      uterusRemarks: editingVisit?.uterusRemarks,
       pelvicFloorTone: _pelvicFloorTone,
       anamnesisComplaints: complaintsMap,
       popAnteriorStage: _anteriorStage,
@@ -298,8 +311,7 @@ class _PatientFollowUpFormViewState
       medications: _selectedMedications.toList(),
       pessaryType: _pessaryType,
       pessarySize: _pessarySize,
-      treatmentLevel:
-          _latestVisit?.treatmentLevel ?? widget.patient.treatmentLevel,
+      treatmentLevel: editingVisit?.treatmentLevel,
       surgicalReferral: _surgicalReferral,
       followUpNeeded: _followUpNeeded,
       followUpDestination: _followUpDestination,
@@ -316,7 +328,7 @@ class _PatientFollowUpFormViewState
       primaryNurseName: _selectedNurses.isNotEmpty
           ? _selectedNurses.first
           : null,
-      createdAt: DateTime.now(),
+      createdAt: editingVisit?.createdAt ?? DateTime.now(),
       createdByUserId: auth?.id ?? 'usr-staff',
     );
 
@@ -374,9 +386,11 @@ class _PatientFollowUpFormViewState
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Follow-Up Visit Assessment',
-              style: TextStyle(
+            Text(
+              widget.initialFollowUpVisit != null
+                  ? 'Edit Follow-Up Visit Assessment'
+                  : 'Follow-Up Visit Assessment',
+              style: const TextStyle(
                 color: Color(0xFF1E0A38),
                 fontSize: 17.5,
                 fontWeight: FontWeight.w800,
@@ -591,7 +605,9 @@ class _PatientFollowUpFormViewState
                       ? 'Saving Record...'
                       : (isLockedCamp
                             ? 'Camp Locked (Closed) — Edits Disabled'
-                            : 'Save Follow-Up Record (फलो-अप सुरक्षित गर्नुहोस्)'),
+                            : (widget.initialFollowUpVisit != null
+                                  ? 'Update Follow-Up Record (फलो-अप अद्यावधिक गर्नुहोस्)'
+                                  : 'Save Follow-Up Record (फलो-अप सुरक्षित गर्नुहोस्)')),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,

@@ -3,10 +3,13 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:gyno_camp/core/constants/app_constants.dart';
 import 'package:gyno_camp/core/database/database_service.dart';
 import 'package:gyno_camp/core/database/database_tables.dart';
+import 'package:gyno_camp/core/services/report_aggregation_service.dart';
+import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/clinical_visit_model.dart';
 import 'package:gyno_camp/models/patient_model.dart';
 import 'package:gyno_camp/repositories/audit_repository.dart';
 import 'package:gyno_camp/repositories/patient_repository.dart';
+import 'package:gyno_camp/viewmodels/clinical_assessment_viewmodel.dart';
 import 'package:gyno_camp/viewmodels/patient_registration_viewmodel.dart';
 
 void main() {
@@ -522,6 +525,150 @@ void main() {
       final byToken = await patientRepo.getPatientByPatientId('00099');
       expect(byToken, isNotNull);
       expect(byToken!.highestPopStage, 3);
+    });
+
+    test('Follow-Up visits remain completely independent from Initial Clinical Intake in SQL joins, ClinicalAssessmentViewModel, and Camp Aggregation', () async {
+      final p = await patientRepo.registerPatient(
+        PatientModel(
+          id: 'pat-ind-100',
+          patientId: '00100',
+          campId: 'camp-ktm-01',
+          campCode: 'KTM01',
+          intakeDate: DateTime(2026, 11, 20),
+          firstName: 'MAYA',
+          surname: 'GURUNG',
+          age: 34,
+          mobile: '9841000100',
+          ward: '07',
+          treatmentLevel: 'gyno_checkup',
+          createdAt: DateTime(2026, 11, 20),
+          createdByUserId: 'usr-1',
+          createdByDeviceId: 'dev-1',
+        ),
+        createdByUserId: 'usr-1',
+        createdByUserName: 'Staff',
+        createdByUserRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+
+      // 1. Save Initial Clinical Intake (isFollowUp: false)
+      final initialIntake = await patientRepo.saveClinicalVisit(
+        ClinicalVisitModel(
+          id: 'vis-intake-100',
+          patientId: p.patientId,
+          campId: 'camp-ktm-01',
+          visitDate: DateTime(2026, 11, 20, 10, 0),
+          popAnteriorStage: 2,
+          popMiddleStage: 3,
+          popPosteriorStage: 1,
+          highestPopStage: 3,
+          systolicBp: 148,
+          diastolicBp: 92,
+          diagnoses: const ['POP'],
+          medications: const ['Metronidazole'],
+          pessaryType: 'ring',
+          pessarySize: '65',
+          treatmentLevel: 'gyno_checkup',
+          primaryDoctorName: 'Dr. Anish Tiwari',
+          isFollowUp: false,
+          createdAt: DateTime(2026, 11, 20, 10, 0),
+          createdByUserId: 'usr-1',
+        ),
+        createdByUserId: 'usr-1',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+
+      // 2. Save a newer Follow-Up Visit (isFollowUp: true) with completely different values
+      final followUp = await patientRepo.saveClinicalVisit(
+        ClinicalVisitModel(
+          id: 'vis-followup-100',
+          patientId: p.patientId,
+          campId: 'camp-ktm-01',
+          visitDate: DateTime(2026, 11, 27, 14, 30),
+          popAnteriorStage: 1,
+          popMiddleStage: 1,
+          popPosteriorStage: 0,
+          highestPopStage: 1,
+          systolicBp: 112,
+          diastolicBp: 72,
+          diagnoses: const ['Candidiasis'],
+          medications: const ['Fluconazole'],
+          treatmentLevel: 'counseling',
+          primaryDoctorName: 'Dr. FollowUp Clinician',
+          isFollowUp: true,
+          createdAt: DateTime(2026, 11, 27, 14, 30),
+          createdByUserId: 'usr-1',
+        ),
+        createdByUserId: 'usr-1',
+        deviceId: 'dev-1',
+        pushToServer: false,
+      );
+
+      // 3. Dedicated getters strictly separate Initial Intake vs Follow-Up
+      final fetchedInitial = await patientRepo.getInitialClinicalVisit(p.patientId, patientUuid: p.id);
+      expect(fetchedInitial, isNotNull);
+      expect(fetchedInitial!.id, initialIntake.id);
+      expect(fetchedInitial.isFollowUp, isFalse);
+      expect(fetchedInitial.highestPopStage, 3);
+      expect(fetchedInitial.medications, equals(['Metronidazole']));
+
+      final fetchedFollowUp = await patientRepo.getLatestFollowUpVisit(p.patientId, patientUuid: p.id);
+      expect(fetchedFollowUp, isNotNull);
+      expect(fetchedFollowUp!.id, followUp.id);
+      expect(fetchedFollowUp.isFollowUp, isTrue);
+      expect(fetchedFollowUp.highestPopStage, 1);
+      expect(fetchedFollowUp.medications, equals(['Fluconazole']));
+
+      // 4. Patient Roll SQL joins keep Clinical Intake columns untouched while flagging isFollowUp == true
+      final roll = await patientRepo.getPatientsByCamp('camp-ktm-01');
+      final maya = roll.singleWhere((x) => x.patientId == '00100');
+      expect(maya.hasClinicalVisit, isTrue);
+      expect(maya.isFollowUp, isTrue);
+      expect(maya.highestPopStage, 3);
+      expect(maya.diagnoses, equals(['POP']));
+      expect(maya.medications, equals(['Metronidazole']));
+      expect(maya.pessaryType, 'ring');
+      expect(maya.primaryDoctorName, 'Dr. Anish Tiwari');
+      expect(maya.treatmentLevel, 'gyno_checkup');
+
+      final byId = await patientRepo.getPatientByPatientId('00100');
+      expect(byId!.highestPopStage, 3);
+      expect(byId.isFollowUp, isTrue);
+      expect(byId.treatmentLevel, 'gyno_checkup');
+
+      // 5. ClinicalAssessmentViewModel loads Initial Clinical Intake (never Follow-Up)
+      final assessmentVm = ClinicalAssessmentViewModel(patientRepo);
+      final loadedForIntakeEdit = await assessmentVm.loadPatientAssessment(p.patientId, patientUuid: p.id);
+      expect(loadedForIntakeEdit?.id, initialIntake.id);
+      expect(assessmentVm.state.highestPopStage, 3);
+      expect(assessmentVm.state.isFollowUp, isFalse);
+
+      // 6. ReportAggregationService aggregates strictly Initial Clinical Intake visits
+      final campModel = CampModel(
+        id: 'camp-ktm-01',
+        campCode: 'KTM01',
+        name: 'Kathmandu Camp',
+        district: 'Kathmandu',
+        municipality: 'KTM',
+        ward: '01',
+        venue: 'Clinic',
+        startDate: DateTime(2026, 11, 20),
+        endDate: DateTime(2026, 11, 28),
+        createdAt: DateTime(2026, 11, 19),
+      );
+      final allVisits = await patientRepo.getClinicalVisits(p.patientId, patientUuid: p.id);
+      final summary = ReportAggregationService().aggregate(
+        camp: campModel,
+        patients: [maya],
+        visits: allVisits,
+        generatedBy: 'Tester',
+      );
+      expect(summary.highestPopStages[3], 1);
+      expect(summary.highestPopStages[1], 0);
+      expect(summary.diagnosisCounts['POP'], 1);
+      expect(summary.diagnosisCounts.containsKey('Candidiasis'), isFalse);
     });
   });
 }

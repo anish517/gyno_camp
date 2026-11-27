@@ -16,6 +16,7 @@ import '../../repositories/patient_repository.dart';
 import '../../viewmodels/ocr_scan_viewmodel.dart';
 import '../scanner/form_scan_view.dart';
 import 'clinical_assessment_view.dart';
+import 'patient_follow_up_form_view.dart';
 import 'patient_registration_view.dart';
 
 class ClinicalHistoryPanel extends ConsumerStatefulWidget {
@@ -48,7 +49,39 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
   bool _depsInitialized = false;
   late PatientModel _patient;
   bool _dlDossier = false;
+  final Set<String> _downloadingSlipIds = {};
   int _mobileTabIndex = 1; // 0 = Profile & Obstetric Overview, 1 = Clinical Timeline & Encounters
+
+  Future<void> _downloadFollowUpEncounterSlip(ClinicalVisitModel visit) async {
+    if (_downloadingSlipIds.contains(visit.id)) return;
+    setState(() => _downloadingSlipIds.add(visit.id));
+    try {
+      final bytes = await PdfReportService().generateFollowUpEncounterSlipPdf(
+        patient: _patient,
+        visit: visit,
+        camp: widget.camp,
+        organizationName: widget.orgName,
+      );
+      final filename = ReportFilenameHelper.encounterSlip(_patient.patientId, visit.visitDate);
+      final result = await FileDownloadHelper.saveAndDownloadFile(
+        bytes: bytes,
+        filename: filename,
+        mimeType: 'application/pdf',
+        autoOpen: true,
+      );
+      if (mounted) {
+        FileDownloadHelper.showDownloadFeedback(context, result, forceForegroundModal: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error generating follow-up slip: $e'), backgroundColor: AppTheme.dangerRose),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloadingSlipIds.remove(visit.id));
+    }
+  }
 
   IOcrRepository _resolveOcrRepo() {
     if (widget.ocrRepo != null) return widget.ocrRepo!;
@@ -906,20 +939,48 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
                     ],
                   ),
                 ),
+                if (isF)
+                  IconButton(
+                    tooltip: 'Download Follow-Up Slip (PDF)',
+                    visualDensity: VisualDensity.compact,
+                    icon: _downloadingSlipIds.contains(v.id)
+                        ? SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: ac),
+                          )
+                        : Icon(Icons.picture_as_pdf_outlined, size: 18, color: ac),
+                    onPressed: _downloadingSlipIds.contains(v.id)
+                        ? null
+                        : () => _downloadFollowUpEncounterSlip(v),
+                  ),
                 IconButton(
-                  tooltip: 'Edit Clinical Exam',
+                  tooltip: isF ? 'Edit Follow-Up Visit' : 'Edit Clinical Exam',
                   visualDensity: VisualDensity.compact,
                   icon: Icon(Icons.edit_outlined, size: 18, color: ac),
                   onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ClinicalAssessmentView(
-                          patient: _patient,
-                          initialVisit: v,
+                    if (isF) {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PatientFollowUpFormView(
+                            patient: _patient,
+                            camp: widget.camp,
+                            initialFollowUpVisit: v,
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    } else {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ClinicalAssessmentView(
+                            patient: _patient,
+                            initialVisit: v,
+                          ),
+                        ),
+                      );
+                    }
                     if (mounted) {
                       setState(() {
                         _visitsFuture = widget.repo.getClinicalVisits(
@@ -1349,6 +1410,7 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
           );
 
           Widget? dossierBtn;
+          final initialIntakeVisit = visits.where((v) => !v.isFollowUp).firstOrNull;
           if (visits.isNotEmpty) {
             dossierBtn = ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
@@ -1372,8 +1434,7 @@ class _ClinicalHistoryPanelState extends ConsumerState<ClinicalHistoryPanel> {
                       try {
                         final bytes = await PdfReportService().generateIndividualPatientPdf(
                           patient: widget.patient,
-                          visit: visits.isNotEmpty ? visits.first : null,
-                          allVisits: visits,
+                          visit: initialIntakeVisit,
                           camp: widget.camp,
                           organizationName: widget.orgName,
                         );

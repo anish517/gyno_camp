@@ -99,6 +99,9 @@ class ReportAggregationService {
 
     final latestVisitPerPatient = <String, ClinicalVisitModel>{};
     for (final v in visits) {
+      // Strictly aggregate Initial Clinical Intake visits so Follow-Up visits
+      // remain independent and never overwrite primary camp screening KPIs.
+      if (v.isFollowUp) continue;
       final rawKey = v.patientId.trim().toLowerCase();
       final canonKey = uuidToCanonicalKey[rawKey] ?? (rawKey.isNotEmpty ? rawKey : v.id);
       final prev = latestVisitPerPatient[canonKey];

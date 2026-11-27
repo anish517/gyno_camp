@@ -449,7 +449,11 @@ class PatientRepository implements IPatientRepository {
              cv.diagnoses,
              cv.surgery_done,
              cv.surgery_type,
-             cv.is_follow_up,
+             CASE WHEN EXISTS (
+               SELECT 1 FROM ${DatabaseTables.tableClinicalVisits} fuv
+               WHERE (fuv.patient_id = p.patient_id COLLATE NOCASE OR fuv.patient_id = p.id)
+                 AND fuv.is_follow_up = 1
+             ) THEN 1 ELSE 0 END AS is_follow_up,
              cv.primary_doctor_name,
              cv.attending_doctor_names,
              cv.primary_nurse_name,
@@ -473,7 +477,8 @@ class PatientRepository implements IPatientRepository {
         ON cv.id = (
           SELECT cv2.id
           FROM ${DatabaseTables.tableClinicalVisits} cv2
-          WHERE cv2.patient_id = p.patient_id COLLATE NOCASE OR cv2.patient_id = p.id
+          WHERE (cv2.patient_id = p.patient_id COLLATE NOCASE OR cv2.patient_id = p.id)
+            AND COALESCE(cv2.is_follow_up, 0) = 0
           ORDER BY cv2.visit_date DESC,
                    COALESCE(cv2.updated_at, cv2.created_at) DESC,
                    cv2.created_at DESC,
@@ -502,7 +507,11 @@ class PatientRepository implements IPatientRepository {
              cv.diagnoses,
              cv.surgery_done,
              cv.surgery_type,
-             cv.is_follow_up,
+             CASE WHEN EXISTS (
+               SELECT 1 FROM ${DatabaseTables.tableClinicalVisits} fuv
+               WHERE (fuv.patient_id = p.patient_id COLLATE NOCASE OR fuv.patient_id = p.id)
+                 AND fuv.is_follow_up = 1
+             ) THEN 1 ELSE 0 END AS is_follow_up,
              cv.primary_doctor_name,
              cv.attending_doctor_names,
              cv.primary_nurse_name,
@@ -526,7 +535,8 @@ class PatientRepository implements IPatientRepository {
         ON cv.id = (
           SELECT cv2.id
           FROM ${DatabaseTables.tableClinicalVisits} cv2
-          WHERE cv2.patient_id = p.patient_id COLLATE NOCASE OR cv2.patient_id = p.id
+          WHERE (cv2.patient_id = p.patient_id COLLATE NOCASE OR cv2.patient_id = p.id)
+            AND COALESCE(cv2.is_follow_up, 0) = 0
           ORDER BY cv2.visit_date DESC,
                    COALESCE(cv2.updated_at, cv2.created_at) DESC,
                    cv2.created_at DESC,
@@ -552,7 +562,11 @@ class PatientRepository implements IPatientRepository {
              cv.diagnoses,
              cv.surgery_done,
              cv.surgery_type,
-             cv.is_follow_up,
+             CASE WHEN EXISTS (
+               SELECT 1 FROM ${DatabaseTables.tableClinicalVisits} fuv
+               WHERE (fuv.patient_id = p.patient_id COLLATE NOCASE OR fuv.patient_id = p.id)
+                 AND fuv.is_follow_up = 1
+             ) THEN 1 ELSE 0 END AS is_follow_up,
              cv.primary_doctor_name,
              cv.attending_doctor_names,
              cv.primary_nurse_name,
@@ -576,7 +590,8 @@ class PatientRepository implements IPatientRepository {
         ON cv.id = (
           SELECT cv2.id
           FROM ${DatabaseTables.tableClinicalVisits} cv2
-          WHERE cv2.patient_id = p.patient_id COLLATE NOCASE OR cv2.patient_id = p.id
+          WHERE (cv2.patient_id = p.patient_id COLLATE NOCASE OR cv2.patient_id = p.id)
+            AND COALESCE(cv2.is_follow_up, 0) = 0
           ORDER BY cv2.visit_date DESC,
                    COALESCE(cv2.updated_at, cv2.created_at) DESC,
                    cv2.created_at DESC,
@@ -656,7 +671,9 @@ class PatientRepository implements IPatientRepository {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
 
-    if (newVisit.treatmentLevel != null && newVisit.treatmentLevel!.trim().isNotEmpty) {
+    if (!newVisit.isFollowUp &&
+        newVisit.treatmentLevel != null &&
+        newVisit.treatmentLevel!.trim().isNotEmpty) {
       final normTreatment = PatientModel.normalizeTreatmentLevel(newVisit.treatmentLevel) ?? newVisit.treatmentLevel!.trim();
       await db.rawUpdate(
         'UPDATE ${DatabaseTables.tablePatients} SET treatment_level = ? WHERE patient_id = ? COLLATE NOCASE OR id = ?',
@@ -752,6 +769,55 @@ class PatientRepository implements IPatientRepository {
     final list = await getClinicalVisits(patientId, patientUuid: patientUuid);
     if (list.isEmpty) return null;
     return list.first;
+  }
+
+  Future<List<ClinicalVisitModel>> _queryClinicalVisitsByFollowUpFlag(
+    String patientId, {
+    String? patientUuid,
+    required bool isFollowUp,
+    int? limit,
+  }) async {
+    final db = await _databaseService.database;
+    final flagClause = isFollowUp ? 'is_follow_up = 1' : 'COALESCE(is_follow_up, 0) = 0';
+    const orderClause =
+        'visit_date DESC, COALESCE(updated_at, created_at) DESC, created_at DESC, id DESC';
+
+    final idWhere = patientUuid != null && patientUuid.isNotEmpty
+        ? '(patient_id = ? COLLATE NOCASE OR patient_id = ?)'
+        : '(patient_id = ? COLLATE NOCASE)';
+    final idArgs = patientUuid != null && patientUuid.isNotEmpty
+        ? <Object?>[patientId, patientUuid]
+        : <Object?>[patientId];
+
+    var maps = await db.query(
+      DatabaseTables.tableClinicalVisits,
+      where: '$idWhere AND $flagClause',
+      whereArgs: idArgs,
+      orderBy: orderClause,
+      limit: limit,
+    );
+
+    if (maps.isEmpty) {
+      final pat = await db.query(
+        DatabaseTables.tablePatients,
+        where: 'id = ? OR patient_id = ? COLLATE NOCASE',
+        whereArgs: [patientId, patientId],
+        limit: 1,
+      );
+      if (pat.isNotEmpty) {
+        final altId = pat.first['patient_id'] as String?;
+        final uuid = pat.first['id'] as String?;
+        maps = await db.query(
+          DatabaseTables.tableClinicalVisits,
+          where: '(patient_id = ? COLLATE NOCASE OR patient_id = ?) AND $flagClause',
+          whereArgs: [altId ?? '', uuid ?? ''],
+          orderBy: orderClause,
+          limit: limit,
+        );
+      }
+    }
+
+    return maps.map((m) => ClinicalVisitModel.fromMap(m)).toList();
   }
 
   @override
@@ -952,7 +1018,7 @@ class PatientRepository implements IPatientRepository {
     required String userId,
     required String deviceId,
   }) async {
-    final existing = await getLatestClinicalVisit(patient.patientId, patientUuid: patient.id);
+    final existing = await getInitialClinicalVisit(patient.patientId, patientUuid: patient.id);
     final now = DateTime.now();
     final effectiveNurses = attendingNurses.isNotEmpty
         ? attendingNurses
@@ -1035,5 +1101,66 @@ class PatientRepository implements IPatientRepository {
         );
       }
     } catch (_) {}
+  }
+}
+
+extension PatientRepositoryVisitIsolationX on IPatientRepository {
+  /// Returns strictly the Initial Clinical Intake record (`isFollowUp == false`).
+  /// Never returns a Follow-Up visit (`isFollowUp == true`).
+  Future<ClinicalVisitModel?> getInitialClinicalVisit(
+    String patientId, {
+    String? patientUuid,
+  }) async {
+    final self = this;
+    if (self is PatientRepository) {
+      final list = await self._queryClinicalVisitsByFollowUpFlag(
+        patientId,
+        patientUuid: patientUuid,
+        isFollowUp: false,
+        limit: 1,
+      );
+      return list.isEmpty ? null : list.first;
+    }
+    final all = await getClinicalVisits(patientId, patientUuid: patientUuid);
+    for (final v in all) {
+      if (!v.isFollowUp) return v;
+    }
+    return null;
+  }
+
+  /// Returns strictly Follow-Up visit records (`isFollowUp == true`), newest first.
+  Future<List<ClinicalVisitModel>> getFollowUpVisits(
+    String patientId, {
+    String? patientUuid,
+  }) async {
+    final self = this;
+    if (self is PatientRepository) {
+      return self._queryClinicalVisitsByFollowUpFlag(
+        patientId,
+        patientUuid: patientUuid,
+        isFollowUp: true,
+      );
+    }
+    final all = await getClinicalVisits(patientId, patientUuid: patientUuid);
+    return all.where((v) => v.isFollowUp).toList();
+  }
+
+  /// Returns the newest Follow-Up visit (`isFollowUp == true`), or `null` if none exists.
+  Future<ClinicalVisitModel?> getLatestFollowUpVisit(
+    String patientId, {
+    String? patientUuid,
+  }) async {
+    final self = this;
+    if (self is PatientRepository) {
+      final list = await self._queryClinicalVisitsByFollowUpFlag(
+        patientId,
+        patientUuid: patientUuid,
+        isFollowUp: true,
+        limit: 1,
+      );
+      return list.isEmpty ? null : list.first;
+    }
+    final followUps = await getFollowUpVisits(patientId, patientUuid: patientUuid);
+    return followUps.isEmpty ? null : followUps.first;
   }
 }

@@ -3156,7 +3156,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           case 'pdf_summary':
             final visit = await ref
                 .read(patientRepositoryProvider)
-                .getLatestClinicalVisit(patient.patientId, patientUuid: patient.id);
+                .getInitialClinicalVisit(patient.patientId, patientUuid: patient.id);
             final auth = ref.read(authStateProvider).currentUser;
             final saved = await ref.read(reportingViewModelProvider.notifier).exportIndividualPatientPdf(
                   patient: patient,
@@ -4381,7 +4381,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
     try {
       final visit = await ref
           .read(patientRepositoryProvider)
-          .getLatestClinicalVisit(patient.patientId, patientUuid: patient.id);
+          .getLatestFollowUpVisit(patient.patientId, patientUuid: patient.id);
 
       final effectiveOrg = ref.read(effectiveOrganizationProvider);
       final orgName = (camp?.organizationName.isNotEmpty == true &&
@@ -4400,6 +4400,7 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
       } else {
         bytes = await PdfReportService().generateBlankFollowUpSlipPdf(
           camp: camp,
+          preprintedTokenId: patient.patientId,
           organizationName: orgName,
         );
       }

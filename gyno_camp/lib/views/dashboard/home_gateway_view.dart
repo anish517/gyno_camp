@@ -4566,7 +4566,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
     final Map<String, ClinicalVisitModel> loaded = {};
     for (final p in patients) {
       try {
-        final visit = await repo.getLatestClinicalVisit(p.patientId, patientUuid: p.id);
+        final visit = await repo.getInitialClinicalVisit(p.patientId, patientUuid: p.id);
         if (visit != null) {
           loaded[p.patientId] = visit;
         }
@@ -4687,7 +4687,7 @@ class _DataAnalystWorkstationState extends ConsumerState<_DataAnalystWorkstation
 
     try {
       final visit = _patientVisits[patient.patientId] ??
-          await ref.read(patientRepositoryProvider).getLatestClinicalVisit(
+          await ref.read(patientRepositoryProvider).getInitialClinicalVisit(
                 patient.patientId,
                 patientUuid: patient.id,
               );
@@ -8722,7 +8722,7 @@ class _PatientDossierInspectionSheetState extends ConsumerState<_PatientDossierI
   void _loadVisit() async {
     setState(() => _isLoading = true);
     try {
-      final v = await ref.read(patientRepositoryProvider).getLatestClinicalVisit(
+      final v = await ref.read(patientRepositoryProvider).getInitialClinicalVisit(
             widget.patient.patientId,
             patientUuid: widget.patient.id,
           );

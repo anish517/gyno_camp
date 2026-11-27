@@ -902,7 +902,7 @@ class ClinicalAssessmentViewModel extends StateNotifier<ClinicalAssessmentState>
     state = const ClinicalAssessmentState(isSaving: true);
     try {
       final visit = initialVisit ??
-          await _patientRepository.getLatestClinicalVisit(
+          await _patientRepository.getInitialClinicalVisit(
             patientId,
             patientUuid: patientUuid,
           );

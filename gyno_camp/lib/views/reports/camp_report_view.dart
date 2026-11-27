@@ -504,7 +504,7 @@ class _CampReportViewState extends ConsumerState<CampReportView>
   ) async {
     setState(() => _exportingPatientId = patient.patientId);
     try {
-      final visit = await ref.read(patientRepositoryProvider).getLatestClinicalVisit(
+      final visit = await ref.read(patientRepositoryProvider).getInitialClinicalVisit(
             patient.patientId,
             patientUuid: patient.id,
           );

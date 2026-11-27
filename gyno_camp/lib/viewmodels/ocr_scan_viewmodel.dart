@@ -440,11 +440,11 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
 
       if (resolvedVisitId == null || resolvedVisitId.isEmpty) {
         try {
-          final latestVisit = await _patientRepository.getLatestClinicalVisit(
+          final initialVisit = await _patientRepository.getInitialClinicalVisit(
             item.committedPatientId ?? item.patientIdHint ?? '',
             patientUuid: resolvedPatientUuid,
           );
-          resolvedVisitId = latestVisit?.id;
+          resolvedVisitId = initialVisit?.id;
         } catch (_) {}
       }
 

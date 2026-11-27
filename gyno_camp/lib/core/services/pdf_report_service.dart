@@ -1511,6 +1511,11 @@ class PdfReportService {
     CampModel? camp,
     String organizationName = AppConstants.defaultOrganizationName,
   }) async {
+    // Strictly isolate Clinical Intake PDF from Follow-Up visits: never allow
+    // an isFollowUp record to populate Clinical Intake Sections 1-7.
+    if (visit != null && visit.isFollowUp) {
+      visit = allVisits?.where((v) => !v.isFollowUp).firstOrNull;
+    }
     final effectiveOrgName = resolveEffectiveOrganizationName(
       organizationName: organizationName,
       camp: camp,
@@ -2638,7 +2643,7 @@ class PdfReportService {
       final effectiveTreatmentLevel =
           (visit.treatmentLevel?.trim().isNotEmpty == true)
           ? visit.treatmentLevel!.trim()
-          : (patient.treatmentLevel?.trim() ?? '');
+          : (isFollowUp ? '' : (patient.treatmentLevel?.trim() ?? ''));
       final treatmentLevelLabel = (effectiveTreatmentLevel == 'gyno_checkup' || effectiveTreatmentLevel == 'full_check_up')
           ? 'Gynocheckup (गाइनो जाँच)'
           : ((effectiveTreatmentLevel == 'counseling' || effectiveTreatmentLevel == 'council_level')
@@ -2882,10 +2887,12 @@ class PdfReportService {
 
             // ── Chief Complaints & Reasons to Visit ──────────────────────────
             _buildPdfSectionHeader(
-              '2. CHIEF COMPLAINTS & REASONS TO VISIT',
+              isFollowUp
+                  ? '2. FOLLOW-UP COMPLAINTS & NEW ISSUES'
+                  : '2. CHIEF COMPLAINTS & REASONS TO VISIT',
               encounterColor,
               date: visit.anamnesisDate != null ? NepaliLocalizationService.formatDualCalendarDate(visit.anamnesisDate!) : null,
-              dateLabel: 'Anamnesis Date',
+              dateLabel: isFollowUp ? 'Follow-Up Date' : 'Anamnesis Date',
             ),
             pw.SizedBox(height: 2),
             pw.Container(
@@ -2897,7 +2904,7 @@ class PdfReportService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  if (patient.reasonsForVisit.isNotEmpty) ...[
+                  if (!isFollowUp && patient.reasonsForVisit.isNotEmpty) ...[
                     _buildPdfField(
                       'Initial Intake Reasons (प्रारम्भिक समस्या)',
                       patient.reasonsForVisit.join(' • '),
@@ -2905,7 +2912,7 @@ class PdfReportService {
                     ),
                   ],
                   if (complaintDisplayList.isNotEmpty) ...[
-                    if (patient.reasonsForVisit.isNotEmpty) pw.SizedBox(height: 3),
+                    if (!isFollowUp && patient.reasonsForVisit.isNotEmpty) pw.SizedBox(height: 3),
                     ...complaintDisplayList.map((item) {
                       final canon = item['canon'] as String;
                       final key = item['key'] as String;
@@ -2958,7 +2965,7 @@ class PdfReportService {
                         ),
                       );
                     }),
-                  ] else if (patient.reasonsForVisit.isEmpty) ...[
+                  ] else if (!isFollowUp && patient.reasonsForVisit.isEmpty) ...[
                     _buildPdfField(
                       'Initial Intake Reasons (प्रारम्भिक समस्या)',
                       'Routine Follow-Up / Consultation',
@@ -2968,9 +2975,11 @@ class PdfReportService {
                       visit.anamnesisComplaints['reasons'] is List &&
                       (visit.anamnesisComplaints['reasons'] as List).isNotEmpty &&
                       complaintDisplayList.isEmpty) ...[
-                    pw.SizedBox(height: 3),
+                    if (!isFollowUp && patient.reasonsForVisit.isNotEmpty) pw.SizedBox(height: 3),
                     _buildPdfField(
-                      'Active Encounter Complaints',
+                      isFollowUp
+                          ? 'Follow-Up Complaints'
+                          : 'Active Encounter Complaints',
                       (visit.anamnesisComplaints['reasons'] as List).join(' • '),
                     ),
                   ],
@@ -2988,6 +2997,19 @@ class PdfReportService {
                       isBold: true,
                     ),
                   ],
+                  if (isFollowUp &&
+                      complaintDisplayList.isEmpty &&
+                      !(visit.anamnesisComplaints['reasons'] is List &&
+                          (visit.anamnesisComplaints['reasons'] as List).isNotEmpty) &&
+                      ((visit.anamnesisComplaints['new_issues'] as String?)
+                              ?.trim()
+                              .isEmpty ??
+                          true)) ...[
+                    _buildPdfField(
+                      'Follow-Up Status',
+                      'Routine Follow-Up Checkup (No new complaints reported)',
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -2995,7 +3017,8 @@ class PdfReportService {
 
             // ── Obstetric History ────────────────────────────────────────────
             if (visit.deliveries != null ||
-                visit.anamnesisComplaints.isNotEmpty ||
+                visit.livingChildren != null ||
+                visit.abortions != null ||
                 visit.cervixRemarks != null ||
                 visit.vaginaRemarks != null ||
                 visit.vulvaRemarks != null ||
@@ -4389,6 +4412,7 @@ class PdfReportService {
 
   Future<Uint8List> generateBlankFollowUpSlipPdf({
     CampModel? camp,
+    String? preprintedTokenId,
     DoctorProfile? doctor,
     bool blankDoctorLines = false,
     NurseProfile? nurse,
@@ -4402,6 +4426,7 @@ class PdfReportService {
       _addBlankFollowUpSlipPage(
         pdf,
         camp: camp,
+        preprintedTokenId: preprintedTokenId,
         doctor: doctor,
         blankDoctorLines: blankDoctorLines,
         nurse: nurse,

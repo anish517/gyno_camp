@@ -221,6 +221,83 @@ void main() {
         expect(String.fromCharCodes(bytes.take(5)), equals('%PDF-'));
       },
     );
+
+    test(
+      'Independent Follow-Up visit never contaminates Clinical Intake Dossier PDF and generates standalone Follow-Up Slip',
+      () async {
+        final initialIntake = ClinicalVisitModel(
+          id: 'vis-intake-001',
+          patientId: testPatientStage4.patientId,
+          campId: testCamp.id,
+          visitDate: DateTime(2026, 11, 20),
+          deliveries: 3,
+          livingChildren: 3,
+          abortions: 0,
+          popAnteriorStage: 2,
+          popMiddleStage: 3,
+          popPosteriorStage: 1,
+          highestPopStage: 3,
+          systolicBp: 145,
+          diastolicBp: 92,
+          diagnoses: const ['POP'],
+          medications: const ['Metronidazole'],
+          isFollowUp: false,
+          createdAt: DateTime(2026, 11, 20),
+          createdByUserId: 'usr-1',
+        );
+
+        final followUpVisit = ClinicalVisitModel(
+          id: 'vis-followup-002',
+          patientId: testPatientStage4.patientId,
+          campId: testCamp.id,
+          visitDate: DateTime(2026, 11, 27),
+          anamnesisComplaints: const {
+            'reasons': ['Discharge / Itching (स्राव / चिलाउने)'],
+            'new_issues': 'MILD VAGINAL IRRITATION RESOLVED',
+          },
+          popAnteriorStage: 1,
+          popMiddleStage: 1,
+          popPosteriorStage: 0,
+          highestPopStage: 1,
+          systolicBp: 112,
+          diastolicBp: 72,
+          diagnoses: const ['Candidiasis'],
+          medications: const ['Fluconazole'],
+          isFollowUp: true,
+          followUpNotes: 'MILD VAGINAL IRRITATION RESOLVED',
+          createdAt: DateTime(2026, 11, 27),
+          createdByUserId: 'usr-1',
+        );
+
+        // Even if a Follow-Up visit is passed as `visit`, generateIndividualPatientPdf
+        // ignores Follow-Up records for Clinical Intake sections and falls back to initialIntake.
+        final dossierBytes = await pdfService.generateIndividualPatientPdf(
+          patient: testPatientStage4,
+          visit: followUpVisit,
+          allVisits: [followUpVisit, initialIntake],
+          camp: testCamp,
+        );
+        expect(dossierBytes, isNotEmpty);
+        expect(String.fromCharCodes(dossierBytes.take(5)), equals('%PDF-'));
+
+        // Standalone Follow-Up Slip PDF generates cleanly with zero obstetric carry-over
+        final followUpSlipBytes = await pdfService.generateFollowUpEncounterSlipPdf(
+          patient: testPatientStage4,
+          visit: followUpVisit,
+          camp: testCamp,
+        );
+        expect(followUpSlipBytes, isNotEmpty);
+        expect(String.fromCharCodes(followUpSlipBytes.take(5)), equals('%PDF-'));
+
+        // Pre-numbered patient-specific Blank Follow-Up Slip PDF
+        final blankPatientFollowUpBytes = await pdfService.generateBlankFollowUpSlipPdf(
+          camp: testCamp,
+          preprintedTokenId: testPatientStage4.patientId,
+        );
+        expect(blankPatientFollowUpBytes, isNotEmpty);
+        expect(String.fromCharCodes(blankPatientFollowUpBytes.take(5)), equals('%PDF-'));
+      },
+    );
   });
 
   group(

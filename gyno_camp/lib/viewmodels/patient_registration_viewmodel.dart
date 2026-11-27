@@ -4,6 +4,8 @@ import '../core/services/duplicate_detection_service.dart';
 import '../models/patient_model.dart';
 import '../repositories/patient_repository.dart';
 
+export '../repositories/patient_repository.dart' show PatientRepositoryVisitIsolationX;
+
 class PatientRegistrationState {
   final String? patientId;
   final String firstName;

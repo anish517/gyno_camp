@@ -880,12 +880,12 @@ class OcrRepository implements IOcrRepository {
     if (existingVisitId != null && existingVisitId.trim().isNotEmpty) {
       resolvedVisitId = existingVisitId.trim();
     } else if (existingPatient != null) {
-      final latestVisit = await _patientRepository.getLatestClinicalVisit(
+      final initialVisit = await _patientRepository.getInitialClinicalVisit(
         registeredPatient.patientId,
         patientUuid: registeredPatient.id,
       );
-      if (latestVisit != null && latestVisit.id.isNotEmpty) {
-        resolvedVisitId = latestVisit.id;
+      if (initialVisit != null && initialVisit.id.isNotEmpty) {
+        resolvedVisitId = initialVisit.id;
       }
     }
 
