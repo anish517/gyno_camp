@@ -119,8 +119,22 @@ class GynoCampSyncServer {
   // Cloud OCR proxy (Gemini key lives ONLY in the server environment)
   late final GeminiProxy _gemini = GeminiProxy(
     apiKeyProvider: () => _getEnv('GEMINI_API_KEY'),
+    models: () {
+      final raw = _getEnv('GEMINI_OCR_MODELS').trim();
+      if (raw.isEmpty) return null;
+      final parsed = raw
+          .split(',')
+          .map((m) => m.trim())
+          .where((m) => m.isNotEmpty)
+          .toList();
+      return parsed.isNotEmpty ? parsed : null;
+    }(),
   );
-  final OcrRateLimiter _ocrLimiter = OcrRateLimiter(maxPerWindow: 20, window: const Duration(minutes: 10), maxPerDay: 300);
+  late final OcrRateLimiter _ocrLimiter = OcrRateLimiter(
+    maxPerWindow: int.tryParse(_getEnv('OCR_MAX_PER_10MIN')) ?? 600,
+    window: const Duration(minutes: 10),
+    maxPerDay: int.tryParse(_getEnv('OCR_MAX_PER_DAY')) ?? 5000,
+  );
   final OcrRateLimiter _ocrAuthFailLimiter = OcrRateLimiter(maxPerWindow: 20, window: const Duration(minutes: 10), maxPerDay: 200);
   final Map<String, String> _deviceSecretHashes = {}; // device_id -> sha256(secret) (in-memory fallback)
   static const int _maxOcrBodyBytes = 9 * 1024 * 1024;

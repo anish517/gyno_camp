@@ -91,22 +91,34 @@ class GeminiProxy {
   static const int maxImageBase64Chars = 8 * 1024 * 1024;
 
   static const List<String> defaultModels = [
-    'gemini-flash-lite-latest',
+    'gemini-2.5-flash',
     'gemini-flash-latest',
+    'gemini-flash-lite-latest',
   ];
 
   GeminiProxy({
     http.Client? client,
     String? Function()? apiKeyProvider,
     List<String>? models,
-    this.requestTimeout = const Duration(seconds: 30),
+    this.requestTimeout = const Duration(seconds: 45),
     Duration Function(int attempt)? retryDelay,
   })  : _client = client ?? http.Client(),
         _apiKeyProvider = apiKeyProvider ?? _readApiKeyFromEnvironment,
-        models = models ?? defaultModels,
+        models = models ?? _readModelsFromEnvironment() ?? defaultModels,
         retryDelay = retryDelay ?? ((attempt) => Duration(milliseconds: attempt * 1500));
 
   static String? _readApiKeyFromEnvironment() => Platform.environment['GEMINI_API_KEY'];
+
+  static List<String>? _readModelsFromEnvironment() {
+    final raw = Platform.environment['GEMINI_OCR_MODELS']?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    final parsed = raw
+        .split(',')
+        .map((m) => m.trim())
+        .where((m) => m.isNotEmpty)
+        .toList();
+    return parsed.isNotEmpty ? parsed : null;
+  }
 
   String? get _apiKey {
     final key = _apiKeyProvider();
@@ -214,7 +226,10 @@ class GeminiProxy {
           final res = await _client.post(uri, headers: headers, body: body).timeout(requestTimeout);
           if (res.statusCode == 200) return res;
           lastResponse = res;
-          if (res.statusCode == 503 || res.statusCode == 429 || res.statusCode == 404) {
+          if (res.statusCode == 404) {
+            break; // model alias not available — immediately fail over to next model
+          }
+          if (res.statusCode == 503 || res.statusCode == 429) {
             if (attempts < 2) {
               await Future<void>.delayed(retryDelay(attempts));
               continue;
@@ -261,6 +276,20 @@ CRITICAL RULES:
 - For integer fields: return null (NOT 0) if the field is blank or unreadable.
 - For string fields: return null (NOT empty string) if the field is blank or unreadable.
 - For boolean fields: return null if the checkbox area is blank or ambiguous.
+- HANDWRITING & CHECKBOX RECOGNITION RULES (HIGH-PRECISION FIELD CAMP MODE):
+  * SEGMENTED CHARACTER & DIGIT BOXES:
+    - Read each segmented character/digit box cell-by-cell from left to right. NEVER mistake printed vertical cell borders (`|`) for the letter 'I' or digit '1'.
+    - Carefully disambiguate lookalike handwritten characters in context:
+      + In numeric boxes (Token, Age, Ward, Mobile, BP, Pulse, SpO2, Glucose, Parity, Pessary Size): distinguish '0' vs '6', '1' vs '7' (horizontal top bar = '7', single vertical/hooked stroke = '1'), '4' vs '9' (open top = '4', closed top loop = '9'), and '5' vs '8'. Convert any handwritten Devanagari digits (० १ २ ३ ४ ५ ६ ७ ८ ९) into standard ASCII digits (0-9).
+      + Nepali mobile numbers in "Mobile W." and "Contact Mobile" are 10 digits typically starting with 98, 97, or 96.
+      + In name and address boxes: distinguish 'M' vs 'N', 'U' vs 'V', 'A' vs 'H', 'S' vs '5', 'B' vs '8', 'G' vs '6', and 'I' vs 'L' vs 'T' even when strokes slightly cross box borders.
+      + If a name, municipality, or district is handwritten in Nepali Devanagari script (e.g. सीता थापा), transliterate it accurately into uppercase English letters (e.g. "SITA", "THAPA").
+  * CHECKBOX MARKS & CROSSED-OUT CORRECTIONS:
+    - Intentional positive marks include a tick (✓), cross (✗ / ×), diagonal slash (/), solid fill (■), or circle around the box.
+    - CRITICAL ERROR-CORRECTION RULE: Clinicians sometimes tick a box by mistake, heavily scribble/black-out/scratch over that box to cancel it, and place a clean tick (✓) in another box on the same row. On single-choice rows (Level of Treatment, Marital Status, Relation, Uterus Inside, Pelvic Floor Muscle, POP Stages 0-4, Urine Test, Pregnancy Test, ECG), ALWAYS select ONLY the cleanly ticked box and IGNORE any heavily scribbled-out / scratched-out mistake!
+    - Ignore paper fold creases, faint shadow lines, or accidental pen resting dots that do not form a deliberate mark.
+  * CURSIVE DOCTOR NOTES & SHORTHAND:
+    - Read doctor handwriting and standard gynecological shorthand carefully in Remarks, Other Diagnosis, Other Medication, Hospital Name, and Clinical Notes (e.g. Cx = cervix, NAD = nothing abnormal detected, VH = vaginal hysterectomy, UV prolapse, PID, UTI).
 - DATE RECOGNITION RULES (NEPALI BIKRAM SAMBAT BS):
   * Date fields across both pages have segmented digit boxes: "Date / मिति: [YYYY] - [MM] - [DD] BS".
   * The 4-digit Year is in Bikram Sambat (typically 2083, or between 2080-2085 BS).

@@ -603,5 +603,75 @@ void main() {
       final ocrAudit = logs.firstWhere((l) => l.action == AppConstants.auditActionPatientRegisteredViaOcr);
       expect(ocrAudit.detailsJson, contains('"ocrEngine":"gemini_flash"'));
     });
+
+    test('normalizes handwritten Devanagari/string numbers, fuzzy Nepal districts, and medication/diagnosis spellings', () async {
+      final mockClient = MockClient((request) async {
+        return proxyOk({
+          'pageNumber': 1,
+          'detectedPage': 1,
+          'demographics': {
+            'patientTokenId': '००१२३',
+            'firstName': 'SITA',
+            'surname': 'THAPA',
+            'age': '४२',
+            'maritalAge': '19 yrs',
+            'mobile': '९८४१ १२३४५६',
+            'ward': '०५',
+            'district': 'SINDHUPALCHOWK',
+            'municipality': 'CHAUTARA',
+          },
+          'obstetrics': {
+            'deliveries': '३',
+            'livingChildren': '2',
+            'abortions': '१',
+          },
+          'vitals': {
+            'systolicBp': '128 mmHg',
+            'diastolicBp': '84',
+            'pulseRate': '७६ bpm',
+            'spo2': '98%',
+            'bloodGlucose': '११२ mg/dL',
+          },
+          'popStaging': {
+            'anteriorStage': '2',
+            'highestPopStage': '२',
+          },
+          'ringPessary': true,
+          'ringPessarySize': '65 mm',
+          'diagnoses': ['candidiasis', 'uterine fibroid'],
+          'medications': ['clotrimazole', 'metronidazole', 'ciprofloxacin'],
+        });
+      });
+
+      final service = buildService(mockClient);
+      final res = await service.extractFromBytes(
+        File('test_samples/sample_yellow_form_filled_page1.jpg').readAsBytesSync(),
+        pageNumber: 1,
+      );
+
+      expect(res.demographics['patientId'], '00123');
+      expect(res.demographics['age'], 42);
+      expect(res.demographics['maritalAge'], 19);
+      expect(res.demographics['mobile'], '9841123456');
+      expect(res.demographics['ward'], '05');
+      expect(res.demographics['district'], 'Sindhupalchok');
+      expect(res.demographics['province'], 'Bagmati');
+      expect(res.obstetrics['deliveries'], 3);
+      expect(res.obstetrics['livingChildren'], 2);
+      expect(res.obstetrics['abortions'], 1);
+      expect(res.vitals['systolicBp'], 128);
+      expect(res.vitals['diastolicBp'], 84);
+      expect(res.vitals['pulseRate'], 76);
+      expect(res.vitals['spo2'], 98);
+      expect(res.vitals['bloodGlucose'], 112);
+      expect(res.popStaging['anteriorStage'], 2);
+      expect(res.popStaging['highestPopStage'], 2);
+      expect(res.ringPessarySize, 65);
+      expect(res.diagnoses, containsAll(['candid infection', 'myoma']));
+      expect(
+        res.medications,
+        containsAll(['clotrimazol (canesten)', 'metronidazol', 'ciproflox']),
+      );
+    });
   });
 }

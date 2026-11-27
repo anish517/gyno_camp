@@ -43,8 +43,8 @@ class GeminiOcrService {
   final String? _explicitFingerprint;
   final String? _explicitDeviceSecret;
 
-  /// The server may fail over across several models (30s each), so allow time.
-  static const Duration requestTimeout = Duration(seconds: 75);
+  /// The server may fail over across several models (45s each), so allow time.
+  static const Duration requestTimeout = Duration(seconds: 95);
 
   GeminiOcrService({
     http.Client? httpClient,
@@ -188,9 +188,9 @@ class GeminiOcrService {
     final defaultMime = isPng ? 'image/png' : 'image/jpeg';
 
     // Fast path: on Web (single-threaded JS, no Android 2MB CursorWindow limit) or
-    // when already compact (<= 750 KB raw -> safely read via 800 KB SUBSTR chunks on Android),
-    // encode directly (< 2 ms) without blocking commit.
-    if (kIsWeb || bytes.length <= 750000) {
+    // when already compact (<= 1.2 MB raw -> safely streamed via 800 KB SUBSTR chunks on Android),
+    // encode directly (< 2 ms) without degrading handwriting stroke sharpness.
+    if (kIsWeb || bytes.length <= 1200000) {
       return (base64: base64Encode(bytes), mimeType: defaultMime);
     }
 
@@ -221,13 +221,13 @@ class GeminiOcrService {
         bytes[3] == 0x47;
     final defaultMime = isPng ? 'image/png' : 'image/jpeg';
 
-    // Fast path: if already <= 2.5 MB, avoid software decompression entirely.
-    // Base64 encoding takes < 2 ms and avoids freezing the browser event loop.
-    if (bytes.length <= 2500000) {
+    // Fast path: if already <= 3.5 MB, avoid software decompression entirely to preserve
+    // full handwriting & checkbox sharpness for Gemini Vision.
+    if (bytes.length <= 3500000) {
       return (base64: base64Encode(bytes), mimeType: defaultMime);
     }
 
-    // Heavy path: for large images (> 2.5 MB), resize down.
+    // Heavy path: for very large images (> 3.5 MB), resize to 2200px max dimension.
     // On native platforms, offload to a background isolate (compute) to keep UI thread fluid.
     if (!kIsWeb) {
       try {
@@ -245,13 +245,13 @@ class GeminiOcrService {
       await Future<void>.delayed(Duration.zero);
       try {
         final decoded = img.decodeImage(bytes);
-        if (decoded != null && (decoded.width > 1600 || decoded.height > 1600)) {
+        if (decoded != null && (decoded.width > 2200 || decoded.height > 2200)) {
           final resized = img.copyResize(
             decoded,
-            width: decoded.width > decoded.height ? 1600 : null,
-            height: decoded.height >= decoded.width ? 1600 : null,
+            width: decoded.width > decoded.height ? 2200 : null,
+            height: decoded.height >= decoded.width ? 2200 : null,
           );
-          final compressedJpg = img.encodeJpg(resized, quality: 85);
+          final compressedJpg = img.encodeJpg(resized, quality: 88);
           return (base64: base64Encode(compressedJpg), mimeType: 'image/jpeg');
         }
       } catch (e) {
@@ -289,17 +289,86 @@ class GeminiOcrService {
     final rawObs = (parsedData['obstetrics'] as Map<String, dynamic>?) ?? {};
     final rawVitals = (parsedData['vitals'] as Map<String, dynamic>?) ?? {};
     final rawPop = (parsedData['popStaging'] as Map<String, dynamic>?) ?? {};
-    final rawDiagnoses = (parsedData['diagnoses'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
+    int? parseHandwrittenInt(dynamic raw) {
+      if (raw == null) return null;
+      if (raw is int) return raw;
+      if (raw is num) return raw.toInt();
+      var s = raw.toString().trim();
+      if (s.isEmpty || s.toLowerCase() == 'null') return null;
+      const dev = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+      for (int i = 0; i < dev.length; i++) {
+        s = s.replaceAll(dev[i], i.toString());
+      }
+      final m = RegExp(r'-?\d+').firstMatch(s);
+      return m != null ? int.tryParse(m.group(0)!) : null;
+    }
+
+    String cleanHandwrittenDigits(dynamic raw) {
+      if (raw == null) return '';
+      var s = raw.toString().trim();
+      if (s.isEmpty || s.toLowerCase() == 'null') return '';
+      const dev = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+      for (int i = 0; i < dev.length; i++) {
+        s = s.replaceAll(dev[i], i.toString());
+      }
+      return s.replaceAll(RegExp(r'[\s\-]+'), '');
+    }
+
+    String normalizeDiagnosisItem(String raw) {
+      final low = raw.toLowerCase().trim();
+      for (final d in ClinicalConstants.defaultDiagnoses) {
+        if (d.toLowerCase() == low) return d;
+      }
+      return switch (low) {
+        'candidiasis' || 'candida' || 'vaginal candidiasis' => 'candid infection',
+        'bv' || 'bacterial vaginitis' => 'bacterial vaginosis',
+        'trichomoniasis' => 'trichomonas',
+        'pelvic inflammatory disease' => 'PID',
+        'atrophic vaginitis' || 'vaginal atrophy' => 'atrophy vagina',
+        'uterine fibroid' || 'fibroid' || 'uterine myoma' => 'myoma',
+        _ => raw.trim(),
+      };
+    }
+
+    String normalizeMedicationItem(String raw) {
+      final low = raw.toLowerCase().trim();
+      for (final m in ClinicalConstants.defaultMedications) {
+        if (m.toLowerCase() == low) return m;
+      }
+      return switch (low) {
+        'clotrimazole' || 'clotrimazol' || 'canesten' => 'clotrimazol (canesten)',
+        'estradiol' || 'estradiol cream' || 'estradiol creme' => 'estradiol crème',
+        'metronidazole' || 'flagyl' => 'metronidazol',
+        'nitrofurantoin' => 'nitrofurantoine',
+        'ciprofloxacin' => 'ciproflox',
+        _ => raw.trim(),
+      };
+    }
+
+    final rawDiagnoses = (parsedData['diagnoses'] as List<dynamic>?)
+            ?.map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty && e.toLowerCase() != 'null')
+            .map(normalizeDiagnosisItem)
+            .toSet()
+            .toList() ??
+        <String>[];
     final rawMeds = (parsedData['medications'] as List<dynamic>?)
-        ?.map((e) => e.toString().trim())
-        .where((e) => e.isNotEmpty && !ReportAggregationService.isDosageInstruction(e))
-        .toList() ?? <String>[];
-    final rawCounseling = (parsedData['counseling'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
+            ?.map((e) => e.toString().trim())
+            .where((e) =>
+                e.isNotEmpty &&
+                e.toLowerCase() != 'null' &&
+                !ReportAggregationService.isDosageInstruction(e))
+            .map(normalizeMedicationItem)
+            .toSet()
+            .toList() ??
+        <String>[];
+    final rawCounseling = (parsedData['counseling'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty && e.toLowerCase() != 'null').toList() ?? <String>[];
     // Station 5 extra items (Ring Pessary & Surgery)
     // NOTE: Pessary is a device fitting, NOT a dispensed medication.
     // We do NOT inject it into rawMeds. It stays in ringPessary/pessaryType/ringPessarySize.
     final ringPessary = parsedData['ringPessary'] == true || rawPop['ringPessary'] == true;
-    final ringPessarySize = (parsedData['ringPessarySize'] as num?)?.toInt() ?? (rawPop['ringPessarySize'] as num?)?.toInt();
+    final ringPessarySize = parseHandwrittenInt(parsedData['ringPessarySize']) ??
+        parseHandwrittenInt(rawPop['ringPessarySize']);
     // Read pessaryType from Gemini (ring / ring with support / ring with knob)
     final rawPessaryType = parsedData['pessaryType']?.toString().trim();
     final String? pessaryType = (rawPessaryType != null && rawPessaryType.isNotEmpty && rawPessaryType.toLowerCase() != 'null')
@@ -375,10 +444,45 @@ class GeminiOcrService {
       return '';
     }
 
-    // Normalize District (case-insensitive & space-insensitive against NepalGeodata, supporting 11-box prefixes)
+    int editDistance(String a, String b) {
+      if (a == b) return 0;
+      if (a.isEmpty) return b.length;
+      if (b.isEmpty) return a.length;
+      var prev = List<int>.generate(b.length + 1, (j) => j);
+      for (int i = 1; i <= a.length; i++) {
+        final curr = List<int>.filled(b.length + 1, 0);
+        curr[0] = i;
+        for (int j = 1; j <= b.length; j++) {
+          final cost = a[i - 1] == b[j - 1] ? 0 : 1;
+          final del = prev[j] + 1;
+          final ins = curr[j - 1] + 1;
+          final sub = prev[j - 1] + cost;
+          curr[j] = del < ins ? (del < sub ? del : sub) : (ins < sub ? ins : sub);
+        }
+        prev = curr;
+      }
+      return prev[b.length];
+    }
+
+    // Normalize District (case-insensitive, space-insensitive & fuzzy handwriting match against NepalGeodata)
     String normDistrict(String? raw, String prov) {
-      if (raw == null || raw.trim().isEmpty) return '';
-      final clean = raw.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+      if (raw == null || raw.trim().isEmpty || raw.trim().toLowerCase() == 'null') return '';
+      var clean = raw.replaceAll(RegExp(r'[^A-Za-z]'), '').toLowerCase();
+      if (clean.isEmpty) return '';
+      const phoneticAliases = <String, String>{
+        'kavre': 'kavrepalanchok',
+        'kabre': 'kavrepalanchok',
+        'kavrepalanchowk': 'kavrepalanchok',
+        'sindhupalchowk': 'sindhupalchok',
+        'chitawan': 'chitwan',
+        'makawanpur': 'makwanpur',
+        'tanahu': 'tanahun',
+        'dhanusa': 'dhanusha',
+        'terhathum': 'tehrathum',
+        'kapilbastu': 'kapilvastu',
+      };
+      clean = phoneticAliases[clean] ?? clean.replaceAll('chowk', 'chok');
+
       final provDistricts = NepalGeodata.districtsFor(prov);
       for (final d in provDistricts) {
         if (d.replaceAll(' ', '').toLowerCase() == clean) return d;
@@ -387,13 +491,28 @@ class GeminiOcrService {
         final dClean = d.replaceAll(' ', '').toLowerCase();
         if (clean.contains(dClean) || (clean.length >= 4 && dClean.contains(clean))) return d;
       }
-      // Search across all districts if province was misidentified
+      // Search across all 77 districts if province was blank or misidentified
       for (final d in NepalGeodata.allDistricts) {
         if (d.replaceAll(' ', '').toLowerCase() == clean) return d;
       }
       for (final d in NepalGeodata.allDistricts) {
         final dClean = d.replaceAll(' ', '').toLowerCase();
         if (clean.contains(dClean) || (clean.length >= 4 && dClean.contains(clean))) return d;
+      }
+      // Fuzzy Levenshtein match for 1-2 character handwriting slips (e.g. "KATHMNDU" -> "Kathmandu", "BHAKTPUR" -> "Bhaktapur")
+      if (clean.length >= 5) {
+        String? bestMatch;
+        int bestDist = 99;
+        final maxAllowed = clean.length >= 7 ? 2 : 1;
+        for (final d in NepalGeodata.allDistricts) {
+          final dClean = d.replaceAll(' ', '').toLowerCase();
+          final dist = editDistance(clean, dClean);
+          if (dist <= maxAllowed && dist < bestDist) {
+            bestDist = dist;
+            bestMatch = d;
+          }
+        }
+        if (bestMatch != null) return bestMatch;
       }
       return raw.trim();
     }
@@ -467,7 +586,7 @@ class GeminiOcrService {
         final v = rawDemo['surname']?.toString().trim() ?? '';
         return v.toLowerCase() == 'null' ? '' : v;
       }(),
-      'age': (rawDemo['age'] as num?)?.toInt(),
+      'age': parseHandwrittenInt(rawDemo['age']),
       'maritalStatus': () {
         final raw = rawDemo['maritalStatus']?.toString().toLowerCase().trim();
         if (raw == null || raw.isEmpty || raw == 'null') return null;
@@ -492,29 +611,21 @@ class GeminiOcrService {
         if (relSur.isNotEmpty && relSur.toLowerCase() != 'null') return relSur;
         return '';
       }(),
-      'mobile': () {
-        final v = rawDemo['mobile']?.toString().trim() ?? '';
-        return v.toLowerCase() == 'null' ? '' : v;
-      }(),
-      'maritalAge': (rawDemo['maritalAge'] as num?)?.toInt() ?? (rawObs['ageAtMarriage'] as num?)?.toInt(),
+      'mobile': cleanHandwrittenDigits(rawDemo['mobile']),
+      'maritalAge': parseHandwrittenInt(rawDemo['maritalAge']) ??
+          parseHandwrittenInt(rawObs['ageAtMarriage']),
       'contactPerson': () {
         final v = rawDemo['contactPerson']?.toString().trim() ?? '';
         return v.toLowerCase() == 'null' ? '' : v;
       }(),
-      'contactMobile': () {
-        final v = rawDemo['contactMobile']?.toString().trim() ?? '';
-        return v.toLowerCase() == 'null' ? '' : v;
-      }(),
+      'contactMobile': cleanHandwrittenDigits(rawDemo['contactMobile']),
       'province': normProv,
       'district': normDist,
       'municipality': () {
         final v = rawDemo['municipality']?.toString().trim() ?? '';
         return v.toLowerCase() == 'null' ? '' : v;
       }(),
-      'ward': () {
-        final v = rawDemo['ward']?.toString().trim() ?? '';
-        return v.toLowerCase() == 'null' ? '' : v;
-      }(),
+      'ward': cleanHandwrittenDigits(rawDemo['ward']),
       'reasonsForVisit': normalizedReasons,
       'consentTreatment': rawDemo['consentTreatment'] as bool?,
       'consentStoreMedicalInfo': rawDemo['consentStoreMedicalInfo'] as bool?,
@@ -560,9 +671,10 @@ class GeminiOcrService {
 
     // Normalize obstetrics (strictly Yellow Form Station 1 fields — NO gravida/deliveries-years-ago)
     final obstetrics = <String, dynamic>{
-      'deliveries': (rawObs['deliveries'] as num?)?.toInt() ?? (rawObs['para'] as num?)?.toInt(),
-      'livingChildren': (rawObs['livingChildren'] as num?)?.toInt(),
-      'abortions': (rawObs['abortions'] as num?)?.toInt(),
+      'deliveries': parseHandwrittenInt(rawObs['deliveries']) ??
+          parseHandwrittenInt(rawObs['para']),
+      'livingChildren': parseHandwrittenInt(rawObs['livingChildren']),
+      'abortions': parseHandwrittenInt(rawObs['abortions']),
       'complaintsDuration': rawObs['complaintsDuration']?.toString().trim() ?? '',
       'clinicalComplaints': () {
         final rawList = (rawObs['clinicalComplaints'] as List<dynamic>?)?.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
@@ -632,14 +744,22 @@ class GeminiOcrService {
     };
 
     // Normalize vitals (strictly Yellow Form Station 3 fields — NO respiratory rate/temp/weight/height)
+    final parsedSys = parseHandwrittenInt(rawVitals['systolicBp']);
+    final parsedDia = parseHandwrittenInt(rawVitals['diastolicBp']);
+    final parsedPulse = parseHandwrittenInt(rawVitals['pulseRate']) ??
+        parseHandwrittenInt(rawVitals['pulse']);
+    final parsedSpo2 = parseHandwrittenInt(rawVitals['spo2']);
+    final parsedGlucose = parseHandwrittenInt(rawVitals['bloodGlucose']) ??
+        parseHandwrittenInt(rawVitals['glucose']) ??
+        parseHandwrittenInt(rawVitals['bloodSugar']);
     final vitals = <String, dynamic>{
-      'systolicBp': (rawVitals['systolicBp'] as num?)?.toInt(),
-      'diastolicBp': (rawVitals['diastolicBp'] as num?)?.toInt(),
-      'pulseRate': (rawVitals['pulseRate'] as num?)?.toInt() ?? (rawVitals['pulse'] as num?)?.toInt(),
-      'pulse': (rawVitals['pulseRate'] as num?)?.toInt() ?? (rawVitals['pulse'] as num?)?.toInt(),
-      'spo2': (rawVitals['spo2'] as num?)?.toInt(),
-      'bloodGlucose': (rawVitals['bloodGlucose'] as num?)?.toInt() ?? (rawVitals['glucose'] as num?)?.toInt() ?? (rawVitals['bloodSugar'] as num?)?.toInt(),
-      'glucose': (rawVitals['bloodGlucose'] as num?)?.toInt() ?? (rawVitals['glucose'] as num?)?.toInt() ?? (rawVitals['bloodSugar'] as num?)?.toInt(),
+      'systolicBp': parsedSys,
+      'diastolicBp': parsedDia,
+      'pulseRate': parsedPulse,
+      'pulse': parsedPulse,
+      'spo2': parsedSpo2,
+      'bloodGlucose': parsedGlucose,
+      'glucose': parsedGlucose,
       'urineTest': () {
         final raw = rawVitals['urineTest']?.toString().trim();
         if (raw == null || raw.isEmpty || raw.toLowerCase() == 'null') return null;
@@ -659,12 +779,12 @@ class GeminiOcrService {
 
     // Normalize POP Staging (strictly Yellow Form Station 2 fields)
     // Preserve null for undetected stages — do NOT default to 0
-    final int? ant = (rawPop['anteriorStage'] as num?)?.toInt();
-    final int? mid = (rawPop['middleStage'] as num?)?.toInt();
-    final int? post = (rawPop['posteriorStage'] as num?)?.toInt();
-    final int? popStageNum = (rawPop['highestPopStage'] as num?)?.toInt() ??
-        (rawPop['highestStage'] as num?)?.toInt() ??
-        (rawPop['stage'] as num?)?.toInt() ??
+    final int? ant = parseHandwrittenInt(rawPop['anteriorStage']);
+    final int? mid = parseHandwrittenInt(rawPop['middleStage']);
+    final int? post = parseHandwrittenInt(rawPop['posteriorStage']);
+    final int? popStageNum = parseHandwrittenInt(rawPop['highestPopStage']) ??
+        parseHandwrittenInt(rawPop['highestStage']) ??
+        parseHandwrittenInt(rawPop['stage']) ??
         (ant != null || mid != null || post != null
             ? [ant ?? 0, mid ?? 0, post ?? 0].reduce((a, b) => a > b ? a : b)
             : null);
@@ -1000,35 +1120,35 @@ class GeminiOcrService {
 Uint8List? _resizeImageIsolate(Uint8List bytes) {
   try {
     final decoded = img.decodeImage(bytes);
-    if (decoded != null && (decoded.width > 1600 || decoded.height > 1600)) {
+    if (decoded != null && (decoded.width > 2200 || decoded.height > 2200)) {
       final resized = img.copyResize(
         decoded,
-        width: decoded.width > decoded.height ? 1600 : null,
-        height: decoded.height >= decoded.width ? 1600 : null,
+        width: decoded.width > decoded.height ? 2200 : null,
+        height: decoded.height >= decoded.width ? 2200 : null,
       );
-      return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+      return Uint8List.fromList(img.encodeJpg(resized, quality: 88));
     }
   } catch (_) {}
   return null;
 }
 
-/// Compresses scan images (including PNG screenshots or high-res camera photos)
-/// into compact JPEG bytes (~150–350 KB) so Base64 strings never exceed Android's
-/// 2 MB SQLite CursorWindow limit.
+/// Compresses large scan images (> 1.2 MB) into high-clarity JPEG bytes (2048px max
+/// dimension at 85% quality) so fine handwritten strokes and checkboxes remain crisp
+/// for Gemini Vision while SQLite streams large Base64 safely in 800 KB chunks.
 Uint8List? _compressForSqliteStorageIsolate(Uint8List bytes) {
   try {
     final decoded = img.decodeImage(bytes);
     if (decoded == null) return null;
-    final img.Image target = (decoded.width > 1400 || decoded.height > 1400)
+    final img.Image target = (decoded.width > 2048 || decoded.height > 2048)
         ? img.copyResize(
             decoded,
-            width: decoded.width > decoded.height ? 1400 : null,
-            height: decoded.height >= decoded.width ? 1400 : null,
+            width: decoded.width > decoded.height ? 2048 : null,
+            height: decoded.height >= decoded.width ? 2048 : null,
           )
         : decoded;
-    var jpg = Uint8List.fromList(img.encodeJpg(target, quality: 75));
-    if (jpg.length > 500000) {
-      jpg = Uint8List.fromList(img.encodeJpg(target, quality: 58));
+    var jpg = Uint8List.fromList(img.encodeJpg(target, quality: 85));
+    if (jpg.length > 1100000) {
+      jpg = Uint8List.fromList(img.encodeJpg(target, quality: 76));
     }
     return jpg;
   } catch (_) {
