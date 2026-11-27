@@ -1136,6 +1136,254 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   final formNo = item.resolvedFormNumber;
                   final isItemSyncing =
                       ocrState.syncingQueueItemIds.contains(item.id);
+                  final isFailedOrConflict =
+                      item.status == 'failed' || item.isConflict;
+                  final cleanedError = item.errorMessage
+                      ?.replaceFirst(RegExp(r'^OcrServiceException:\s*'), '')
+                      .replaceAll(' (status: null)', '')
+                      .trim();
+                  final statusLineText =
+                      'Status: ${item.status.toUpperCase()}'
+                      '${(cleanedError != null && cleanedError.isNotEmpty) ? " — $cleanedError" : ""}';
+
+                  final leadingIcon = Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Icon(
+                      isFailedOrConflict
+                          ? Icons.warning_amber_rounded
+                          : Icons.description_outlined,
+                      size: 20,
+                      color: isFailedOrConflict
+                          ? Colors.red.shade700
+                          : AppTheme.primaryTeal,
+                    ),
+                  );
+
+                  final detailsColumn = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            '${item.campCode} • ${hasP1 && hasP2 ? "Dual-Page (P1+P2)" : (hasP1 ? "Page 1" : "Page 2")}'
+                            '${item.intakeDateHint != null && item.intakeDateHint!.isNotEmpty ? " • Date: ${item.intakeDateHint}" : ""}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                          if (formNo != null && formNo.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryTeal
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: AppTheme.primaryTeal
+                                      .withValues(alpha: 0.35),
+                                ),
+                              ),
+                              child: Text(
+                                'Form #$formNo • ${item.pagePresenceBadge}',
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.primaryDark,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        statusLineText,
+                        key: ValueKey('queue_status_text_${item.id}'),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          height: 1.3,
+                          fontWeight: isFailedOrConflict
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                          color: isFailedOrConflict
+                              ? Colors.red.shade700
+                              : Colors.blueGrey.shade700,
+                        ),
+                        softWrap: true,
+                      ),
+                    ],
+                  );
+
+                  final actionButtons = <Widget>[
+                    if (hasP1 && hasP2)
+                      IconButton(
+                        key: ValueKey('swap_queue_pages_btn_${item.id}'),
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.all(6),
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                        tooltip: 'Swap Page 1 ↔ Page 2',
+                        icon: const Icon(
+                          Icons.swap_horiz_rounded,
+                          size: 18,
+                          color: Colors.deepPurple,
+                        ),
+                        onPressed: isItemSyncing
+                            ? null
+                            : () async {
+                                await ocrVm.swapQueuedItemPages(item.id);
+                              },
+                      ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      tooltip: 'Preview Stored Yellow Form',
+                      icon: const Icon(
+                        Icons.visibility_outlined,
+                        size: 18,
+                        color: AppTheme.primaryTeal,
+                      ),
+                      onPressed: () => _showFullScreenFormPreviewDialog(
+                        context,
+                        page1Bytes: item.page1Bytes,
+                        page2Bytes: item.page2Bytes,
+                        initialPage: hasP1 ? 1 : 2,
+                      ),
+                    ),
+                    if (!item.isConflict)
+                      IconButton(
+                        key: ValueKey('sync_single_queue_btn_${item.id}'),
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.all(6),
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                        tooltip: 'Sync & Commit This Scan (Background)',
+                        icon: isItemSyncing
+                            ? const SizedBox(
+                                width: 15,
+                                height: 15,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.sync_rounded,
+                                size: 18,
+                                color: AppTheme.primaryTeal,
+                              ),
+                        onPressed: (ocrState.isProcessing || isItemSyncing)
+                            ? null
+                            : () async {
+                                final ok = await ocrVm
+                                    .syncSingleOfflineQueueItem(
+                                      item,
+                                      defaultUserId:
+                                          authState.currentUser?.id ??
+                                          'usr-local',
+                                      defaultUserName:
+                                          authState.currentUser?.name ??
+                                          'Field Staff',
+                                      defaultUserRole:
+                                          authState.currentUser?.role
+                                              .toString() ??
+                                          'DataTaker',
+                                      defaultDeviceId:
+                                          deviceState.device?.deviceId ??
+                                          'dev-local',
+                                    );
+                                if (context.mounted) {
+                                  if (ok && activeCamp != null) {
+                                    ref
+                                        .read(patientListProvider.notifier)
+                                        .loadPatients(activeCamp.id);
+                                    ref
+                                        .read(campStateProvider.notifier)
+                                        .loadCamps();
+                                  }
+                                  ref
+                                      .read(syncStateProvider.notifier)
+                                      .refreshPendingCounts();
+                                }
+                              },
+                      ),
+                    IconButton(
+                      key: ValueKey('review_single_queue_btn_${item.id}'),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      tooltip: item.isConflict
+                          ? 'Resolve Verification / Token Conflict'
+                          : 'Extract & Review in Split-Screen',
+                      icon: Icon(
+                        item.isConflict
+                            ? Icons.edit_note_rounded
+                            : Icons.fact_check_outlined,
+                        size: 18,
+                        color: item.isConflict
+                            ? Colors.red.shade700
+                            : Colors.indigo,
+                      ),
+                      onPressed: (ocrState.isProcessing || isItemSyncing)
+                          ? null
+                          : () async {
+                              final ok = await ocrVm
+                                  .processSingleOfflineQueueItem(item);
+                              if (context.mounted) {
+                                if (ok && activeCamp != null) {
+                                  ref
+                                      .read(patientListProvider.notifier)
+                                      .loadPatients(activeCamp.id);
+                                  ref
+                                      .read(campStateProvider.notifier)
+                                      .loadCamps();
+                                }
+                                ref
+                                    .read(syncStateProvider.notifier)
+                                    .refreshPendingCounts();
+                              }
+                            },
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      tooltip: 'Delete Queued Scan',
+                      icon: Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: Colors.red.shade600,
+                      ),
+                      onPressed: isItemSyncing
+                          ? null
+                          : () async {
+                              await ocrVm.deleteOfflineQueueItem(item.id);
+                              ref
+                                  .read(syncStateProvider.notifier)
+                                  .refreshPendingCounts();
+                            },
+                    ),
+                  ];
+
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.symmetric(
@@ -1143,248 +1391,62 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: item.isConflict
+                      color: isFailedOrConflict
                           ? const Color(0xFFFEF2F2)
                           : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: item.isConflict
+                        color: isFailedOrConflict
                             ? Colors.red.shade200
                             : Colors.grey.shade200,
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          item.isConflict
-                              ? Icons.warning_amber_rounded
-                              : Icons.description_outlined,
-                          size: 20,
-                          color: item.isConflict
-                              ? Colors.red.shade700
-                              : AppTheme.primaryTeal,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    child: LayoutBuilder(
+                      builder: (context, rowBox) {
+                        final isNarrowQueueRow = rowBox.maxWidth < 520;
+                        if (isNarrowQueueRow) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                crossAxisAlignment: WrapCrossAlignment.center,
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    '${item.campCode} • ${hasP1 && hasP2 ? "Dual-Page (P1+P2)" : (hasP1 ? "Page 1" : "Page 2")}'
-                                    '${item.intakeDateHint != null && item.intakeDateHint!.isNotEmpty ? " • Date: ${item.intakeDateHint}" : ""}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12.5,
-                                    ),
-                                  ),
-                                  if (formNo != null && formNo.isNotEmpty)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 7,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primaryTeal
-                                            .withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: AppTheme.primaryTeal
-                                              .withValues(alpha: 0.35),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        'Form #$formNo • ${item.pagePresenceBadge}',
-                                        style: const TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppTheme.primaryDark,
-                                        ),
-                                      ),
-                                    ),
+                                  leadingIcon,
+                                  const SizedBox(width: 10),
+                                  Expanded(child: detailsColumn),
                                 ],
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Status: ${item.status.toUpperCase()}${item.errorMessage != null ? " (${item.errorMessage})" : ""}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: (item.status == 'failed' || item.isConflict)
-                                      ? Colors.red.shade700
-                                      : Colors.blueGrey,
+                              const SizedBox(height: 8),
+                              Divider(
+                                height: 1,
+                                color: isFailedOrConflict
+                                    ? Colors.red.shade100
+                                    : Colors.grey.shade200,
+                              ),
+                              const SizedBox(height: 4),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  alignment: WrapAlignment.end,
+                                  children: actionButtons,
                                 ),
-                                maxLines: item.isConflict ? 2 : 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
-                          ),
-                        ),
-                        if (hasP1 && hasP2)
-                          IconButton(
-                            key: ValueKey('swap_queue_pages_btn_${item.id}'),
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.all(6),
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                            tooltip: 'Swap Page 1 ↔ Page 2',
-                            icon: const Icon(
-                              Icons.swap_horiz_rounded,
-                              size: 18,
-                              color: Colors.deepPurple,
-                            ),
-                            onPressed: isItemSyncing
-                                ? null
-                                : () async {
-                                    await ocrVm.swapQueuedItemPages(item.id);
-                                  },
-                          ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.all(6),
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
-                          ),
-                          tooltip: 'Preview Stored Yellow Form',
-                          icon: const Icon(
-                            Icons.visibility_outlined,
-                            size: 18,
-                            color: AppTheme.primaryTeal,
-                          ),
-                          onPressed: () => _showFullScreenFormPreviewDialog(
-                            context,
-                            page1Bytes: item.page1Bytes,
-                            page2Bytes: item.page2Bytes,
-                            initialPage: hasP1 ? 1 : 2,
-                          ),
-                        ),
-                        if (!item.isConflict)
-                          IconButton(
-                            key: ValueKey('sync_single_queue_btn_${item.id}'),
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.all(6),
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                            tooltip: 'Sync & Commit This Scan (Background)',
-                            icon: isItemSyncing
-                                ? const SizedBox(
-                                    width: 15,
-                                    height: 15,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.sync_rounded,
-                                    size: 18,
-                                    color: AppTheme.primaryTeal,
-                                  ),
-                            onPressed: (ocrState.isProcessing || isItemSyncing)
-                                ? null
-                                : () async {
-                                    final ok = await ocrVm
-                                        .syncSingleOfflineQueueItem(
-                                          item,
-                                          defaultUserId:
-                                              authState.currentUser?.id ??
-                                              'usr-local',
-                                          defaultUserName:
-                                              authState.currentUser?.name ??
-                                              'Field Staff',
-                                          defaultUserRole:
-                                              authState.currentUser?.role
-                                                  .toString() ??
-                                              'DataTaker',
-                                          defaultDeviceId:
-                                              deviceState.device?.deviceId ??
-                                              'dev-local',
-                                        );
-                                    if (context.mounted) {
-                                      if (ok && activeCamp != null) {
-                                        ref
-                                            .read(patientListProvider.notifier)
-                                            .loadPatients(activeCamp.id);
-                                        ref
-                                            .read(campStateProvider.notifier)
-                                            .loadCamps();
-                                      }
-                                      ref
-                                          .read(syncStateProvider.notifier)
-                                          .refreshPendingCounts();
-                                    }
-                                  },
-                          ),
-                        IconButton(
-                          key: ValueKey('review_single_queue_btn_${item.id}'),
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.all(6),
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
-                          ),
-                          tooltip: item.isConflict
-                              ? 'Resolve Verification / Token Conflict'
-                              : 'Extract & Review in Split-Screen',
-                          icon: Icon(
-                            item.isConflict
-                                ? Icons.edit_note_rounded
-                                : Icons.fact_check_outlined,
-                            size: 18,
-                            color: item.isConflict
-                                ? Colors.red.shade700
-                                : Colors.indigo,
-                          ),
-                          onPressed: (ocrState.isProcessing || isItemSyncing)
-                              ? null
-                              : () async {
-                                  final ok = await ocrVm
-                                      .processSingleOfflineQueueItem(item);
-                                  if (context.mounted) {
-                                    if (ok && activeCamp != null) {
-                                      ref
-                                          .read(patientListProvider.notifier)
-                                          .loadPatients(activeCamp.id);
-                                      ref
-                                          .read(campStateProvider.notifier)
-                                          .loadCamps();
-                                    }
-                                    ref
-                                        .read(syncStateProvider.notifier)
-                                        .refreshPendingCounts();
-                                  }
-                                },
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.all(6),
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
-                          ),
-                          tooltip: 'Delete Queued Scan',
-                          icon: Icon(
-                            Icons.delete_outline,
-                            size: 18,
-                            color: Colors.red.shade600,
-                          ),
-                          onPressed: isItemSyncing
-                              ? null
-                              : () async {
-                                  await ocrVm.deleteOfflineQueueItem(item.id);
-                                  ref
-                                      .read(syncStateProvider.notifier)
-                                      .refreshPendingCounts();
-                                },
-                        ),
-                      ],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            leadingIcon,
+                            const SizedBox(width: 10),
+                            Expanded(child: detailsColumn),
+                            const SizedBox(width: 8),
+                            ...actionButtons,
+                          ],
+                        );
+                      },
                     ),
                   );
                 }),

@@ -1056,6 +1056,22 @@ void main() {
           deviceId: 'dev-1',
         );
 
+        final failedItem = OfflineScanQueueItem(
+          id: 'failed-q-3',
+          campId: 'camp-2222',
+          campCode: '11',
+          page1ImageBase64: valid1x1PngBase64,
+          page2ImageBase64: valid1x1PngBase64,
+          status: 'failed',
+          errorMessage: 'OcrServiceException: Cannot reach central OCR server. Check Internet connection. (status: null)',
+          createdAt: DateTime(2026, 11, 26, 10, 2),
+          updatedAt: DateTime(2026, 11, 26, 10, 2),
+          createdByUserId: 'usr-1',
+          createdByUserName: 'Staff',
+          createdByUserRole: 'DataTaker',
+          deviceId: 'dev-1',
+        );
+
         final container = ProviderContainer();
         addTearDown(container.dispose);
 
@@ -1071,7 +1087,7 @@ void main() {
         await tester.pump();
 
         container.read(ocrScanProvider.notifier).state = OcrScanState(
-          offlineQueue: [pendingItem, conflictItem],
+          offlineQueue: [pendingItem, conflictItem, failedItem],
           isQueueSyncing: true,
           bulkSyncCompletedCount: 1,
           bulkSyncTotalCount: 3,
@@ -1083,6 +1099,18 @@ void main() {
         expect(find.text('Page 2 (Back Page)'), findsOneWidget);
         expect(find.byKey(const ValueKey('instant_queue_mode_switch')), findsOneWidget);
         expect(find.textContaining('Background digitization running (1 of 3)'), findsOneWidget);
+
+        // Full Status: FAILED text is rendered across full card width on 360px mobile without ellipsis truncation
+        final failedStatusFinder = find.byKey(const ValueKey('queue_status_text_failed-q-3'));
+        expect(failedStatusFinder, findsOneWidget);
+        final failedTextWidget = tester.widget<Text>(failedStatusFinder);
+        expect(failedTextWidget.maxLines, isNull);
+        expect(failedTextWidget.overflow, isNull);
+        expect(
+          failedTextWidget.data,
+          'Status: FAILED — Cannot reach central OCR server. Check Internet connection.',
+        );
+        expect(tester.getSize(failedStatusFinder).width, greaterThan(220));
 
         // Pending item shows 1-by-1 sync button; conflict item hides 1-by-1 auto-sync and shows Resolve button
         expect(find.byKey(const ValueKey('sync_single_queue_btn_pending-q-1')), findsOneWidget);
