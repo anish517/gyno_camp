@@ -11,6 +11,7 @@ import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
 import '../../models/patient_model.dart';
 import '../security/security_service.dart';
+import '../utils/form_page_identifier.dart';
 import 'http_central_api_service.dart';
 import 'report_aggregation_service.dart';
 import 'session_service.dart';
@@ -269,9 +270,22 @@ class GeminiOcrService {
     required String imagePath,
     required int fallbackPageNumber,
   }) {
-    final int detectedPage = (parsedData['pageNumber'] as num?)?.toInt() ?? fallbackPageNumber;
+    final int? explicitDetectedPage = () {
+      final dp = (parsedData['detectedPage'] as num?)?.toInt();
+      if (dp == 1 || dp == 2) return dp;
+      final pn = (parsedData['pageNumber'] as num?)?.toInt();
+      if (pn == 1 || pn == 2) return pn;
+      return null;
+    }();
+    final int detectedPage = explicitDetectedPage ?? fallbackPageNumber;
 
     final rawDemo = (parsedData['demographics'] as Map<String, dynamic>?) ?? {};
+    final rawFormPageCode = (parsedData['formPageCode'] ??
+            rawDemo['formPageCode'] ??
+            '')
+        .toString()
+        .trim();
+    final parsedFormPageCode = FormPageIdentity.parse(rawFormPageCode);
     final rawObs = (parsedData['obstetrics'] as Map<String, dynamic>?) ?? {};
     final rawVitals = (parsedData['vitals'] as Map<String, dynamic>?) ?? {};
     final rawPop = (parsedData['popStaging'] as Map<String, dynamic>?) ?? {};
@@ -517,8 +531,10 @@ class GeminiOcrService {
             parsedData['tokenNo'] ??
             '';
         final str = rawId.toString().trim();
-        if (str.isEmpty || str.toLowerCase() == 'null') return '';
-        return PatientModel.normalizePatientId(rawInput: str);
+        final norm = (str.isEmpty || str.toLowerCase() == 'null')
+            ? ''
+            : PatientModel.normalizePatientId(rawInput: str);
+        return norm.isNotEmpty ? norm : (parsedFormPageCode.formNumber ?? '');
       }(),
       'patientTokenId': () {
         final rawId = rawDemo['patientId'] ??
@@ -533,9 +549,13 @@ class GeminiOcrService {
             parsedData['tokenNo'] ??
             '';
         final str = rawId.toString().trim();
-        if (str.isEmpty || str.toLowerCase() == 'null') return '';
-        return PatientModel.normalizePatientId(rawInput: str);
+        final norm = (str.isEmpty || str.toLowerCase() == 'null')
+            ? ''
+            : PatientModel.normalizePatientId(rawInput: str);
+        return norm.isNotEmpty ? norm : (parsedFormPageCode.formNumber ?? '');
       }(),
+      if (parsedFormPageCode.formattedCode.isNotEmpty)
+        'formPageCode': parsedFormPageCode.formattedCode,
     };
 
     // Normalize obstetrics (strictly Yellow Form Station 1 fields — NO gravida/deliveries-years-ago)
@@ -835,8 +855,9 @@ class GeminiOcrService {
         ? rawClinicalNotes
         : null;
 
-    return OcrScanResultModel(
+    final initialScan = OcrScanResultModel(
       pageNumber: detectedPage,
+      detectedPage: explicitDetectedPage ?? parsedFormPageCode.pageNumber,
       imagePath: imagePath,
       isDualPage: detectedPage == 0,
       isSimulated: false,
@@ -874,6 +895,15 @@ class GeminiOcrService {
       overallConfidence: overallConf,
       rawText: buffer.toString(),
       scannedAt: DateTime.now(),
+    );
+
+    final inferredPage = FormPageIdentity.inferPageNumber(initialScan);
+    final effectivePage = (fallbackPageNumber == 0 && explicitDetectedPage == null && parsedFormPageCode.pageNumber == null)
+        ? 0
+        : (inferredPage ?? detectedPage);
+    return initialScan.copyWith(
+      pageNumber: effectivePage,
+      detectedPage: inferredPage,
     );
   }
 

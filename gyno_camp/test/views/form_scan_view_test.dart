@@ -1117,6 +1117,37 @@ class _MemoryArchiveOcrRepository implements IOcrRepository {
   }
 
   @override
+  Future<void> swapOfflineQueueItemPages(String id) async {
+    final idx = items.indexWhere((i) => i.id == id);
+    if (idx == -1) return;
+    final cur = items[idx];
+    items[idx] = OfflineScanQueueItem(
+      id: cur.id,
+      campId: cur.campId,
+      campCode: cur.campCode,
+      page1ImageBase64: cur.page2ImageBase64,
+      page1ImagePath: cur.page2ImagePath,
+      page2ImageBase64: cur.page1ImageBase64,
+      page2ImagePath: cur.page1ImagePath,
+      patientTokenHint: cur.patientTokenHint,
+      intakeDateHint: cur.intakeDateHint,
+      examiningNurseHint: cur.examiningNurseHint,
+      examiningDoctorHint: cur.examiningDoctorHint,
+      status: (cur.status == 'conflict' || cur.status == 'failed')
+          ? 'pending'
+          : cur.status,
+      reviewStatus: cur.reviewStatus,
+      createdByUserId: cur.createdByUserId,
+      createdByUserName: cur.createdByUserName,
+      createdByUserRole: cur.createdByUserRole,
+      deviceId: cur.deviceId,
+      tenantId: cur.tenantId,
+      createdAt: cur.createdAt,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
   Future<void> deleteOfflineScanQueueItem(String id) async {
     items.removeWhere((i) => i.id == id);
   }

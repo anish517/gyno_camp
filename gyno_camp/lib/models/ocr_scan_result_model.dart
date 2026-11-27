@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import '../core/utils/form_page_identifier.dart';
 import 'patient_model.dart';
 
 class OcrScanResultModel {
   final int pageNumber; // 1 = Front Page, 2 = Back Page, 0 = Full Intake
+  final int? detectedPage; // True page detected from form badge/content (1, 2, or 0/null)
   final String? imagePath;
   final String? page1ImagePath;
   final String? page2ImagePath;
@@ -46,6 +48,7 @@ class OcrScanResultModel {
 
   const OcrScanResultModel({
     required this.pageNumber,
+    this.detectedPage,
     this.imagePath,
     this.page1ImagePath,
     this.page2ImagePath,
@@ -97,6 +100,7 @@ class OcrScanResultModel {
 
   OcrScanResultModel copyWith({
     int? pageNumber,
+    int? detectedPage,
     String? imagePath,
     bool clearImagePath = false,
     String? page1ImagePath,
@@ -158,6 +162,7 @@ class OcrScanResultModel {
   }) {
     return OcrScanResultModel(
       pageNumber: pageNumber ?? this.pageNumber,
+      detectedPage: detectedPage ?? this.detectedPage,
       imagePath: clearImagePath ? null : (imagePath ?? this.imagePath),
       page1ImagePath: clearPage1ImagePath ? null : (page1ImagePath ?? this.page1ImagePath),
       page2ImagePath: clearPage2ImagePath ? null : (page2ImagePath ?? this.page2ImagePath),
@@ -440,6 +445,7 @@ ${page2.rawText}
   Map<String, dynamic> toMap() {
     return {
       'pageNumber': pageNumber,
+      'detectedPage': detectedPage,
       'isSimulated': isSimulated ? 1 : 0,
       'ocrEngine': ocrEngine,
       'imagePath': imagePath,
@@ -506,6 +512,7 @@ ${page2.rawText}
 
     return OcrScanResultModel(
       pageNumber: (map['pageNumber'] as num?)?.toInt() ?? 0,
+      detectedPage: (map['detectedPage'] as num?)?.toInt(),
       imagePath: map['imagePath'] as String?,
       page1ImagePath: map['page1ImagePath'] as String?,
       page2ImagePath: map['page2ImagePath'] as String?,
@@ -713,6 +720,36 @@ class OfflineScanQueueItem {
   bool get isVerified => reviewStatus == 'verified';
   String? get patientIdHint =>
       (committedPatientId != null && committedPatientId!.isNotEmpty) ? committedPatientId : patientTokenHint;
+
+  /// Normalized Form / Token Number if known from committed ID, hint, extracted JSON, or filename.
+  String? get resolvedFormNumber {
+    final candidates = <String?>[
+      committedPatientId,
+      patientTokenHint,
+    ];
+    for (final c in candidates) {
+      if (c == null || c.trim().isEmpty) continue;
+      final parsed = FormPageIdentity.parse(c, campCode: campCode);
+      if (parsed.hasFormNumber) return parsed.formNumber;
+    }
+    final extracted = parsedExtractedResult;
+    if (extracted != null) {
+      final fromExtracted =
+          FormPageIdentity.extractFormNumber(extracted, campCode: campCode);
+      if (fromExtracted != null && fromExtracted.isNotEmpty) {
+        return fromExtracted;
+      }
+    }
+    final p1File = FormPageIdentity.parseFromFilePath(page1ImagePath);
+    if (p1File.hasFormNumber) return p1File.formNumber;
+    final p2File = FormPageIdentity.parseFromFilePath(page2ImagePath);
+    if (p2File.hasFormNumber) return p2File.formNumber;
+    return null;
+  }
+
+  String get pagePresenceBadge => hasPage1 && hasPage2
+      ? 'P1+P2'
+      : (hasPage1 ? 'P1 Only' : (hasPage2 ? 'P2 Only' : 'Empty'));
 
   OcrScanResultModel? get parsedExtractedResult {
     if (extractedJson == null || extractedJson!.isEmpty) return null;

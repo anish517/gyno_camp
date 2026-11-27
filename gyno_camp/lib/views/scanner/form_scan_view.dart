@@ -522,7 +522,35 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                   }
                 },
               ),
-              const SizedBox(height: 18),
+              if (ocrState.hasAnyCapturedImage ||
+                  ocrState.hasPage1 ||
+                  ocrState.hasPage2) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    key: const ValueKey('swap_capture_pages_btn'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.primaryTeal,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                    ),
+                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                    label: const Text(
+                      'Swap Page 1 & Page 2',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onPressed: () => ocrVm.swapCapturedPages(),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
 
               // Offline Notice & Save to Local Storage Card (stays above primary Review CTA)
               _buildOfflineNoticeAndSaveCard(context, ocrState, ocrVm),
@@ -721,9 +749,11 @@ class _FormScanViewState extends ConsumerState<FormScanView>
               children: [
                 Row(
                   children: [
-                    const Icon(
-                      Icons.wifi_off_rounded,
-                      color: Color(0xFFD97706),
+                    Icon(
+                      ocrState.isOfflineModeDetected
+                          ? Icons.wifi_off_rounded
+                          : Icons.warning_amber_rounded,
+                      color: const Color(0xFFD97706),
                       size: 22,
                     ),
                     const SizedBox(width: 10),
@@ -1036,10 +1066,10 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                 final String syncMsg;
                                 if (count > 0 && conflictCount > 0) {
                                   syncMsg =
-                                      '✅ Extracted & synced $count offline scan(s). ⚠️ $conflictCount scan(s) paused due to Token ID conflict — resolve below.';
+                                      '✅ Extracted & synced $count offline scan(s). ⚠️ $conflictCount scan(s) paused due to verification/Token ID conflict — resolve below.';
                                 } else if (count == 0 && conflictCount > 0) {
                                   syncMsg =
-                                      '⚠️ $conflictCount queued scan(s) paused due to Token ID conflict. Tap the item below to change or auto-generate its Token ID.';
+                                      '⚠️ $conflictCount queued scan(s) paused due to verification/Token ID conflict. Review or swap pages on the item below.';
                                 } else if (count > 0) {
                                   syncMsg =
                                       '✅ Extracted & synced $count offline scan(s)! Photos retained below for review & correction.';
@@ -1101,10 +1131,9 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                 ],
                 const SizedBox(height: 10),
                 ...visiblePending.map((item) {
-                  final hasP1 =
-                      item.page1Bytes != null && item.page1Bytes!.isNotEmpty;
-                  final hasP2 =
-                      item.page2Bytes != null && item.page2Bytes!.isNotEmpty;
+                  final hasP1 = item.hasPage1;
+                  final hasP2 = item.hasPage2;
+                  final formNo = item.resolvedFormNumber;
                   final isItemSyncing =
                       ocrState.syncingQueueItemIds.contains(item.id);
                   return Container(
@@ -1114,31 +1143,72 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: item.isConflict
+                          ? const Color(0xFFFEF2F2)
+                          : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(
+                        color: item.isConflict
+                            ? Colors.red.shade200
+                            : Colors.grey.shade200,
+                      ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.description_outlined,
+                        Icon(
+                          item.isConflict
+                              ? Icons.warning_amber_rounded
+                              : Icons.description_outlined,
                           size: 20,
-                          color: AppTheme.primaryTeal,
+                          color: item.isConflict
+                              ? Colors.red.shade700
+                              : AppTheme.primaryTeal,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                '${item.campCode} • ${hasP1 && hasP2 ? "Dual-Page (P1+P2)" : (hasP1 ? "Page 1" : "Page 2")}'
-                                '${item.patientIdHint != null && item.patientIdHint!.isNotEmpty ? " • ID: ${item.patientIdHint}" : ""}'
-                                '${item.intakeDateHint != null && item.intakeDateHint!.isNotEmpty ? " • Date: ${item.intakeDateHint}" : ""}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12.5,
-                                ),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    '${item.campCode} • ${hasP1 && hasP2 ? "Dual-Page (P1+P2)" : (hasP1 ? "Page 1" : "Page 2")}'
+                                    '${item.intakeDateHint != null && item.intakeDateHint!.isNotEmpty ? " • Date: ${item.intakeDateHint}" : ""}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                  if (formNo != null && formNo.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryTeal
+                                            .withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: AppTheme.primaryTeal
+                                              .withValues(alpha: 0.35),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Form #$formNo • ${item.pagePresenceBadge}',
+                                        style: const TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppTheme.primaryDark,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
+                              const SizedBox(height: 2),
                               Text(
                                 'Status: ${item.status.toUpperCase()}${item.errorMessage != null ? " (${item.errorMessage})" : ""}',
                                 style: TextStyle(
@@ -1147,12 +1217,33 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                                       ? Colors.red.shade700
                                       : Colors.blueGrey,
                                 ),
-                                maxLines: 1,
+                                maxLines: item.isConflict ? 2 : 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
                         ),
+                        if (hasP1 && hasP2)
+                          IconButton(
+                            key: ValueKey('swap_queue_pages_btn_${item.id}'),
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(6),
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                            tooltip: 'Swap Page 1 ↔ Page 2',
+                            icon: const Icon(
+                              Icons.swap_horiz_rounded,
+                              size: 18,
+                              color: Colors.deepPurple,
+                            ),
+                            onPressed: isItemSyncing
+                                ? null
+                                : () async {
+                                    await ocrVm.swapQueuedItemPages(item.id);
+                                  },
+                          ),
                         IconButton(
                           visualDensity: VisualDensity.compact,
                           padding: const EdgeInsets.all(6),
@@ -1240,7 +1331,7 @@ class _FormScanViewState extends ConsumerState<FormScanView>
                             minHeight: 32,
                           ),
                           tooltip: item.isConflict
-                              ? 'Resolve Token ID Conflict'
+                              ? 'Resolve Verification / Token Conflict'
                               : 'Extract & Review in Split-Screen',
                           icon: Icon(
                             item.isConflict

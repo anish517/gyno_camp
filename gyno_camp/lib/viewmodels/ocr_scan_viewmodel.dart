@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../core/services/document_capture_service.dart';
 import '../core/services/gemini_ocr_service.dart';
+import '../core/utils/form_page_identifier.dart';
 import '../models/ocr_scan_result_model.dart';
 import '../models/patient_model.dart';
 import '../repositories/ocr_repository.dart';
@@ -321,6 +322,59 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
     } catch (_) {}
   }
 
+  /// Swaps Page 1 (Front) and Page 2 (Back) images/scans currently staged in capture slots.
+  void swapCapturedPages() {
+    if (!state.hasAnyCapturedImage && !state.hasPage1 && !state.hasPage2) return;
+    final nextP1Bytes = state.page2ImageBytes;
+    final nextP1Path = state.page2ImagePath;
+    final nextP2Bytes = state.page1ImageBytes;
+    final nextP2Path = state.page1ImagePath;
+    final nextP1Scan = state.page2Scan?.copyWith(pageNumber: 1, detectedPage: 1);
+    final nextP2Scan = state.page1Scan?.copyWith(pageNumber: 2, detectedPage: 2);
+    final nextMerged = (nextP1Scan != null && nextP2Scan != null)
+        ? OcrScanResultModel.merge(nextP1Scan, nextP2Scan)
+        : (nextP1Scan ?? nextP2Scan);
+
+    state = OcrScanState(
+      page1Scan: nextP1Scan,
+      page2Scan: nextP2Scan,
+      scanResult: state.hasScanResult ? nextMerged : null,
+      page1ImageBytes: nextP1Bytes,
+      page1ImagePath: nextP1Path,
+      page2ImageBytes: nextP2Bytes,
+      page2ImagePath: nextP2Path,
+      offlineQueue: state.offlineQueue,
+      engineMode: state.engineMode,
+      autoQueueDualPage: state.autoQueueDualPage,
+      isQueueSyncing: state.isQueueSyncing,
+      syncingQueueItemIds: state.syncingQueueItemIds,
+      bulkSyncCompletedCount: state.bulkSyncCompletedCount,
+      bulkSyncTotalCount: state.bulkSyncTotalCount,
+      activeArchiveItemId: state.activeArchiveItemId,
+      reviewingPatientUuid: state.reviewingPatientUuid,
+      reviewingVisitId: state.reviewingVisitId,
+      successMessage: 'Swapped Page 1 (Front) ↔ Page 2 (Back).',
+    );
+  }
+
+  /// Swaps Page 1 and Page 2 photos stored inside an offline queue item.
+  Future<void> swapQueuedItemPages(String id) async {
+    try {
+      await _repository.swapOfflineQueueItemPages(id);
+      final updatedQueue =
+          await _repository.getOfflineScanQueue(campId: _scopedCampId);
+      if (!mounted) return;
+      state = state.copyWith(
+        offlineQueue: updatedQueue,
+        errorMessage: null,
+        successMessage: 'Swapped Page 1 ↔ Page 2 on queued scan.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(errorMessage: 'Failed to swap queued pages: $e');
+    }
+  }
+
   /// Granularly deletes Page 1, Page 2, or all stored Yellow Form photos for a scan
   /// without deleting the committed patient or clinical visit record.
   Future<void> deleteScanPhoto(String id, {int? pageNumber}) async {
@@ -511,13 +565,32 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       final extracted = await _repository.extractQueuedOfflineItem(item);
       final updatedQueue = await _repository.getOfflineScanQueue(campId: _scopedCampId);
       if (!mounted) return true;
+      OfflineScanQueueItem? refreshed;
+      for (final q in updatedQueue) {
+        if (q.id == item.id) {
+          refreshed = q;
+          break;
+        }
+      }
+      final latestItem = refreshed ?? item;
+      final latestP1Bytes = latestItem.page1Bytes ?? p1Bytes;
+      final latestP2Bytes = latestItem.page2Bytes ?? p2Bytes;
       state = state.copyWith(
         isProcessing: false,
         isOfflineModeDetected: false,
         offlineQueue: updatedQueue,
-        page1Scan: item.hasPage1 ? extracted : null,
-        page2Scan: item.hasPage2 ? extracted : null,
+        page1ImageBytes: latestP1Bytes,
+        page1ImagePath: latestItem.page1ImagePath,
+        page2ImageBytes: latestP2Bytes,
+        page2ImagePath: latestItem.page2ImagePath,
+        clearPage1Image: latestP1Bytes == null || latestP1Bytes.isEmpty,
+        clearPage2Image: latestP2Bytes == null || latestP2Bytes.isEmpty,
+        page1Scan: latestItem.hasPage1 ? extracted : null,
+        page2Scan: latestItem.hasPage2 ? extracted : null,
+        clearPage1: !latestItem.hasPage1,
+        clearPage2: !latestItem.hasPage2,
         scanResult: extracted,
+        activeInspectionPage: latestItem.hasPage1 ? 1 : 2,
         activeArchiveItemId: item.id,
         reviewingPatientUuid: item.committedPatientUuid,
         reviewingVisitId: item.committedVisitId,
@@ -530,6 +603,24 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         campCode: item.campCode,
       );
       return true;
+    } on FormPageVerificationException catch (verifyErr) {
+      final updatedQueue =
+          await _repository.getOfflineScanQueue(campId: _scopedCampId);
+      if (!mounted) return false;
+      state = state.copyWith(
+        isProcessing: false,
+        isOfflineModeDetected: false,
+        offlineQueue: updatedQueue,
+        clearPage1: true,
+        clearPage2: true,
+        clearScanResult: true,
+        page1ImageBytes: p1Bytes,
+        page1ImagePath: item.page1ImagePath,
+        page2ImageBytes: p2Bytes,
+        page2ImagePath: item.page2ImagePath,
+        errorMessage: verifyErr.message,
+      );
+      return false;
     } catch (e) {
       if (!mounted) return false;
       state = state.copyWith(
@@ -582,7 +673,8 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         successMessage: ok
             ? 'Queued scan digitized & committed in background!'
             : (isConflict
-                ? 'Paused: Token ID conflict detected — tap Resolve on the queued item.'
+                ? (refreshedItem?.errorMessage ??
+                    'Paused: verification conflict detected — resolve on the queued item below.')
                 : state.successMessage),
       );
       return ok;
@@ -755,18 +847,81 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         (page2Path != null && page2Path.isNotEmpty);
     if (!hasNewP1 && !hasNewP2) return null;
 
-    final resolvedP1Bytes = hasNewP1 ? page1Bytes : state.page1ImageBytes;
-    final resolvedP1Path = hasNewP1 ? page1Path : state.page1ImagePath;
-    final resolvedP2Bytes = hasNewP2 ? page2Bytes : state.page2ImageBytes;
-    final resolvedP2Path = hasNewP2 ? page2Path : state.page2ImagePath;
+    var incomingP1Bytes = page1Bytes;
+    var incomingP1Path = page1Path;
+    var incomingP2Bytes = page2Bytes;
+    var incomingP2Path = page2Path;
+    var effHasNewP1 = hasNewP1;
+    var effHasNewP2 = hasNewP2;
+    String? preVerifyError;
+    bool autoSwappedByFilename = false;
+
+    final id1 = FormPageIdentity.parseFromFilePath(incomingP1Path);
+    final id2 = FormPageIdentity.parseFromFilePath(incomingP2Path);
+
+    if (effHasNewP1 && effHasNewP2) {
+      if (id1.hasFormNumber &&
+          id2.hasFormNumber &&
+          id1.formNumber!.toUpperCase() != id2.formNumber!.toUpperCase()) {
+        preVerifyError =
+            'Form Number mismatch in selected files: Form #${id1.formNumber} vs Form #${id2.formNumber}. Please select pages from the same patient form.';
+      } else if ((id1.pageNumber == 1 && id2.pageNumber == 1) ||
+          (id1.pageNumber == 2 && id2.pageNumber == 2)) {
+        final dupLabel = id1.pageNumber == 1 ? 'Page 1 (Front)' : 'Page 2 (Back)';
+        preVerifyError =
+            'Duplicate page detected: both selected files appear to be $dupLabel. Please replace one slot with the other page.';
+      } else if (id1.pageNumber == 2 && id2.pageNumber == 1) {
+        final tmpB = incomingP1Bytes;
+        final tmpP = incomingP1Path;
+        incomingP1Bytes = incomingP2Bytes;
+        incomingP1Path = incomingP2Path;
+        incomingP2Bytes = tmpB;
+        incomingP2Path = tmpP;
+        autoSwappedByFilename = true;
+      }
+    } else if (effHasNewP1 &&
+        !effHasNewP2 &&
+        !state.hasPage1Image &&
+        !state.hasPage2Image &&
+        id1.pageNumber == 2) {
+      incomingP2Bytes = incomingP1Bytes;
+      incomingP2Path = incomingP1Path;
+      incomingP1Bytes = null;
+      incomingP1Path = null;
+      effHasNewP1 = false;
+      effHasNewP2 = true;
+    }
+
+    final resolvedP1Bytes = effHasNewP1 ? incomingP1Bytes : state.page1ImageBytes;
+    final resolvedP1Path = effHasNewP1 ? incomingP1Path : state.page1ImagePath;
+    final resolvedP2Bytes = effHasNewP2 ? incomingP2Bytes : state.page2ImageBytes;
+    final resolvedP2Path = effHasNewP2 ? incomingP2Path : state.page2ImagePath;
     final nextHasP1 = (resolvedP1Bytes != null && resolvedP1Bytes.isNotEmpty) ||
         (resolvedP1Path != null && resolvedP1Path.isNotEmpty);
     final nextHasP2 = (resolvedP2Bytes != null && resolvedP2Bytes.isNotEmpty) ||
         (resolvedP2Path != null && resolvedP2Path.isNotEmpty);
 
+    // Also check combined slot1 + slot2 filename hints when filling the second slot manually
+    if (preVerifyError == null && nextHasP1 && nextHasP2) {
+      final slot1Id = FormPageIdentity.parseFromFilePath(resolvedP1Path);
+      final slot2Id = FormPageIdentity.parseFromFilePath(resolvedP2Path);
+      if (slot1Id.hasFormNumber &&
+          slot2Id.hasFormNumber &&
+          slot1Id.formNumber!.toUpperCase() != slot2Id.formNumber!.toUpperCase()) {
+        preVerifyError =
+            'Form Number mismatch: Slot 1 is Form #${slot1Id.formNumber} and Slot 2 is Form #${slot2Id.formNumber}.';
+      } else if ((slot1Id.pageNumber == 1 && slot2Id.pageNumber == 1) ||
+          (slot1Id.pageNumber == 2 && slot2Id.pageNumber == 2)) {
+        final dupLabel =
+            slot1Id.pageNumber == 1 ? 'Page 1 (Front)' : 'Page 2 (Back)';
+        preVerifyError =
+            'Duplicate page detected: both slots appear to hold $dupLabel.';
+      }
+    }
+
     state = OcrScanState(
-      page1Scan: hasNewP1 ? null : state.page1Scan,
-      page2Scan: hasNewP2 ? null : state.page2Scan,
+      page1Scan: effHasNewP1 ? null : state.page1Scan,
+      page2Scan: effHasNewP2 ? null : state.page2Scan,
       page1ImageBytes: resolvedP1Bytes,
       page1ImagePath: resolvedP1Path,
       page2ImageBytes: resolvedP2Bytes,
@@ -778,26 +933,35 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       syncingQueueItemIds: state.syncingQueueItemIds,
       bulkSyncCompletedCount: state.bulkSyncCompletedCount,
       bulkSyncTotalCount: state.bulkSyncTotalCount,
-      successMessage: (nextHasP1 && nextHasP2)
-          ? 'Page 1 & Page 2 captured! Ready to save to local queue or extract.'
-          : (hasNewP1
-              ? 'Page 1 (Front) captured! Scan Page 2 (Back) next.'
-              : 'Page 2 (Back) captured! Scan Page 1 (Front) next.'),
+      errorMessage: preVerifyError,
+      successMessage: preVerifyError != null
+          ? null
+          : ((nextHasP1 && nextHasP2)
+              ? (autoSwappedByFilename
+                  ? 'Auto-ordered Page 1 & Page 2! Ready to save to local queue or extract.'
+                  : 'Page 1 & Page 2 captured! Ready to save to local queue or extract.')
+              : (effHasNewP1
+                  ? 'Page 1 (Front) captured! Scan Page 2 (Back) next.'
+                  : 'Page 2 (Back) captured! Scan Page 1 (Front) next.')),
     );
 
     final effectiveCampId = (campId != null && campId.trim().isNotEmpty)
         ? campId.trim()
         : _scopedCampId;
-    if (nextHasP1 &&
+    if (preVerifyError == null &&
+        nextHasP1 &&
         nextHasP2 &&
         state.autoQueueDualPage &&
         effectiveCampId != null &&
         effectiveCampId.isNotEmpty) {
+      final inferredToken = FormPageIdentity.parseFromFilePath(resolvedP1Path).formNumber ??
+          FormPageIdentity.parseFromFilePath(resolvedP2Path).formNumber;
       return saveCurrentScanOffline(
         campId: effectiveCampId,
         campCode: (campCode != null && campCode.trim().isNotEmpty)
             ? campCode.trim()
             : 'CAMP',
+        patientTokenHint: inferredToken,
         userId: userId,
         userName: userName,
         userRole: userRole,
@@ -869,19 +1033,83 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         if (!mounted) return false;
       }
 
+      bool autoSwapped = false;
+      Uint8List? finalP1Bytes = p1Bytes;
+      String? finalP1Path = p1Path;
+      Uint8List? finalP2Bytes = p2Bytes;
+      String? finalP2Path = p2Path;
+
+      if (res1 != null && res2 != null) {
+        final verified = OcrRepository.verifyAndOrderDualPages(
+          slot1Scan: res1,
+          slot2Scan: res2,
+          campCode: campCode ?? '',
+        );
+        res1 = verified.page1Scan;
+        res2 = verified.page2Scan;
+        if (verified.swapped) {
+          autoSwapped = true;
+          finalP1Bytes = p2Bytes;
+          finalP1Path = p2Path;
+          finalP2Bytes = p1Bytes;
+          finalP2Path = p1Path;
+        }
+      } else if (res1 != null && res2 == null) {
+        final inferred = FormPageIdentity.inferPageNumber(res1);
+        if (inferred == 2) {
+          res2 = res1.copyWith(pageNumber: 2, detectedPage: 2);
+          res1 = null;
+          finalP2Bytes = p1Bytes;
+          finalP2Path = p1Path;
+          finalP1Bytes = null;
+          finalP1Path = null;
+          autoSwapped = true;
+        }
+      } else if (res2 != null && res1 == null) {
+        final inferred = FormPageIdentity.inferPageNumber(res2);
+        if (inferred == 1) {
+          res1 = res2.copyWith(pageNumber: 1, detectedPage: 1);
+          res2 = null;
+          finalP1Bytes = p2Bytes;
+          finalP1Path = p2Path;
+          finalP2Bytes = null;
+          finalP2Path = null;
+          autoSwapped = true;
+        }
+      }
+
       final merged = (res1 != null && res2 != null)
           ? OcrScanResultModel.merge(res1, res2)
           : (res1 ?? res2);
       state = state.copyWith(
         isProcessing: false,
         isOfflineModeDetected: false,
+        page1ImageBytes: finalP1Bytes,
+        page1ImagePath: finalP1Path,
+        page2ImageBytes: finalP2Bytes,
+        page2ImagePath: finalP2Path,
+        clearPage1Image: finalP1Bytes == null && finalP1Path == null,
+        clearPage2Image: finalP2Bytes == null && finalP2Path == null,
         page1Scan: res1,
         page2Scan: res2,
+        clearPage1: res1 == null,
+        clearPage2: res2 == null,
         scanResult: merged,
-        successMessage: 'Form digitized! Review & verify extracted fields below.',
+        activeInspectionPage: res1 != null ? 1 : 2,
+        successMessage: autoSwapped
+            ? 'Auto-identified & placed Page 1 / Page 2 into the right slot! Review extracted fields below.'
+            : 'Form digitized! Review & verify extracted fields below.',
       );
       await validateExtractedScan(campId: campId, campCode: campCode);
       return true;
+    } on FormPageVerificationException catch (verifyErr) {
+      if (!mounted) return false;
+      state = state.copyWith(
+        isProcessing: false,
+        isOfflineModeDetected: false,
+        errorMessage: verifyErr.message,
+      );
+      return false;
     } catch (e) {
       if (!mounted) return false;
       final msg = e.toString();

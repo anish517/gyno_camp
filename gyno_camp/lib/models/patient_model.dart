@@ -349,20 +349,40 @@ class PatientModel {
     clean = clean.replaceAll(RegExp(r'[□☐▣▢]+|\[\s*\]'), '').trim();
     if (clean.isEmpty) return '';
 
-    // Strip optional "|visitDate" suffix from Encounter Slip QR codes (e.g. "00042|2026-11-25")
+    // Strip optional "|visitDate" or "|P1"/"|P2" suffix from QR codes (e.g. "00042|2026-11-25", "00101|P1", "BLANK|P2")
     if (clean.contains('|')) {
       clean = clean.split('|').first.trim();
     }
 
-    // Strip common OCR/form label prefixes like "Token No:", "Patient ID:", "बिरामी टोकन नं:", etc.
+    // Strip common OCR/form label prefixes like "Token No:", "Patient ID:", "Form No:", "बिरामी टोकन नं:", etc.
     clean = clean.replaceFirst(
       RegExp(
-        r'^(encounter\s*token\s*id|patient\s*token\s*id|patient\s*id|token\s*no\.?|token\s*id|token|reg\.?\s*no\.?|बिरामी\s*टोकन\s*(?:नं\.?)?|टोकन\s*(?:नं\.?)?|id|no\.?|#)\s*[:#\-]?\s*',
+        r'^(encounter\s*token\s*id|patient\s*token\s*id|patient\s*id|form\s*no\.?|form\s*id|form|token\s*no\.?|token\s*id|token|reg\.?\s*no\.?|बिरामी\s*टोकन\s*(?:नं\.?)?|टोकन\s*(?:नं\.?)?|id|no\.?|#)\s*[:#\-]?\s*',
         caseSensitive: false,
       ),
       '',
     ).trim();
     if (clean.isEmpty) return '';
+
+    // Strip trailing or leading Yellow Form page tags (e.g., "00101-P1", "00101 • P2", "GC-KTM01-2026-00042-P1")
+    clean = clean.replaceFirst(
+      RegExp(
+        r'[\s•·\-_:/\(]+(?:page\s*|pg\s*|p\s*)[12](?:\s*(?:of\s*2|/2))?\)?\s*$',
+        caseSensitive: false,
+      ),
+      '',
+    ).trim();
+    clean = clean.replaceFirst(
+      RegExp(r'^(?:page\s*|pg\s*|p\s*)[12][\s•·\-_:]+', caseSensitive: false),
+      '',
+    ).trim();
+    if (clean.isEmpty ||
+        RegExp(
+          r'^(?:blank|p\s*1|p\s*2|page\s*1|page\s*2)$',
+          caseSensitive: false,
+        ).hasMatch(clean)) {
+      return '';
+    }
 
     // Reject accidental YYYY-MM-DD BS/AD date reads (e.g. '2083-07-19' or '2026-11-25')
     if (RegExp(r'^20\d{2}[\s/\-]\d{1,2}[\s/\-]\d{1,2}(\s*BS)?$', caseSensitive: false).hasMatch(clean)) {

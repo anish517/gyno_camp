@@ -17,6 +17,7 @@ import '../../models/patient_model.dart';
 import '../../repositories/lookup_repository.dart';
 import '../constants/app_constants.dart';
 import '../constants/clinical_constants.dart';
+import '../utils/form_page_identifier.dart';
 import '../utils/nepali_date_helper.dart';
 import 'report_aggregation_service.dart';
 import 'session_service.dart';
@@ -7386,21 +7387,62 @@ class PdfReportService {
                         pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.end,
                           children: [
-                            pw.Text(
-                              'PATIENT ID: ${patient.patientId}',
-                              style: pw.TextStyle(
-                                fontSize: 9.0,
-                                fontWeight: pw.FontWeight.bold,
-                                color: primary,
-                              ),
+                            pw.Row(
+                              mainAxisSize: pw.MainAxisSize.min,
+                              children: [
+                                pw.Text(
+                                  'PATIENT ID: ${patient.patientId}',
+                                  style: pw.TextStyle(
+                                    fontSize: 8.6,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: primary,
+                                  ),
+                                ),
+                                pw.SizedBox(width: 3),
+                                pw.Container(
+                                  padding: const pw.EdgeInsets.symmetric(
+                                    horizontal: 3,
+                                    vertical: 0.5,
+                                  ),
+                                  decoration: pw.BoxDecoration(
+                                    color: primary,
+                                    borderRadius: const pw.BorderRadius.all(
+                                      pw.Radius.circular(2),
+                                    ),
+                                  ),
+                                  child: pw.Text(
+                                    'P1',
+                                    style: pw.TextStyle(
+                                      fontSize: 7.2,
+                                      fontWeight: pw.FontWeight.bold,
+                                      color: PdfColors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            pw.SizedBox(height: 2),
-                            pw.BarcodeWidget(
-                              barcode: pw.Barcode.code128(),
-                              data: patient.patientId,
-                              width: 65,
-                              height: 18,
-                              drawText: false,
+                            pw.SizedBox(height: 1.5),
+                            pw.Row(
+                              mainAxisSize: pw.MainAxisSize.min,
+                              children: [
+                                pw.BarcodeWidget(
+                                  barcode: pw.Barcode.qrCode(),
+                                  data: FormPageIdentity.buildQrPayload(
+                                    tokenId: patient.patientId,
+                                    pageNumber: 1,
+                                  ),
+                                  width: 17,
+                                  height: 17,
+                                ),
+                                pw.SizedBox(width: 5),
+                                pw.BarcodeWidget(
+                                  barcode: pw.Barcode.code128(),
+                                  data: patient.patientId,
+                                  width: 60,
+                                  height: 16,
+                                  drawText: false,
+                                ),
+                              ],
                             ),
                           ],
                         )
@@ -7412,7 +7454,10 @@ class PdfReportService {
                           children: [
                             pw.BarcodeWidget(
                               barcode: pw.Barcode.qrCode(),
-                              data: preprintedPatientId,
+                              data: FormPageIdentity.buildQrPayload(
+                                tokenId: preprintedPatientId,
+                                pageNumber: 1,
+                              ),
                               width: 24,
                               height: 24,
                             ),
@@ -7420,13 +7465,39 @@ class PdfReportService {
                             pw.Column(
                               crossAxisAlignment: pw.CrossAxisAlignment.end,
                               children: [
-                                pw.Text(
-                                  'PATIENT ID: $preprintedPatientId',
-                                  style: pw.TextStyle(
-                                    fontSize: 9.0,
-                                    fontWeight: pw.FontWeight.bold,
-                                    color: primary,
-                                  ),
+                                pw.Row(
+                                  mainAxisSize: pw.MainAxisSize.min,
+                                  children: [
+                                    pw.Text(
+                                      'PATIENT ID: $preprintedPatientId',
+                                      style: pw.TextStyle(
+                                        fontSize: 9.0,
+                                        fontWeight: pw.FontWeight.bold,
+                                        color: primary,
+                                      ),
+                                    ),
+                                    pw.SizedBox(width: 4),
+                                    pw.Container(
+                                      padding: const pw.EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 1,
+                                      ),
+                                      decoration: pw.BoxDecoration(
+                                        color: primary,
+                                        borderRadius: const pw.BorderRadius.all(
+                                          pw.Radius.circular(2),
+                                        ),
+                                      ),
+                                      child: pw.Text(
+                                        'P1',
+                                        style: pw.TextStyle(
+                                          fontSize: 7.5,
+                                          fontWeight: pw.FontWeight.bold,
+                                          color: PdfColors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 pw.SizedBox(height: 2),
                                 pw.BarcodeWidget(
@@ -7443,7 +7514,17 @@ class PdfReportService {
                       else
                         pw.Row(
                           mainAxisSize: pw.MainAxisSize.min,
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
                           children: [
+                            pw.BarcodeWidget(
+                              barcode: pw.Barcode.qrCode(),
+                              data: FormPageIdentity.buildQrPayload(
+                                pageNumber: 1,
+                              ),
+                              width: 22,
+                              height: 22,
+                            ),
+                            pw.SizedBox(width: 5),
                             pw.Text(
                               'Token: ',
                               style: pw.TextStyle(
@@ -7459,6 +7540,27 @@ class PdfReportService {
                               boxSize: dynamicTokenBoxSize,
                               boxHeight: 15.5,
                               boxMargin: dynamicTokenBoxMargin,
+                            ),
+                            pw.SizedBox(width: 3),
+                            pw.Container(
+                              padding: const pw.EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              decoration: pw.BoxDecoration(
+                                color: primary,
+                                borderRadius: const pw.BorderRadius.all(
+                                  pw.Radius.circular(2),
+                                ),
+                              ),
+                              child: pw.Text(
+                                'P1',
+                                style: pw.TextStyle(
+                                  fontSize: 7.8,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.white,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -9023,29 +9125,57 @@ class PdfReportService {
                       ),
                       pw.SizedBox(width: 6),
                       if (hasPatient)
-                        pw.Row(
-                          mainAxisSize: pw.MainAxisSize.min,
-                          crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.end,
                           children: [
-                            pw.BarcodeWidget(
-                              barcode: pw.Barcode.qrCode(),
-                              data: patient.patientId,
-                              width: 24,
-                              height: 24,
-                            ),
-                            pw.SizedBox(width: 6),
-                            pw.Column(
-                              crossAxisAlignment: pw.CrossAxisAlignment.end,
+                            pw.Row(
+                              mainAxisSize: pw.MainAxisSize.min,
                               children: [
                                 pw.Text(
                                   'PATIENT ID: ${patient.patientId}',
                                   style: pw.TextStyle(
-                                    fontSize: 9.0,
+                                    fontSize: 8.6,
                                     fontWeight: pw.FontWeight.bold,
                                     color: primary,
                                   ),
                                 ),
-                                pw.SizedBox(height: 2),
+                                pw.SizedBox(width: 3),
+                                pw.Container(
+                                  padding: const pw.EdgeInsets.symmetric(
+                                    horizontal: 3,
+                                    vertical: 0.5,
+                                  ),
+                                  decoration: pw.BoxDecoration(
+                                    color: dark,
+                                    borderRadius: const pw.BorderRadius.all(
+                                      pw.Radius.circular(2),
+                                    ),
+                                  ),
+                                  child: pw.Text(
+                                    'P2',
+                                    style: pw.TextStyle(
+                                      fontSize: 7.2,
+                                      fontWeight: pw.FontWeight.bold,
+                                      color: PdfColors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            pw.SizedBox(height: 1.5),
+                            pw.Row(
+                              mainAxisSize: pw.MainAxisSize.min,
+                              children: [
+                                pw.BarcodeWidget(
+                                  barcode: pw.Barcode.qrCode(),
+                                  data: FormPageIdentity.buildQrPayload(
+                                    tokenId: patient.patientId,
+                                    pageNumber: 2,
+                                  ),
+                                  width: 16,
+                                  height: 16,
+                                ),
+                                pw.SizedBox(width: 5),
                                 pw.BarcodeWidget(
                                   barcode: pw.Barcode.code128(),
                                   data: patient.patientId,
@@ -9065,7 +9195,10 @@ class PdfReportService {
                           children: [
                             pw.BarcodeWidget(
                               barcode: pw.Barcode.qrCode(),
-                              data: preprintedPatientId,
+                              data: FormPageIdentity.buildQrPayload(
+                                tokenId: preprintedPatientId,
+                                pageNumber: 2,
+                              ),
                               width: 24,
                               height: 24,
                             ),
@@ -9093,6 +9226,27 @@ class PdfReportService {
                                   boxHeight: 15.5,
                                   boxMargin: preprintedPatientId.length <= 6 ? 1.5 : 1.0,
                                 ),
+                                pw.SizedBox(width: 3),
+                                pw.Container(
+                                  padding: const pw.EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
+                                  decoration: pw.BoxDecoration(
+                                    color: dark,
+                                    borderRadius: const pw.BorderRadius.all(
+                                      pw.Radius.circular(2),
+                                    ),
+                                  ),
+                                  child: pw.Text(
+                                    'P2',
+                                    style: pw.TextStyle(
+                                      fontSize: 7.8,
+                                      fontWeight: pw.FontWeight.bold,
+                                      color: PdfColors.white,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -9100,7 +9254,17 @@ class PdfReportService {
                       else
                         pw.Row(
                           mainAxisSize: pw.MainAxisSize.min,
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
                           children: [
+                            pw.BarcodeWidget(
+                              barcode: pw.Barcode.qrCode(),
+                              data: FormPageIdentity.buildQrPayload(
+                                pageNumber: 2,
+                              ),
+                              width: 22,
+                              height: 22,
+                            ),
+                            pw.SizedBox(width: 5),
                             pw.Text(
                               'Token: ',
                               style: pw.TextStyle(
@@ -9116,6 +9280,27 @@ class PdfReportService {
                               boxSize: dynamicTokenBoxSize,
                               boxHeight: 15.5,
                               boxMargin: dynamicTokenBoxMargin,
+                            ),
+                            pw.SizedBox(width: 3),
+                            pw.Container(
+                              padding: const pw.EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              decoration: pw.BoxDecoration(
+                                color: dark,
+                                borderRadius: const pw.BorderRadius.all(
+                                  pw.Radius.circular(2),
+                                ),
+                              ),
+                              child: pw.Text(
+                                'P2',
+                                style: pw.TextStyle(
+                                  fontSize: 7.8,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.white,
+                                ),
+                              ),
                             ),
                           ],
                         ),

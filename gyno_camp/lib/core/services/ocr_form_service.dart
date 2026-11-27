@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 import '../constants/clinical_constants.dart';
 import '../constants/nepal_geodata.dart';
+import '../utils/form_page_identifier.dart';
 import '../../models/nurse_profile.dart';
 import '../../models/ocr_scan_result_model.dart';
 import '../../models/patient_model.dart';
@@ -30,8 +31,18 @@ class OcrFormService {
     final lines = text.split(RegExp(r'[\r\n]+')).map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
     final lowerText = text.toLowerCase();
 
-    final bool isPage1Only = pageNumber == 1;
-    final bool isPage2Only = pageNumber == 2;
+    final bool hasExplicitP1Banner = lowerText.contains('yellow form - page 1') ||
+        lowerText.contains('page 1 (front)') ||
+        lowerText.contains('patient registration & anamnesis');
+    final bool hasExplicitP2Banner = lowerText.contains('yellow form - page 2') ||
+        lowerText.contains('page 2 (back)') ||
+        lowerText.contains('clinical assessment & examination');
+    final int effectivePageNumber = (hasExplicitP1Banner && !hasExplicitP2Banner)
+        ? 1
+        : ((hasExplicitP2Banner && !hasExplicitP1Banner) ? 2 : pageNumber);
+
+    final bool isPage1Only = effectivePageNumber == 1;
+    final bool isPage2Only = effectivePageNumber == 2;
 
     // Optical Mark Recognition (OMR) on image file if available
     Map<String, OmrResult>? page1OmrReasons;
@@ -354,10 +365,11 @@ class OcrFormService {
 
     // ── Patient Token ID / बिरामी टोकन नं (Page 1, Page 2 header, & Follow-Up Encounter Sheets) ──
     String? extractedTokenId;
+    int? extractedBadgePage;
 
     // 1. Regex check for full standard format: GC-[CODE]-[YEAR]-[SEQ]
     final fullTokenMatch = RegExp(
-      r'\bGC-([A-Za-z0-9_-]+)-(\d{4})-(\d{1,6})\b',
+      r'\bGC-([A-Za-z0-9_-]+)-(\d{4})-(\d{1,6})(?:[\s•·\-_:/]+P([12]))?\b',
       caseSensitive: false,
     ).firstMatch(text);
 
@@ -366,8 +378,11 @@ class OcrFormService {
       final yr = fullTokenMatch.group(2)!;
       final seq = fullTokenMatch.group(3)!.padLeft(5, '0');
       extractedTokenId = 'GC-$code-$yr-$seq';
+      if (fullTokenMatch.group(4) != null) {
+        extractedBadgePage = int.tryParse(fullTokenMatch.group(4)!);
+      }
     } else {
-      // 2. Search for Token ID label followed by 5-digit sequence or legacy code
+      // 2. Search for Token ID label followed by 5-digit sequence, P1/P2 badge, or legacy code
       final rawTokenVal = findValueForLabel([
         'encounter token id', 'patient token id', 'patient token', 'patient id',
         'token id', 'token no', 'token number',
@@ -376,7 +391,25 @@ class OcrFormService {
 
       if (rawTokenVal != null && rawTokenVal.isNotEmpty) {
         final strippedBoxes = rawTokenVal.replaceAll(RegExp(r'[□☐▣▢]+|\[\s*\]'), '').trim();
-        final compactToken = strippedBoxes.replaceAll(RegExp(r'\s+'), '');
+        final badgeIdentity = FormPageIdentity.parse(strippedBoxes);
+        if (badgeIdentity.hasPageNumber) {
+          extractedBadgePage = badgeIdentity.pageNumber;
+        }
+        // Remove trailing/leading P1/P2 page badge before extracting digits so "00101 • P1" or "P2" never pollutes digits
+        final tokenWithoutPageBadge = strippedBoxes
+            .replaceFirst(
+              RegExp(
+                r'[\s•·\-_:/\(]+(?:page\s*|pg\s*|p\s*)[12](?:\s*(?:of\s*2|/2))?\)?\s*$',
+                caseSensitive: false,
+              ),
+              '',
+            )
+            .replaceFirst(
+              RegExp(r'^(?:blank|p\s*1|p\s*2|page\s*1|page\s*2)$', caseSensitive: false),
+              '',
+            )
+            .trim();
+        final compactToken = tokenWithoutPageBadge.replaceAll(RegExp(r'\s+'), '');
         final isDateValue = RegExp(r'^20\d{2}[-/]\d{1,2}[-/]\d{1,2}', caseSensitive: false).hasMatch(compactToken);
         final isUnfilledPrefix = compactToken.isEmpty ||
             RegExp(r'^GC-[A-Za-z0-9_□]+-\d{4}-?$', caseSensitive: false).hasMatch(compactToken);
@@ -387,7 +420,7 @@ class OcrFormService {
               extractedTokenId = 'GC-${m.group(1)!.toUpperCase()}-${m.group(2)}-${m.group(3)!.padLeft(5, "0")}';
             }
           } else if (!compactToken.toUpperCase().startsWith('GC-')) {
-            final digits = strippedBoxes.replaceAll(RegExp(r'[^0-9]'), '');
+            final digits = tokenWithoutPageBadge.replaceAll(RegExp(r'[^0-9]'), '');
             final isPhone = digits.length == 10 && (digits.startsWith('97') || digits.startsWith('98'));
             final parsedSeq = int.tryParse(digits);
             if (!isPhone && digits.isNotEmpty && digits.length <= 8 && parsedSeq != null && parsedSeq > 0) {
@@ -402,6 +435,11 @@ class OcrFormService {
       demographics['patientId'] = extractedTokenId;
       demographics['patientTokenId'] = extractedTokenId;
       confidences['patientId'] = 0.95;
+    }
+    if (extractedBadgePage != null) {
+      demographics['formPageCode'] = extractedTokenId != null && extractedTokenId.isNotEmpty
+          ? '$extractedTokenId-P$extractedBadgePage'
+          : 'P$extractedBadgePage';
     }
 
     if (!isPage2Only) {
@@ -2547,8 +2585,12 @@ class OcrFormService {
     final totalConf = confidences.values.fold<double>(0.0, (sum, val) => sum + val);
     final avgConf = confidences.isNotEmpty ? totalConf / confidences.length : 0.80;
 
-    return OcrScanResultModel(
-      pageNumber: pageNumber,
+    final initialScan = OcrScanResultModel(
+      pageNumber: effectivePageNumber,
+      detectedPage: extractedBadgePage ??
+          ((hasExplicitP1Banner && !hasExplicitP2Banner)
+              ? 1
+              : ((hasExplicitP2Banner && !hasExplicitP1Banner) ? 2 : null)),
       imagePath: imagePath,
       demographics: demographics,
       obstetrics: obstetrics,
@@ -2579,6 +2621,14 @@ class OcrFormService {
       overallConfidence: double.parse(avgConf.toStringAsFixed(2)),
       rawText: text,
       scannedAt: DateTime.now(),
+    );
+
+    final inferredPage = FormPageIdentity.inferPageNumber(initialScan);
+    return initialScan.copyWith(
+      pageNumber: pageNumber == 0 && hasExplicitP1Banner && hasExplicitP2Banner
+          ? 0
+          : (inferredPage ?? effectivePageNumber),
+      detectedPage: inferredPage,
     );
   }
 

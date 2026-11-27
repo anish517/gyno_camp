@@ -10,6 +10,7 @@ import '../core/constants/clinical_constants.dart';
 import '../core/constants/nepal_geodata.dart';
 import '../core/database/database_service.dart';
 import '../core/database/database_tables.dart';
+import '../core/utils/form_page_identifier.dart';
 import '../core/utils/nepali_date_helper.dart';
 import '../core/services/gemini_ocr_service.dart';
 import '../core/services/mlkit_ocr_service.dart';
@@ -60,6 +61,28 @@ class TokenIdConflictException implements Exception {
     required this.tokenId,
     required this.existingPatientName,
     required this.message,
+  });
+
+  @override
+  String toString() => message;
+}
+
+class FormPageVerificationException implements Exception {
+  /// `'FORM_NUMBER_MISMATCH'` or `'DUPLICATE_PAGE'`.
+  final String code;
+  final String message;
+  final String? page1FormNumber;
+  final String? page2FormNumber;
+  final int? slot1DetectedPage;
+  final int? slot2DetectedPage;
+
+  const FormPageVerificationException({
+    required this.code,
+    required this.message,
+    this.page1FormNumber,
+    this.page2FormNumber,
+    this.slot1DetectedPage,
+    this.slot2DetectedPage,
   });
 
   @override
@@ -129,6 +152,7 @@ abstract class IOcrRepository {
     bool includePending = false,
   });
   Future<int> getPendingOfflineScanCount({String? campId});
+  Future<void> swapOfflineQueueItemPages(String id);
   Future<void> deleteOfflineScanQueueItem(String id);
   Future<void> deleteScanPhoto(String id, {int? pageNumber});
   Future<int> deleteAllScanPhotos({String? campId});
@@ -291,6 +315,77 @@ class OcrRepository implements IOcrRepository {
     );
   }
 
+  /// Verifies a dual-page scan pair by Form/Token Number and Page 1 vs Page 2 identity.
+  /// - Throws [FormPageVerificationException] (`FORM_NUMBER_MISMATCH`) if both pages have
+  ///   different non-empty Form Numbers (e.g. `00101` vs `00102`).
+  /// - Throws [FormPageVerificationException] (`DUPLICATE_PAGE`) if both images are Page 1
+  ///   or both images are Page 2.
+  /// - Automatically swaps `slot1Scan` and `slot2Scan` (`swapped: true`) if Page 2 was
+  ///   placed in Slot 1 and Page 1 was placed in Slot 2.
+  static ({
+    OcrScanResultModel page1Scan,
+    OcrScanResultModel page2Scan,
+    bool swapped,
+  }) verifyAndOrderDualPages({
+    required OcrScanResultModel slot1Scan,
+    required OcrScanResultModel slot2Scan,
+    String campCode = '',
+  }) {
+    final p1 = FormPageIdentity.inferPageNumber(slot1Scan);
+    final p2 = FormPageIdentity.inferPageNumber(slot2Scan);
+    final tok1 =
+        FormPageIdentity.extractFormNumber(slot1Scan, campCode: campCode);
+    final tok2 =
+        FormPageIdentity.extractFormNumber(slot2Scan, campCode: campCode);
+
+    if (tok1 != null &&
+        tok2 != null &&
+        tok1.toUpperCase() != tok2.toUpperCase()) {
+      throw FormPageVerificationException(
+        code: 'FORM_NUMBER_MISMATCH',
+        page1FormNumber: tok1,
+        page2FormNumber: tok2,
+        slot1DetectedPage: p1,
+        slot2DetectedPage: p2,
+        message:
+            'Form Number mismatch: one page has Form #$tok1 and the other has Form #$tok2. Both pages must belong to the same patient form.',
+      );
+    }
+
+    if ((p1 == 1 && p2 == 1) || (p1 == 2 && p2 == 2)) {
+      final dupLabel = p1 == 1 ? 'Page 1 (Front)' : 'Page 2 (Back)';
+      final missingLabel = p1 == 1 ? 'Page 2 (Back)' : 'Page 1 (Front)';
+      final formTag =
+          (tok1 ?? tok2) != null ? ' (Form #${tok1 ?? tok2})' : '';
+      throw FormPageVerificationException(
+        code: 'DUPLICATE_PAGE',
+        page1FormNumber: tok1,
+        page2FormNumber: tok2,
+        slot1DetectedPage: p1,
+        slot2DetectedPage: p2,
+        message:
+            'Duplicate page detected: both uploaded images are $dupLabel$formTag. Please replace one slot with $missingLabel.',
+      );
+    }
+
+    final isReversed = (p1 == 2 && p2 == 1) ||
+        (p1 == 2 && p2 == null) ||
+        (p1 == null && p2 == 1);
+    if (isReversed) {
+      return (
+        page1Scan: slot2Scan.copyWith(pageNumber: 1, detectedPage: 1),
+        page2Scan: slot1Scan.copyWith(pageNumber: 2, detectedPage: 2),
+        swapped: true,
+      );
+    }
+
+    return (
+      page1Scan: slot1Scan.copyWith(pageNumber: 1, detectedPage: p1 ?? 1),
+      page2Scan: slot2Scan.copyWith(pageNumber: 2, detectedPage: p2 ?? 2),
+      swapped: false,
+    );
+  }
+
   @override
   Future<OcrScanResultModel> processDualPageScan({
     required XFile page1File,
@@ -299,7 +394,11 @@ class OcrRepository implements IOcrRepository {
   }) async {
     final scan1 = await processImageScan(page1File, pageNumber: 1, engineMode: engineMode);
     final scan2 = await processImageScan(page2File, pageNumber: 2, engineMode: engineMode);
-    return OcrScanResultModel.merge(scan1, scan2);
+    final verified = verifyAndOrderDualPages(
+      slot1Scan: scan1,
+      slot2Scan: scan2,
+    );
+    return OcrScanResultModel.merge(verified.page1Scan, verified.page2Scan);
   }
 
   /// Parses form/OCR BS (years 2070..2120) or AD date strings into Gregorian AD DateTimes.
@@ -1121,19 +1220,143 @@ class OcrRepository implements IOcrRepository {
       p2Base64 = prepared.base64;
     }
 
-    final effectiveTokenHint = (patientTokenHint != null && patientTokenHint.trim().isNotEmpty)
+    final rawTokenHint = (patientTokenHint != null && patientTokenHint.trim().isNotEmpty)
         ? patientTokenHint.trim()
         : patientIdHint?.trim();
+    final hintIdentity = FormPageIdentity.parse(rawTokenHint, campCode: campCode);
+    final path1Identity = FormPageIdentity.parseFromFilePath(page1Path);
+    final path2Identity = FormPageIdentity.parseFromFilePath(page2Path);
+
+    String? finalP1Base64 = p1Base64;
+    String? finalP1Path = page1Path;
+    String? finalP2Base64 = p2Base64;
+    String? finalP2Path = page2Path;
+
+    final hasIncomingP1 = (finalP1Base64 != null && finalP1Base64.isNotEmpty) ||
+        (finalP1Path != null && finalP1Path.isNotEmpty);
+    final hasIncomingP2 = (finalP2Base64 != null && finalP2Base64.isNotEmpty) ||
+        (finalP2Path != null && finalP2Path.isNotEmpty);
+
+    // Auto-route or swap based on explicit page tags in token hint or filename
+    if (hasIncomingP1 &&
+        hasIncomingP2 &&
+        path1Identity.pageNumber == 2 &&
+        path2Identity.pageNumber == 1) {
+      final tmpB64 = finalP1Base64;
+      final tmpPath = finalP1Path;
+      finalP1Base64 = finalP2Base64;
+      finalP1Path = finalP2Path;
+      finalP2Base64 = tmpB64;
+      finalP2Path = tmpPath;
+    } else if (hasIncomingP1 &&
+        !hasIncomingP2 &&
+        (hintIdentity.pageNumber == 2 || path1Identity.pageNumber == 2)) {
+      finalP2Base64 = finalP1Base64;
+      finalP2Path = finalP1Path;
+      finalP1Base64 = null;
+      finalP1Path = null;
+    } else if (!hasIncomingP1 &&
+        hasIncomingP2 &&
+        (hintIdentity.pageNumber == 1 || path2Identity.pageNumber == 1)) {
+      finalP1Base64 = finalP2Base64;
+      finalP1Path = finalP2Path;
+      finalP2Base64 = null;
+      finalP2Path = null;
+    }
+
+    String? effectiveTokenHint;
+    if (rawTokenHint != null && rawTokenHint.isNotEmpty) {
+      effectiveTokenHint =
+          hintIdentity.hasPageNumber ? hintIdentity.formNumber : rawTokenHint;
+    } else if (path1Identity.hasFormNumber &&
+        (!path2Identity.hasFormNumber ||
+            path1Identity.formNumber == path2Identity.formNumber)) {
+      effectiveTokenHint = path1Identity.formNumber;
+    } else if (path2Identity.hasFormNumber && !path1Identity.hasFormNumber) {
+      effectiveTokenHint = path2Identity.formNumber;
+    }
+    final normalizedPairToken = hintIdentity.formNumber ??
+        ((effectiveTokenHint != null && effectiveTokenHint.isNotEmpty)
+            ? FormPageIdentity.parse(effectiveTokenHint, campCode: campCode)
+                .formNumber
+            : null);
 
     final now = DateTime.now();
+    final finalHasP1 = (finalP1Base64 != null && finalP1Base64.isNotEmpty) ||
+        (finalP1Path != null && finalP1Path.isNotEmpty);
+    final finalHasP2 = (finalP2Base64 != null && finalP2Base64.isNotEmpty) ||
+        (finalP2Path != null && finalP2Path.isNotEmpty);
+
+    // Auto-pair separate single-page queued scans sharing the same Form Number in this camp
+    if ((finalHasP1 ^ finalHasP2) &&
+        normalizedPairToken != null &&
+        normalizedPairToken.isNotEmpty) {
+      final pendingCandidates = await _queryOfflineScanItems(
+        db,
+        where: "camp_id = ? AND status IN ('pending', 'failed', 'conflict')",
+        whereArgs: [campId],
+        orderBy: 'updated_at DESC, created_at DESC',
+      );
+      for (final cand in pendingCandidates) {
+        final candNeedsP1 = !cand.hasPage1 && cand.hasPage2;
+        final candNeedsP2 = cand.hasPage1 && !cand.hasPage2;
+        final isComplementary =
+            (finalHasP1 && candNeedsP1) || (finalHasP2 && candNeedsP2);
+        if (!isComplementary) continue;
+        final candToken = cand.resolvedFormNumber;
+        if (candToken != null &&
+            candToken.toUpperCase() == normalizedPairToken.toUpperCase()) {
+          final mergedP1B64 = finalHasP1 ? finalP1Base64 : cand.page1ImageBase64;
+          final mergedP1Path = finalHasP1 ? finalP1Path : cand.page1ImagePath;
+          final mergedP2B64 = finalHasP2 ? finalP2Base64 : cand.page2ImageBase64;
+          final mergedP2Path = finalHasP2 ? finalP2Path : cand.page2ImagePath;
+          final mergedIntake = cand.intakeDateHint ?? intakeDateHint?.trim();
+          final mergedNurse =
+              cand.examiningNurseHint ?? examiningNurseHint?.trim();
+          final mergedDoctor =
+              cand.examiningDoctorHint ?? examiningDoctorHint?.trim();
+
+          await db.update(
+            DatabaseTables.tableOfflineScanQueue,
+            {
+              'page1_image_base64': mergedP1B64,
+              'page1_image_path': mergedP1Path,
+              'page2_image_base64': mergedP2B64,
+              'page2_image_path': mergedP2Path,
+              'patient_token_hint': cand.patientTokenHint ?? effectiveTokenHint ?? normalizedPairToken,
+              'intake_date_hint': mergedIntake,
+              'examining_nurse_hint': mergedNurse,
+              'examining_doctor_hint': mergedDoctor,
+              'status': 'pending',
+              'error_message': null,
+              'extracted_json': null,
+              'updated_at': now.toIso8601String(),
+            },
+            where: 'id = ?',
+            whereArgs: [cand.id],
+          );
+
+          final refreshed = await _queryOfflineScanItems(
+            db,
+            where: 'id = ?',
+            whereArgs: [cand.id],
+            limit: 1,
+          );
+          if (refreshed.isNotEmpty) {
+            return refreshed.first;
+          }
+        }
+      }
+    }
+
     final item = OfflineScanQueueItem(
       id: 'offscan-${_uuid.v4()}',
       campId: campId,
       campCode: campCode,
-      page1ImageBase64: p1Base64,
-      page1ImagePath: page1Path,
-      page2ImageBase64: p2Base64,
-      page2ImagePath: page2Path,
+      page1ImageBase64: finalP1Base64,
+      page1ImagePath: finalP1Path,
+      page2ImageBase64: finalP2Base64,
+      page2ImagePath: finalP2Path,
       patientTokenHint: effectiveTokenHint,
       intakeDateHint: intakeDateHint?.trim(),
       examiningNurseHint: examiningNurseHint?.trim(),
@@ -1491,6 +1714,38 @@ class OcrRepository implements IOcrRepository {
   }
 
   @override
+  Future<void> swapOfflineQueueItemPages(String id) async {
+    final db = await _databaseService.database;
+    final rows = await _queryOfflineScanItems(
+      db,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+    final current = rows.first;
+    final nextStatus =
+        (current.status == 'conflict' || current.status == 'failed')
+            ? 'pending'
+            : current.status;
+    await db.update(
+      DatabaseTables.tableOfflineScanQueue,
+      {
+        'page1_image_base64': current.page2ImageBase64,
+        'page1_image_path': current.page2ImagePath,
+        'page2_image_base64': current.page1ImageBase64,
+        'page2_image_path': current.page1ImagePath,
+        if (!current.isCompleted) 'extracted_json': null,
+        if (!current.isCompleted) 'error_message': null,
+        'status': nextStatus,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  @override
   Future<void> deleteOfflineScanQueueItem(String id) async {
     final db = await _databaseService.database;
     await db.delete(
@@ -1630,10 +1885,68 @@ class OcrRepository implements IOcrRepository {
       }
 
       if (scan1 != null && scan2 != null) {
-        result = OcrScanResultModel.merge(scan1, scan2);
+        final verified = verifyAndOrderDualPages(
+          slot1Scan: scan1,
+          slot2Scan: scan2,
+          campCode: item.campCode,
+        );
+        if (verified.swapped && item.id.isNotEmpty) {
+          final db = await _databaseService.database;
+          await db.update(
+            DatabaseTables.tableOfflineScanQueue,
+            {
+              'page1_image_base64': item.page2ImageBase64,
+              'page1_image_path': item.page2ImagePath,
+              'page2_image_base64': item.page1ImageBase64,
+              'page2_image_path': item.page1ImagePath,
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            where: 'id = ?',
+            whereArgs: [item.id],
+          );
+        }
+        result = OcrScanResultModel.merge(verified.page1Scan, verified.page2Scan);
       } else if (scan1 != null) {
+        final p1 = FormPageIdentity.inferPageNumber(scan1);
+        if (p1 == 2) {
+          scan1 = scan1.copyWith(pageNumber: 2, detectedPage: 2);
+          if (item.id.isNotEmpty) {
+            final db = await _databaseService.database;
+            await db.update(
+              DatabaseTables.tableOfflineScanQueue,
+              {
+                'page1_image_base64': null,
+                'page1_image_path': null,
+                'page2_image_base64': item.page1ImageBase64,
+                'page2_image_path': item.page1ImagePath,
+                'updated_at': DateTime.now().toIso8601String(),
+              },
+              where: 'id = ?',
+              whereArgs: [item.id],
+            );
+          }
+        }
         result = scan1;
       } else if (scan2 != null) {
+        final p2 = FormPageIdentity.inferPageNumber(scan2);
+        if (p2 == 1) {
+          scan2 = scan2.copyWith(pageNumber: 1, detectedPage: 1);
+          if (item.id.isNotEmpty) {
+            final db = await _databaseService.database;
+            await db.update(
+              DatabaseTables.tableOfflineScanQueue,
+              {
+                'page1_image_base64': item.page2ImageBase64,
+                'page1_image_path': item.page2ImagePath,
+                'page2_image_base64': null,
+                'page2_image_path': null,
+                'updated_at': DateTime.now().toIso8601String(),
+              },
+              where: 'id = ?',
+              whereArgs: [item.id],
+            );
+          }
+        }
         result = scan2;
       } else {
         throw const GeminiOcrException('Offline scan item contains no readable image data.');
@@ -1644,8 +1957,17 @@ class OcrRepository implements IOcrRepository {
     final updatedDemo = Map<String, dynamic>.from(result.demographics);
     String? effectiveIntake = result.intakeDate;
     if (item.patientTokenHint != null && item.patientTokenHint!.trim().isNotEmpty) {
-      updatedDemo['patientId'] = item.patientTokenHint!.trim();
-      updatedDemo['patientTokenId'] = item.patientTokenHint!.trim();
+      final parsedHint = FormPageIdentity.parse(
+        item.patientTokenHint!.trim(),
+        campCode: item.campCode,
+      );
+      final cleanHint = parsedHint.hasPageNumber
+          ? (parsedHint.formNumber ?? '')
+          : item.patientTokenHint!.trim();
+      if (cleanHint.isNotEmpty) {
+        updatedDemo['patientId'] = cleanHint;
+        updatedDemo['patientTokenId'] = cleanHint;
+      }
     }
     if (item.intakeDateHint != null && item.intakeDateHint!.trim().isNotEmpty) {
       effectiveIntake = item.intakeDateHint!.trim();
@@ -1671,6 +1993,146 @@ class OcrRepository implements IOcrRepository {
     );
   }
 
+  /// Attempts to find and merge a complementary single-page scan sharing the same
+  /// Form / Token Number among pending offline queue items in the same camp.
+  Future<({OcrScanResultModel scan, String? pairedItemId})>
+      _tryPairSinglePageItemDuringSync({
+    required Database db,
+    required OfflineScanQueueItem primaryItem,
+    required OcrScanResultModel primaryScan,
+    Set<String>? consumedIds,
+  }) async {
+    if (primaryItem.hasPage1 && primaryItem.hasPage2) {
+      return (scan: primaryScan, pairedItemId: null);
+    }
+    final primaryFormNo = FormPageIdentity.extractFormNumber(
+      primaryScan,
+      campCode: primaryItem.campCode,
+    );
+    final primaryPage = FormPageIdentity.inferPageNumber(primaryScan);
+    if (primaryFormNo == null ||
+        primaryFormNo.isEmpty ||
+        (primaryPage != 1 && primaryPage != 2)) {
+      return (scan: primaryScan, pairedItemId: null);
+    }
+
+    final rawCandidates = await _queryOfflineScanItems(
+      db,
+      where:
+          "camp_id = ? AND id != ? AND status IN ('pending', 'failed')",
+      whereArgs: [primaryItem.campId, primaryItem.id],
+      orderBy: 'created_at ASC',
+    );
+    final singlePageCandidates = rawCandidates.where((c) {
+      if (consumedIds != null && consumedIds.contains(c.id)) return false;
+      return c.hasPage1 ^ c.hasPage2;
+    }).toList();
+    if (singlePageCandidates.isEmpty) {
+      return (scan: primaryScan, pairedItemId: null);
+    }
+
+    // Check explicit matching hints/filenames first, then un-hinted single-page items
+    final prioritized = <OfflineScanQueueItem>[
+      ...singlePageCandidates.where((c) =>
+          c.resolvedFormNumber != null &&
+          c.resolvedFormNumber!.toUpperCase() == primaryFormNo.toUpperCase()),
+      ...singlePageCandidates.where((c) => c.resolvedFormNumber == null),
+    ];
+
+    for (final cand in prioritized) {
+      OcrScanResultModel candScan;
+      try {
+        if (cand.parsedExtractedResult != null) {
+          candScan = cand.parsedExtractedResult!;
+        } else {
+          candScan = await extractQueuedOfflineItem(cand);
+          final candTok = FormPageIdentity.extractFormNumber(
+            candScan,
+            campCode: cand.campCode,
+          );
+          await db.update(
+            DatabaseTables.tableOfflineScanQueue,
+            {
+              'extracted_json': jsonEncode(candScan.toMap()),
+              if (candTok != null && candTok.isNotEmpty)
+                'patient_token_hint': candTok,
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            where: 'id = ?',
+            whereArgs: [cand.id],
+          );
+        }
+      } catch (_) {
+        continue;
+      }
+
+      final candFormNo = FormPageIdentity.extractFormNumber(
+        candScan,
+        campCode: cand.campCode,
+      );
+      if (candFormNo == null ||
+          candFormNo.toUpperCase() != primaryFormNo.toUpperCase()) {
+        continue;
+      }
+
+      final candPage = FormPageIdentity.inferPageNumber(candScan);
+      if ((primaryPage == 1 && candPage == 2) ||
+          (primaryPage == 2 && candPage == 1)) {
+        // Reload latest image columns for both items in case single-page slot normalization moved them
+        final refreshedPrimaryRows = await _queryOfflineScanItems(
+          db,
+          where: 'id = ?',
+          whereArgs: [primaryItem.id],
+          limit: 1,
+        );
+        final refreshedCandRows = await _queryOfflineScanItems(
+          db,
+          where: 'id = ?',
+          whereArgs: [cand.id],
+          limit: 1,
+        );
+        final pRow = refreshedPrimaryRows.isNotEmpty
+            ? refreshedPrimaryRows.first
+            : primaryItem;
+        final cRow =
+            refreshedCandRows.isNotEmpty ? refreshedCandRows.first : cand;
+
+        final frontRow = primaryPage == 1 ? pRow : cRow;
+        final backRow = primaryPage == 2 ? pRow : cRow;
+        final frontScan = (primaryPage == 1 ? primaryScan : candScan)
+            .copyWith(pageNumber: 1, detectedPage: 1);
+        final backScan = (primaryPage == 2 ? primaryScan : candScan)
+            .copyWith(pageNumber: 2, detectedPage: 2);
+
+        final p1B64 = frontRow.page1ImageBase64 ?? frontRow.page2ImageBase64;
+        final p1Path = frontRow.page1ImagePath ?? frontRow.page2ImagePath;
+        final p2B64 = backRow.page2ImageBase64 ?? backRow.page1ImageBase64;
+        final p2Path = backRow.page2ImagePath ?? backRow.page1ImagePath;
+
+        final mergedScan = OcrScanResultModel.merge(frontScan, backScan);
+        await db.update(
+          DatabaseTables.tableOfflineScanQueue,
+          {
+            'page1_image_base64': p1B64,
+            'page1_image_path': p1Path,
+            'page2_image_base64': p2B64,
+            'page2_image_path': p2Path,
+            'patient_token_hint': primaryFormNo,
+            'extracted_json': jsonEncode(mergedScan.toMap()),
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [primaryItem.id],
+        );
+        await deleteOfflineScanQueueItem(cand.id);
+        consumedIds?.add(cand.id);
+        return (scan: mergedScan, pairedItemId: cand.id);
+      }
+    }
+
+    return (scan: primaryScan, pairedItemId: null);
+  }
+
   @override
   Future<bool> syncSingleOfflineQueueItem(
     OfflineScanQueueItem item, {
@@ -1690,6 +2152,14 @@ class OcrRepository implements IOcrRepository {
       );
 
       extracted = await extractQueuedOfflineItem(item);
+      if (!(item.hasPage1 && item.hasPage2)) {
+        final paired = await _tryPairSinglePageItemDuringSync(
+          db: db,
+          primaryItem: item,
+          primaryScan: extracted,
+        );
+        extracted = paired.scan;
+      }
       await commitVerifiedScan(
         verifiedScan: extracted,
         campId: item.campId,
@@ -1706,6 +2176,19 @@ class OcrRepository implements IOcrRepository {
         reviewStatus: 'needs_review',
       );
       return true;
+    } on FormPageVerificationException catch (verifyErr) {
+      await db.update(
+        DatabaseTables.tableOfflineScanQueue,
+        {
+          'status': 'conflict',
+          'error_message': verifyErr.message,
+          'extracted_json': null,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [item.id],
+      );
+      return false;
     } on TokenIdConflictException catch (conflictErr) {
       await db.update(
         DatabaseTables.tableOfflineScanQueue,
@@ -1757,8 +2240,25 @@ class OcrRepository implements IOcrRepository {
     if (items.isEmpty) return 0;
 
     int processedCount = 0;
+    final consumedIds = <String>{};
     for (int i = 0; i < items.length; i++) {
-      final item = items[i];
+      final originalItem = items[i];
+      if (consumedIds.contains(originalItem.id)) {
+        if (onProgress != null) {
+          await onProgress(i + 1, items.length, originalItem.id);
+        }
+        continue;
+      }
+      // Refresh row in case an earlier iteration cached extracted_json on this single-page candidate
+      final freshRows = await _queryOfflineScanItems(
+        db,
+        where: 'id = ?',
+        whereArgs: [originalItem.id],
+        limit: 1,
+      );
+      if (freshRows.isEmpty) continue;
+      final item = freshRows.first;
+
       if (onProgress != null) {
         await onProgress(i, items.length, item.id);
       }
@@ -1772,6 +2272,15 @@ class OcrRepository implements IOcrRepository {
         );
 
         extracted = await extractQueuedOfflineItem(item);
+        if (!(item.hasPage1 && item.hasPage2)) {
+          final paired = await _tryPairSinglePageItemDuringSync(
+            db: db,
+            primaryItem: item,
+            primaryScan: extracted,
+            consumedIds: consumedIds,
+          );
+          extracted = paired.scan;
+        }
         await commitVerifiedScan(
           verifiedScan: extracted,
           campId: item.campId,
@@ -1789,6 +2298,21 @@ class OcrRepository implements IOcrRepository {
         );
 
         processedCount++;
+        if (onProgress != null) {
+          await onProgress(i + 1, items.length, item.id);
+        }
+      } on FormPageVerificationException catch (verifyErr) {
+        await db.update(
+          DatabaseTables.tableOfflineScanQueue,
+          {
+            'status': 'conflict',
+            'error_message': verifyErr.message,
+            'extracted_json': null,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [item.id],
+        );
         if (onProgress != null) {
           await onProgress(i + 1, items.length, item.id);
         }

@@ -245,6 +245,14 @@ class GeminiProxy {
 You are an expert clinical digitization assistant for the official Nepal Ministry of Health and Population (MoHP) Gynecological Camp Yellow Form (गाइनो शिविर फाराम).
 Analyze the provided medical intake form image carefully (Target Page: ${pageNumber == 0 ? 'Auto-detect' : 'Page $pageNumber'}).
 
+CRITICAL PAGE & FORM NUMBER VERIFICATION RULES:
+- Operators may upload Page 1 and Page 2 in reverse order or upload the same page twice. Do NOT blindly trust Target Page when setting `detectedPage`!
+- Inspect the actual image to determine `detectedPage`:
+  * Page 1 (Front) has the header "PATIENT REGISTRATION & ANAMNESIS — PAGE 1 (FRONT)", a "P1" badge beside the top-right Token/Patient ID, "Section A: Patient Demographics", "Section B: Reasons for Visit", and "Station 1: Anamnesis & Obstetric History". -> detectedPage = 1.
+  * Page 2 (Back) has the header "CLINICAL ASSESSMENT & EXAMINATION — PAGE 2 (BACK)", a "P2" badge beside the top-right Token/Patient ID, and "Stations 2 - 6" (POP Exam, Labs/Vitals/ECG, Confirmed Diagnoses, Treatment/Medications, Discharge & Clinician Signatures). -> detectedPage = 2.
+  * If the image is completely unrelated / not a Yellow Form at all -> detectedPage = 0.
+- Read the 5-digit Form / Patient Token Number from the top-right "Token:" boxes or "PATIENT ID:" text on BOTH Page 1 AND Page 2 (whether pre-printed or handwritten, e.g. "00101") into `demographics.patientTokenId` (return null if the 5 Token boxes are blank/empty). Also return `formPageCode` combining the token (if present) and page badge (e.g. "00101-P1", "00101-P2", "P1", or "P2").
+
 CRITICAL RULES:
 - The Yellow Form is a standardized 2-page intake instrument. Do NOT invent, assume, or hallucinate fields that are not printed on the physical form.
 - Specifically: There is NO caste, NO education, NO occupation, NO gravida, NO respiratory rate, NO temperature, NO weight, and NO height on this form.
@@ -373,6 +381,8 @@ PAGE 2 (BACK) — CLINICAL ASSESSMENT & EXAMINATION (STATIONS 2-6):
 Extract the information accurately into this EXACT JSON structure:
 {
   "pageNumber": ${pageNumber == 0 ? '1 or 2' : pageNumber},
+  "detectedPage": 1 or 2 or 0 (TRUE page visible in the image regardless of Target Page: 1 = Page 1 Front, 2 = Page 2 Back, 0 = not a Yellow Form),
+  "formPageCode": "Combined Form/Token + Page tag visible on the sheet (e.g. '00101-P1', '00101-P2', 'P1', or 'P2')",
   "treatmentLevel": "counseling or gyno_checkup or null (from Level of Treatment checkbox on Page 1)",
   "intakeDate": "Date from Page 1 header in YYYY-MM-DD format or null",
   "anamnesisDate": "Anamnesis Date from Station 1 on Page 1 in YYYY-MM-DD format or null",
