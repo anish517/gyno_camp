@@ -106,9 +106,8 @@ class GeminiOcrService {
     final secret = _deviceSecret.isNotEmpty ? _deviceSecret : 'offline-sync-device-secret';
 
     HttpCentralApiService.beginActiveRequest();
-    late final http.Response response;
     try {
-      // Prepare & optimize image (<= 1600px max dimension, quality 85% JPEG)
+      // Prepare & optimize image (sharp <= 2200px JPEG for high-precision handwriting OCR)
       final prepared = await _prepareImage(rawBytes);
 
       final targetBaseUrl = _baseUrl;
@@ -128,50 +127,125 @@ class GeminiOcrService {
         debugPrint('[FormOCR] Sending image to server (${rawBytes.length ~/ 1024} KB raw, Page: $pageNumber)...');
       }
 
-      try {
-        response = await _client.post(uri, headers: headers, body: body).timeout(requestTimeout);
-        if (_explicitBaseUrl == null) {
-          HttpCentralApiService.markServerOnline(targetBaseUrl);
+      for (var parseAttempt = 1; parseAttempt <= 2; parseAttempt++) {
+        late final http.Response response;
+        try {
+          response = await _client.post(uri, headers: headers, body: body).timeout(requestTimeout);
+          if (_explicitBaseUrl == null) {
+            HttpCentralApiService.markServerOnline(targetBaseUrl);
+          }
+        } on TimeoutException {
+          throw const GeminiOcrException('Form digitization timed out. Check the server connection and try again.');
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('[FormOCR] Network error: ${e.runtimeType}');
+          }
+          throw const GeminiOcrException('Cannot reach the GynoCamp server for form digitization.');
         }
-      } on TimeoutException {
-        throw const GeminiOcrException('Form digitization timed out. Check the server connection and try again.');
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('[FormOCR] Network error: ${e.runtimeType}');
+
+        if (response.statusCode != 200) {
+          var message = 'OCR service unavailable (status ${response.statusCode}).';
+          try {
+            final err = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+            final serverMessage = err['error'];
+            if (serverMessage is String && serverMessage.isNotEmpty) message = serverMessage;
+          } catch (_) {}
+          throw GeminiOcrException(message, statusCode: response.statusCode);
         }
-        throw const GeminiOcrException('Cannot reach the GynoCamp server for form digitization.');
+
+        try {
+          final envelope = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+          final extractedText = envelope['text'] as String?;
+          if (extractedText == null || extractedText.trim().isEmpty) {
+            throw const GeminiOcrException('OCR service returned no result.');
+          }
+          final parsedData = _decodeModelJsonObject(extractedText);
+
+          return _mapJsonToScanResult(
+            parsedData: parsedData,
+            imagePath: imagePath,
+            fallbackPageNumber: pageNumber,
+          );
+        } on GeminiOcrException {
+          rethrow;
+        } on FormatException catch (e) {
+          // If an older un-updated server returned truncated JSON (e.g. MAX_TOKENS mid-string),
+          // automatically retry once before failing with a clear actionable message.
+          if (parseAttempt < 2) {
+            if (kDebugMode) {
+              debugPrint('[FormOCR] Truncated/malformed OCR JSON on attempt 1 ($e) — retrying once...');
+            }
+            continue;
+          }
+          throw GeminiOcrException(
+            'OCR output was cut off mid-page by the server ($targetBaseUrl). '
+            'Please pull the latest server update & restart server.dart, or tap Retry.',
+          );
+        } catch (e) {
+          throw GeminiOcrException('Failed to parse OCR output: $e');
+        }
       }
+      throw const GeminiOcrException('OCR service returned no result.');
     } finally {
       HttpCentralApiService.endActiveRequest();
     }
+  }
 
-    if (response.statusCode != 200) {
-      var message = 'OCR service unavailable (status ${response.statusCode}).';
-      try {
-        final err = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        final serverMessage = err['error'];
-        if (serverMessage is String && serverMessage.isNotEmpty) message = serverMessage;
-      } catch (_) {}
-      throw GeminiOcrException(message, statusCode: response.statusCode);
+  /// Cleans markdown fences and escapes raw control characters (`\n`, `\r`, `\t`) inside
+  /// JSON string literals before decoding. Throws [FormatException] if still truncated.
+  static Map<String, dynamic> _decodeModelJsonObject(String raw) {
+    var s = raw.trim();
+    if (s.startsWith('```')) {
+      s = s
+          .replaceFirst(RegExp(r'^```(?:json)?\s*', caseSensitive: false), '')
+          .replaceFirst(RegExp(r'\s*```$'), '')
+          .trim();
     }
-
-    try {
-      final envelope = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-      final extractedText = envelope['text'] as String?;
-      if (extractedText == null || extractedText.trim().isEmpty) {
-        throw const GeminiOcrException('OCR service returned no result.');
+    final firstBrace = s.indexOf('{');
+    final lastBrace = s.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      s = s.substring(firstBrace, lastBrace + 1);
+    }
+    final out = StringBuffer();
+    var inString = false;
+    var escaped = false;
+    for (var i = 0; i < s.length; i++) {
+      final ch = s[i];
+      final code = s.codeUnitAt(i);
+      if (escaped) {
+        out.write(ch);
+        escaped = false;
+        continue;
       }
-      final parsedData = jsonDecode(extractedText) as Map<String, dynamic>;
-
-      return _mapJsonToScanResult(
-        parsedData: parsedData,
-        imagePath: imagePath,
-        fallbackPageNumber: pageNumber,
-      );
-    } catch (e) {
-      if (e is GeminiOcrException) rethrow;
-      throw GeminiOcrException('Failed to parse OCR output: $e');
+      if (inString && ch == r'\') {
+        out.write(ch);
+        escaped = true;
+        continue;
+      }
+      if (ch == '"') {
+        out.write(ch);
+        inString = !inString;
+        continue;
+      }
+      if (inString && code < 0x20) {
+        if (code == 0x0A) {
+          out.write(r'\n');
+        } else if (code == 0x0D) {
+          out.write(r'\r');
+        } else if (code == 0x09) {
+          out.write(r'\t');
+        } else {
+          out.write(' ');
+        }
+        continue;
+      }
+      out.write(ch);
     }
+    final decoded = jsonDecode(out.toString());
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Expected top-level JSON object from OCR.');
+    }
+    return decoded;
   }
 
   /// Public helper for compressing and base64-encoding scan images for local SQLite storage.

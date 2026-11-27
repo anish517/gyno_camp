@@ -112,7 +112,38 @@ void main() {
       expect(parts[1]['inline_data']['data'], 'AAAA');
       expect(body['generationConfig']['responseMimeType'], 'application/json');
       expect(body['generationConfig']['mediaResolution'], 'MEDIA_RESOLUTION_HIGH');
-      expect(body['generationConfig']['maxOutputTokens'], 16384);
+      expect(body['generationConfig']['maxOutputTokens'], 32768);
+      expect(body['generationConfig']['thinkingConfig'], {'thinkingLevel': 'low'});
+    });
+
+    test('retries and fails over when a model returns truncated MAX_TOKENS JSON at HTTP 200', () async {
+      final calledModels = <String>[];
+      final proxy = _proxy(MockClient((request) async {
+        calledModels.add(request.url.path);
+        if (request.url.path.contains('model-a')) {
+          return http.Response(
+            jsonEncode({
+              'candidates': [
+                {
+                  'finishReason': 'MAX_TOKENS',
+                  'content': {
+                    'parts': [
+                      {'text': '{"detectedPage": 1, "demographics": {"firstName": "MAYA'},
+                    ],
+                  },
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        return _geminiOk('{"detectedPage":1,"pageNumber":1}');
+      }));
+
+      final text = await proxy.extractText(imageBase64: 'AAAA', mimeType: 'image/jpeg', pageNumber: 1);
+      expect(text, '{"detectedPage":1,"pageNumber":1}');
+      expect(calledModels.where((p) => p.contains('model-a')).length, 2);
+      expect(calledModels.where((p) => p.contains('model-b')).length, 1);
     });
 
     test('uses active Gemini 4 Hydrogen -> Gemini 3.8 Flash chain with zero deprecated 2.5 models', () {

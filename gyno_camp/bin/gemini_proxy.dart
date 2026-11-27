@@ -158,7 +158,7 @@ class GeminiProxy {
       throw const GeminiProxyException(413, 'BAD_IMAGE', 'Image is missing or too large.');
     }
 
-    String encodePayload({required bool highMediaResolution}) => jsonEncode({
+    String encodePayload({required bool fullFeatures}) => jsonEncode({
           'contents': [
             {
               'parts': [
@@ -171,9 +171,13 @@ class GeminiProxy {
           ],
           'generationConfig': {
             'temperature': 0.1,
-            'maxOutputTokens': 16384,
+            'maxOutputTokens': fullFeatures ? 32768 : 8192,
             'responseMimeType': 'application/json',
-            if (highMediaResolution) 'mediaResolution': 'MEDIA_RESOLUTION_HIGH',
+            if (fullFeatures) 'mediaResolution': 'MEDIA_RESOLUTION_HIGH',
+            if (fullFeatures)
+              'thinkingConfig': {
+                'thinkingLevel': 'low',
+              },
           },
         });
 
@@ -184,8 +188,8 @@ class GeminiProxy {
 
     final response = await _sendWithRetryAndFailover(
       headers,
-      primaryBody: encodePayload(highMediaResolution: true),
-      compatBody: encodePayload(highMediaResolution: false),
+      primaryBody: encodePayload(fullFeatures: true),
+      compatBody: encodePayload(fullFeatures: false),
     );
     if (response.statusCode != 200) {
       // Log status AND upstream body for debugging.
@@ -198,44 +202,114 @@ class GeminiProxy {
       throw const GeminiProxyException(502, 'OCR_UPSTREAM', 'OCR service error.');
     }
 
+    final parseResult = _parseModelJsonResponse(response.body);
+    if (parseResult.isEmptyCandidate) {
+      throw const GeminiProxyException(502, 'OCR_EMPTY', 'OCR service returned no result.');
+    }
+    if (parseResult.validJsonText == null) {
+      throw const GeminiProxyException(
+        502,
+        'OCR_PARSE',
+        'OCR response was cut off or unreadable. Please retry.',
+      );
+    }
+    return parseResult.validJsonText!;
+  }
+
+  /// Extracts non-thought model text, repairs raw control characters inside JSON
+  /// string literals, and verifies the payload is a complete JSON object.
+  static ({String? validJsonText, bool isEmptyCandidate, String? finishReason}) _parseModelJsonResponse(
+    String responseBody,
+  ) {
     try {
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final json = jsonDecode(responseBody) as Map<String, dynamic>;
       final candidates = json['candidates'] as List<dynamic>?;
-      final content = (candidates != null && candidates.isNotEmpty)
-          ? (candidates[0] as Map<String, dynamic>)['content'] as Map<String, dynamic>?
-          : null;
+      if (candidates == null || candidates.isEmpty) {
+        return (validJsonText: null, isEmptyCandidate: true, finishReason: null);
+      }
+      final firstCandidate = candidates[0] as Map<String, dynamic>;
+      final finishReason = firstCandidate['finishReason']?.toString();
+      final content = firstCandidate['content'] as Map<String, dynamic>?;
       final parts = content?['parts'] as List<dynamic>?;
-      String? text;
+      final buffer = StringBuffer();
       if (parts != null && parts.isNotEmpty) {
         // Gemini 3.8 / Gemini 4 reasoning models may emit `{"thought": true, "text": "..."}`
-        // before the final JSON answer part. Always pick the non-thought text part first.
+        // before (or alongside) one or more non-thought JSON text parts. Concatenate all non-thought parts.
         for (final rawPart in parts) {
           if (rawPart is! Map<String, dynamic>) continue;
           if (rawPart['thought'] == true) continue;
           final candidateText = rawPart['text'] as String?;
-          if (candidateText != null && candidateText.trim().isNotEmpty) {
-            text = candidateText;
-            break;
+          if (candidateText != null && candidateText.isNotEmpty) {
+            buffer.write(candidateText);
           }
         }
       }
-      if (text == null || text.trim().isEmpty) {
-        throw const GeminiProxyException(502, 'OCR_EMPTY', 'OCR service returned no result.');
+      final rawText = buffer.toString().trim();
+      if (rawText.isEmpty) {
+        return (validJsonText: null, isEmptyCandidate: true, finishReason: finishReason);
       }
-      final trimmed = text.trim();
-      if (trimmed.startsWith('```')) {
-        final stripped = trimmed
-            .replaceFirst(RegExp(r'^```(?:json)?\s*', caseSensitive: false), '')
-            .replaceFirst(RegExp(r'\s*```$'), '')
-            .trim();
-        if (stripped.isNotEmpty) return stripped;
+      final cleaned = sanitizeJsonObjectText(rawText);
+      final decoded = jsonDecode(cleaned);
+      if (decoded is Map<String, dynamic>) {
+        return (validJsonText: cleaned, isEmptyCandidate: false, finishReason: finishReason);
       }
-      return trimmed;
-    } on GeminiProxyException {
-      rethrow;
+      return (validJsonText: null, isEmptyCandidate: false, finishReason: finishReason);
     } catch (_) {
-      throw const GeminiProxyException(502, 'OCR_PARSE', 'OCR service returned an unreadable result.');
+      return (validJsonText: null, isEmptyCandidate: false, finishReason: null);
     }
+  }
+
+  /// Strips markdown code fences and escapes raw control characters (`\n`, `\r`, `\t`)
+  /// inside JSON string literals so multiline handwritten remarks never break `jsonDecode`.
+  static String sanitizeJsonObjectText(String raw) {
+    var s = raw.trim();
+    if (s.startsWith('```')) {
+      s = s
+          .replaceFirst(RegExp(r'^```(?:json)?\s*', caseSensitive: false), '')
+          .replaceFirst(RegExp(r'\s*```$'), '')
+          .trim();
+    }
+    final firstBrace = s.indexOf('{');
+    final lastBrace = s.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      s = s.substring(firstBrace, lastBrace + 1);
+    }
+    final out = StringBuffer();
+    var inString = false;
+    var escaped = false;
+    for (var i = 0; i < s.length; i++) {
+      final ch = s[i];
+      final code = s.codeUnitAt(i);
+      if (escaped) {
+        out.write(ch);
+        escaped = false;
+        continue;
+      }
+      if (inString && ch == r'\') {
+        out.write(ch);
+        escaped = true;
+        continue;
+      }
+      if (ch == '"') {
+        out.write(ch);
+        inString = !inString;
+        continue;
+      }
+      if (inString && code < 0x20) {
+        if (code == 0x0A) {
+          out.write(r'\n');
+        } else if (code == 0x0D) {
+          out.write(r'\r');
+        } else if (code == 0x09) {
+          out.write(r'\t');
+        } else {
+          out.write(' ');
+        }
+        continue;
+      }
+      out.write(ch);
+    }
+    return out.toString();
   }
 
   Future<http.Response> _sendWithRetryAndFailover(
@@ -256,17 +330,37 @@ class GeminiProxy {
         attempts++;
         try {
           final res = await _client.post(uri, headers: headers, body: activeBody).timeout(requestTimeout);
-          if (res.statusCode == 200) return res;
+          if (res.statusCode == 200) {
+            final parsed = _parseModelJsonResponse(res.body);
+            if (parsed.validJsonText != null) {
+              return res;
+            }
+            // Truncated (`MAX_TOKENS`) or malformed JSON on HTTP 200: retry or fail over!
+            lastResponse = res;
+            print(
+              '! [ocr] Model $model returned incomplete/non-JSON output '
+              '(finishReason=${parsed.finishReason ?? "unknown"}, empty=${parsed.isEmptyCandidate}) — retrying/failing over',
+            );
+            if (attempts < 2) {
+              await Future<void>.delayed(retryDelay(attempts));
+              continue;
+            }
+            break;
+          }
           lastResponse = res;
           if (res.statusCode == 404) {
             break; // model alias not available — immediately fail over to next model
           }
           if (res.statusCode == 400 || res.statusCode == 403) {
             final lowerBody = res.body.toLowerCase();
-            // If an endpoint rejects mediaResolution in generationConfig, retry once without it.
+            // If an endpoint rejects thinkingConfig, mediaResolution, or 32k maxOutputTokens, retry cleanly with compatBody.
             if (res.statusCode == 400 &&
                 activeBody == primaryBody &&
-                lowerBody.contains('mediaresolution')) {
+                (lowerBody.contains('mediaresolution') ||
+                    lowerBody.contains('media_resolution') ||
+                    lowerBody.contains('thinking') ||
+                    lowerBody.contains('maxoutputtokens') ||
+                    lowerBody.contains('max_output_tokens'))) {
               activeBody = compatBody;
               attempts--; // retry same model cleanly without burning failover budget
               continue;
