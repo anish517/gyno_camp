@@ -237,7 +237,22 @@ void main() {
     await tester.tap(find.text('🌐 Gregorian (AD)'));
     await tester.pumpAndSettle();
 
-    expect(find.text('September 2026'), findsOneWidget);
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    final now = DateTime.now();
+    expect(find.text('${months[now.month - 1]} ${now.year}'), findsOneWidget);
     expect(find.text('Mon'), findsOneWidget);
     expect(find.text('Sun'), findsOneWidget);
 
@@ -685,4 +700,55 @@ void main() {
     expect(def!.doctorNames, ['Dr. Anita Sharma (NMC: 14256)']);
     expect(def.assignedStaffIds, ['usr-s1', 'usr-s2']);
   });
+
+  testWidgets(
+    'Bilingual Date Picker renders without RenderFlex overflow when zoomed in / on short viewports',
+    (tester) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      // Simulate zoomed-in browser viewport (e.g. 200%+ zoom -> 640x380 logical px)
+      tester.view.physicalSize = const Size(640, 380);
+      tester.view.devicePixelRatio = 1.0;
+
+      final fakeRepo = FakeCampRepository();
+      await tester.pumpWidget(createTestWidget(fakeRepo));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      // Open Schedule Camp dialog
+      await tester.tap(find.text('New Camp'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      // Scroll to and tap START DATE card to open Bilingual Date Picker
+      final startDateFinder = find.textContaining('START DATE');
+      await tester.ensureVisible(startDateFinder.first);
+      await tester.tap(startDateFinder.first);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      expect(
+        find.text('Bilingual Date Picker (नेपाली र अंग्रेजी मिति)'),
+        findsOneWidget,
+      );
+
+      // Switch to Gregorian (AD) mode under tight zoomed height
+      await tester.tap(find.text('🌐 Gregorian (AD)').last);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      // Shrink even further (300% browser zoom / compact landscape 480x340)
+      tester.view.physicalSize = const Size(480, 340);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      // Confirm Date remains pinned & clickable without overflow
+      await tester.tap(find.text('Confirm Date'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

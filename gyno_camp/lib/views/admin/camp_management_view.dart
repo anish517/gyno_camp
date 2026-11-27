@@ -97,6 +97,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
     final user = ref.watch(authStateProvider).currentUser;
     final deviceState = ref.watch(deviceSecurityProvider);
     ref.watch(staffUsersProvider);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompactAppBar = screenWidth < 560;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -128,19 +130,21 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF30026E).withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.18)),
+                if (!isCompactAppBar) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF30026E).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF30026E).withValues(alpha: 0.18)),
+                    ),
+                    child: Text(
+                      '${campState.camps.length} Camps',
+                      style: const TextStyle(color: Color(0xFF30026E), fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                  child: Text(
-                    '${campState.camps.length} Camps',
-                    style: const TextStyle(color: Color(0xFF30026E), fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ),
+                ],
               ],
             ),
             const SizedBox(height: 2),
@@ -153,30 +157,38 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
           ],
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.print_outlined, size: 16),
-              label: const Text('Blank Forms'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.brandPurple,
-                backgroundColor: AppTheme.brandPurpleLight,
-                side: const BorderSide(color: AppTheme.brandPurpleBorder),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                textStyle: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
+          if (isCompactAppBar)
+            IconButton(
+              tooltip: 'Blank Forms',
+              icon: const Icon(Icons.print_outlined, color: AppTheme.brandPurple, size: 20),
               onPressed: () => BlankFormDownloadDialog.show(context, camp: null),
+            )
+          else ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.print_outlined, size: 16),
+                label: const Text('Blank Forms'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.brandPurple,
+                  backgroundColor: AppTheme.brandPurpleLight,
+                  side: const BorderSide(color: AppTheme.brandPurpleBorder),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                onPressed: () => BlankFormDownloadDialog.show(context, camp: null),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
+            const SizedBox(width: 8),
+          ],
           Padding(
-            padding: const EdgeInsets.only(right: 16.0),
+            padding: EdgeInsets.only(right: isCompactAppBar ? 10.0 : 16.0),
             child: ElevatedButton.icon(
               icon: const Icon(Icons.add_location_alt, size: 16),
               label: const Text('New Camp'),
@@ -184,13 +196,16 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 backgroundColor: AppTheme.brandPurple,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isCompactAppBar ? 10 : 16,
+                  vertical: 9,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                textStyle: const TextStyle(
+                textStyle: TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                  fontSize: isCompactAppBar ? 12 : 13,
                 ),
               ),
               onPressed: () => _showCreateCampDialog(context),
@@ -2971,13 +2986,18 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                 }
 
                 return Dialog(
+                  insetPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                   backgroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   clipBehavior: Clip.antiAlias,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       maxWidth: 680,
-                      maxHeight: MediaQuery.of(context).size.height * 0.92,
+                      maxHeight: (MediaQuery.sizeOf(ctx).height - 32)
+                          .clamp(220.0, 1200.0),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -3075,12 +3095,20 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                       child: DropdownButtonFormField<String>(
                                         key: ValueKey('create_prov_$selectedProvince'),
                                         initialValue: selectedProvince,
+                                        isExpanded: true,
                                         decoration: _dialogInputDecoration(
                                           labelText: 'Province * (प्रदेश)',
                                           prefixIcon: const Icon(Icons.account_balance_outlined, size: 18, color: AppTheme.primaryDark),
                                         ),
                                         items: ClinicalConstants.nepalProvinces.map((prov) {
-                                          return DropdownMenuItem(value: prov, child: Text(prov, style: const TextStyle(fontSize: 13)));
+                                          return DropdownMenuItem(
+                                            value: prov,
+                                            child: Text(
+                                              prov,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(fontSize: 13),
+                                            ),
+                                          );
                                         }).toList(),
                                         onChanged: (val) {
                                           if (val != null) {
@@ -3107,12 +3135,20 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                         initialValue: NepalGeodata.districtsFor(selectedProvince).contains(selectedDistrict)
                                             ? selectedDistrict
                                             : (NepalGeodata.districtsFor(selectedProvince).isNotEmpty ? NepalGeodata.districtsFor(selectedProvince).first : null),
+                                        isExpanded: true,
                                         decoration: _dialogInputDecoration(
                                           labelText: 'District * (जिल्ला)',
                                           prefixIcon: const Icon(Icons.map_outlined, size: 18, color: AppTheme.primaryDark),
                                         ),
                                         items: NepalGeodata.districtsFor(selectedProvince).map((dist) {
-                                          return DropdownMenuItem(value: dist, child: Text(dist, style: const TextStyle(fontSize: 13)));
+                                          return DropdownMenuItem(
+                                            value: dist,
+                                            child: Text(
+                                              dist,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(fontSize: 13),
+                                            ),
+                                          );
                                         }).toList(),
                                         onChanged: (val) {
                                           if (val != null) {
@@ -4168,13 +4204,18 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             }
 
             return Dialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
               backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               clipBehavior: Clip.antiAlias,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: 640,
-                  maxHeight: MediaQuery.of(context).size.height * 0.90,
+                  maxHeight: (MediaQuery.sizeOf(dialogCtx).height - 32)
+                      .clamp(220.0, 1200.0),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -4270,12 +4311,20 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                   child: DropdownButtonFormField<String>(
                                     key: ValueKey('edit_prov_$selectedProvince'),
                                     initialValue: selectedProvince,
+                                    isExpanded: true,
                                     decoration: _dialogInputDecoration(
                                       labelText: 'Province * (प्रदेश)',
                                       prefixIcon: const Icon(Icons.account_balance_outlined, size: 18, color: AppTheme.primaryDark),
                                     ),
                                     items: ClinicalConstants.nepalProvinces.map((prov) {
-                                      return DropdownMenuItem(value: prov, child: Text(prov, style: const TextStyle(fontSize: 13)));
+                                      return DropdownMenuItem(
+                                        value: prov,
+                                        child: Text(
+                                          prov,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      );
                                     }).toList(),
                                     onChanged: (val) {
                                       if (val != null) {
@@ -4302,12 +4351,20 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                                     initialValue: NepalGeodata.districtsFor(selectedProvince).contains(selectedDistrict)
                                         ? selectedDistrict
                                         : (NepalGeodata.districtsFor(selectedProvince).isNotEmpty ? NepalGeodata.districtsFor(selectedProvince).first : null),
+                                    isExpanded: true,
                                     decoration: _dialogInputDecoration(
                                       labelText: 'District * (जिल्ला)',
                                       prefixIcon: const Icon(Icons.map_outlined, size: 18, color: AppTheme.primaryDark),
                                     ),
                                     items: NepalGeodata.districtsFor(selectedProvince).map((dist) {
-                                      return DropdownMenuItem(value: dist, child: Text(dist, style: const TextStyle(fontSize: 13)));
+                                      return DropdownMenuItem(
+                                        value: dist,
+                                        child: Text(
+                                          dist,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      );
                                     }).toList(),
                                     onChanged: (val) {
                                       if (val != null) {
@@ -5611,347 +5668,548 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
             final adDisplay = '${_formatDate(tempDate)} (${_getDayOfWeekShort(tempDate.weekday)})';
 
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Top Header: Live Bilingual Preview Card
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF30026E), Color(0xFF81005D)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                constraints: BoxConstraints(
+                  maxWidth: 420,
+                  maxHeight: (MediaQuery.sizeOf(pickerCtx).height - 32)
+                      .clamp(220.0, 900.0),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.calendar_month, color: Color(0xFFF5F3FF), size: 16),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Bilingual Date Picker (नेपाली र अंग्रेजी मिति)',
-                                  style: TextStyle(color: Color(0xFFF5F3FF), fontSize: 11, fontWeight: FontWeight.bold),
+                            // Top Header: Live Bilingual Preview Card
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF30026E),
+                                    Color(0xFF81005D),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.calendar_month,
+                                        color: Color(0xFFF5F3FF),
+                                        size: 16,
+                                      ),
+                                      SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          'Bilingual Date Picker (नेपाली र अंग्रेजी मिति)',
+                                          style: TextStyle(
+                                            color: Color(0xFFF5F3FF),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    bsDisplay,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '🌐 Gregorian (AD): $adDisplay',
+                                    style: const TextStyle(
+                                      color: Color(0xFFF5F3FF),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Segmented Mode Toggle: BS vs AD
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.all(3),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildCalendarModePill(
+                                      title: '🇳🇵 Bikram Sambat (BS)',
+                                      isSelected: isNepaliMode,
+                                      onTap: () => setPickerState(
+                                        () => isNepaliMode = true,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: _buildCalendarModePill(
+                                      title: '🌐 Gregorian (AD)',
+                                      isSelected: !isNepaliMode,
+                                      onTap: () => setPickerState(
+                                        () => isNepaliMode = false,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Calendar Grid Area
+                            if (isNepaliMode) ...[
+                              // BS Month Navigation
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.chevron_left,
+                                      size: 20,
+                                      color: AppTheme.primaryTeal,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () {
+                                      setPickerState(() {
+                                        int m = bsMonth.month - 1;
+                                        int y = bsMonth.year;
+                                        if (m < 1) {
+                                          m = 12;
+                                          y--;
+                                        }
+                                        bsMonth = NepaliDateTime(y, m, 1);
+                                      });
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      '${NepaliDateHelper.nepaliMonthPureNp[bsMonth.month - 1]} ${bsMonth.year} (${NepaliDateHelper.nepaliMonthPureEn[bsMonth.month - 1]} BS)',
+                                      textAlign: TextAlign.center,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryDark,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.chevron_right,
+                                      size: 20,
+                                      color: AppTheme.primaryTeal,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () {
+                                      setPickerState(() {
+                                        int m = bsMonth.month + 1;
+                                        int y = bsMonth.year;
+                                        if (m > 12) {
+                                          m = 1;
+                                          y++;
+                                        }
+                                        bsMonth = NepaliDateTime(y, m, 1);
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                              // Days Header
+                              Row(
+                                children: [
+                                  _buildDayHeader('आई'),
+                                  _buildDayHeader('सोम'),
+                                  _buildDayHeader('मंगल'),
+                                  _buildDayHeader('बुध'),
+                                  _buildDayHeader('बिही'),
+                                  _buildDayHeader('शुक्र'),
+                                  _buildDayHeader('शनि', isHoliday: true),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              // Days Grid
+                              Builder(
+                                builder: (_) {
+                                  final daysInMonth =
+                                      NepaliDateHelper.getDaysInBsMonth(
+                                        bsMonth.year,
+                                        bsMonth.month,
+                                      );
+                                  final firstDayOffset =
+                                      NepaliDateHelper.getFirstDayWeekdayBs(
+                                        bsMonth.year,
+                                        bsMonth.month,
+                                      );
+                                  final totalCells =
+                                      ((firstDayOffset + daysInMonth + 6) ~/
+                                          7) *
+                                      7;
+
+                                  return GridView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: totalCells,
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 7,
+                                          mainAxisSpacing: 3,
+                                          crossAxisSpacing: 3,
+                                          childAspectRatio: 1.15,
+                                        ),
+                                    itemBuilder: (context, idx) {
+                                      final dayOffset = idx - firstDayOffset;
+                                      if (dayOffset < 0 ||
+                                          dayOffset >= daysInMonth) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      final dayNum = dayOffset + 1;
+                                      final cellBs = NepaliDateTime(
+                                        bsMonth.year,
+                                        bsMonth.month,
+                                        dayNum,
+                                      );
+                                      final isSelected =
+                                          currentBs.year == cellBs.year &&
+                                          currentBs.month == cellBs.month &&
+                                          currentBs.day == cellBs.day;
+                                      final isSaturday = cellBs.weekday == 7;
+
+                                      return InkWell(
+                                        onTap: () {
+                                          setPickerState(() {
+                                            tempDate = cellBs.toDateTime();
+                                          });
+                                        },
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? AppTheme.primaryTeal
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            '$dayNum',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.bold
+                                                  : FontWeight.w500,
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : (isSaturday
+                                                        ? const Color(
+                                                            0xFFDC2626,
+                                                          )
+                                                        : Colors.black87),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ] else ...[
+                              // AD Month Navigation
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.chevron_left,
+                                      size: 20,
+                                      color: AppTheme.primaryTeal,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () {
+                                      setPickerState(() {
+                                        adMonth = DateTime(
+                                          adMonth.year,
+                                          adMonth.month - 1,
+                                          1,
+                                        );
+                                      });
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      '${_getMonthName(adMonth.month)} ${adMonth.year}',
+                                      textAlign: TextAlign.center,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryDark,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.chevron_right,
+                                      size: 20,
+                                      color: AppTheme.primaryTeal,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () {
+                                      setPickerState(() {
+                                        adMonth = DateTime(
+                                          adMonth.year,
+                                          adMonth.month + 1,
+                                          1,
+                                        );
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                              // Days Header
+                              Row(
+                                children: [
+                                  _buildDayHeader('Sun', isHoliday: true),
+                                  _buildDayHeader('Mon'),
+                                  _buildDayHeader('Tue'),
+                                  _buildDayHeader('Wed'),
+                                  _buildDayHeader('Thu'),
+                                  _buildDayHeader('Fri'),
+                                  _buildDayHeader('Sat'),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              // AD Grid
+                              Builder(
+                                builder: (_) {
+                                  final daysInMonth = DateUtils.getDaysInMonth(
+                                    adMonth.year,
+                                    adMonth.month,
+                                  );
+                                  final firstDayWeekday =
+                                      DateTime(
+                                        adMonth.year,
+                                        adMonth.month,
+                                        1,
+                                      ).weekday %
+                                      7;
+                                  final totalCells =
+                                      ((firstDayWeekday + daysInMonth + 6) ~/
+                                          7) *
+                                      7;
+
+                                  return GridView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: totalCells,
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 7,
+                                          mainAxisSpacing: 3,
+                                          crossAxisSpacing: 3,
+                                          childAspectRatio: 1.15,
+                                        ),
+                                    itemBuilder: (context, idx) {
+                                      final dayOffset = idx - firstDayWeekday;
+                                      if (dayOffset < 0 ||
+                                          dayOffset >= daysInMonth) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      final dayNum = dayOffset + 1;
+                                      final cellAd = DateTime(
+                                        adMonth.year,
+                                        adMonth.month,
+                                        dayNum,
+                                      );
+                                      final isSelected =
+                                          tempDate.year == cellAd.year &&
+                                          tempDate.month == cellAd.month &&
+                                          tempDate.day == cellAd.day;
+                                      final isSun = cellAd.weekday == 7;
+
+                                      return InkWell(
+                                        onTap: () {
+                                          setPickerState(() {
+                                            tempDate = cellAd;
+                                          });
+                                        },
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? AppTheme.primaryTeal
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            '$dayNum',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.bold
+                                                  : FontWeight.w500,
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : (isSun
+                                                        ? const Color(
+                                                            0xFFDC2626,
+                                                          )
+                                                        : Colors.black87),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ],
+
+                            const SizedBox(height: 10),
+                            // Quick Shortcuts
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                _buildQuickDateChip('Today (आज)', () {
+                                  setPickerState(() {
+                                    tempDate = DateTime.now();
+                                    final bs = NepaliDateHelper.toNepali(
+                                      tempDate,
+                                    );
+                                    bsMonth = NepaliDateTime(
+                                      bs.year,
+                                      bs.month,
+                                      1,
+                                    );
+                                    adMonth = DateTime(
+                                      tempDate.year,
+                                      tempDate.month,
+                                      1,
+                                    );
+                                  });
+                                }),
+                                _buildQuickDateChip('Tomorrow (भोलि)', () {
+                                  setPickerState(() {
+                                    tempDate = DateTime.now().add(
+                                      const Duration(days: 1),
+                                    );
+                                    final bs = NepaliDateHelper.toNepali(
+                                      tempDate,
+                                    );
+                                    bsMonth = NepaliDateTime(
+                                      bs.year,
+                                      bs.month,
+                                      1,
+                                    );
+                                    adMonth = DateTime(
+                                      tempDate.year,
+                                      tempDate.month,
+                                      1,
+                                    );
+                                  });
+                                }),
+                                _buildQuickDateChip('+3 Days', () {
+                                  setPickerState(() {
+                                    tempDate = DateTime.now().add(
+                                      const Duration(days: 3),
+                                    );
+                                    final bs = NepaliDateHelper.toNepali(
+                                      tempDate,
+                                    );
+                                    bsMonth = NepaliDateTime(
+                                      bs.year,
+                                      bs.month,
+                                      1,
+                                    );
+                                    adMonth = DateTime(
+                                      tempDate.year,
+                                      tempDate.month,
+                                      1,
+                                    );
+                                  });
+                                }),
+                                _buildQuickDateChip('+7 Days', () {
+                                  setPickerState(() {
+                                    tempDate = DateTime.now().add(
+                                      const Duration(days: 7),
+                                    );
+                                    final bs = NepaliDateHelper.toNepali(
+                                      tempDate,
+                                    );
+                                    bsMonth = NepaliDateTime(
+                                      bs.year,
+                                      bs.month,
+                                      1,
+                                    );
+                                    adMonth = DateTime(
+                                      tempDate.year,
+                                      tempDate.month,
+                                      1,
+                                    );
+                                  });
+                                }),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              bsDisplay,
-                              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '🌐 Gregorian (AD): $adDisplay',
-                              style: const TextStyle(color: Color(0xFFF5F3FF), fontSize: 12),
-                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-
-                      // Segmented Mode Toggle: BS vs AD
-                      Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.all(3),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildCalendarModePill(
-                                title: '🇳🇵 Bikram Sambat (BS)',
-                                isSelected: isNepaliMode,
-                                onTap: () => setPickerState(() => isNepaliMode = true),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: _buildCalendarModePill(
-                                title: '🌐 Gregorian (AD)',
-                                isSelected: !isNepaliMode,
-                                onTap: () => setPickerState(() => isNepaliMode = false),
-                              ),
-                            ),
-                          ],
+                    ),
+                    // Pinned Dialog Actions Footer
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
                         ),
                       ),
-                      const SizedBox(height: 10),
-
-                      // Calendar Grid Area
-                      if (isNepaliMode) ...[
-                        // BS Month Navigation
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.chevron_left, size: 20, color: AppTheme.primaryTeal),
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () {
-                                setPickerState(() {
-                                  int m = bsMonth.month - 1;
-                                  int y = bsMonth.year;
-                                  if (m < 1) {
-                                    m = 12;
-                                    y--;
-                                  }
-                                  bsMonth = NepaliDateTime(y, m, 1);
-                                });
-                              },
-                            ),
-                            Text(
-                              '${NepaliDateHelper.nepaliMonthPureNp[bsMonth.month - 1]} ${bsMonth.year} (${NepaliDateHelper.nepaliMonthPureEn[bsMonth.month - 1]} BS)',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.chevron_right, size: 20, color: AppTheme.primaryTeal),
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () {
-                                setPickerState(() {
-                                  int m = bsMonth.month + 1;
-                                  int y = bsMonth.year;
-                                  if (m > 12) {
-                                    m = 1;
-                                    y++;
-                                  }
-                                  bsMonth = NepaliDateTime(y, m, 1);
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                        // Days Header
-                        Row(
-                          children: [
-                            _buildDayHeader('आई'),
-                            _buildDayHeader('सोम'),
-                            _buildDayHeader('मंगल'),
-                            _buildDayHeader('बुध'),
-                            _buildDayHeader('बिही'),
-                            _buildDayHeader('शुक्र'),
-                            _buildDayHeader('शनि', isHoliday: true),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        // Days Grid
-                        Builder(
-                          builder: (_) {
-                            final daysInMonth = NepaliDateHelper.getDaysInBsMonth(bsMonth.year, bsMonth.month);
-                            final firstDayOffset = NepaliDateHelper.getFirstDayWeekdayBs(bsMonth.year, bsMonth.month);
-
-                            return GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: 42,
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 7,
-                                mainAxisSpacing: 3,
-                                crossAxisSpacing: 3,
-                                childAspectRatio: 1.15,
-                              ),
-                              itemBuilder: (context, idx) {
-                                final dayOffset = idx - firstDayOffset;
-                                if (dayOffset < 0 || dayOffset >= daysInMonth) {
-                                  return const SizedBox.shrink();
-                                }
-                                final dayNum = dayOffset + 1;
-                                final cellBs = NepaliDateTime(bsMonth.year, bsMonth.month, dayNum);
-                                final isSelected = currentBs.year == cellBs.year &&
-                                    currentBs.month == cellBs.month &&
-                                    currentBs.day == cellBs.day;
-                                final isSaturday = cellBs.weekday == 7;
-
-                                return InkWell(
-                                  onTap: () {
-                                    setPickerState(() {
-                                      tempDate = cellBs.toDateTime();
-                                    });
-                                  },
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? AppTheme.primaryTeal : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      '$dayNum',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                        color: isSelected
-                                            ? Colors.white
-                                            : (isSaturday ? const Color(0xFFDC2626) : Colors.black87),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ] else ...[
-                        // AD Month Navigation
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.chevron_left, size: 20, color: AppTheme.primaryTeal),
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () {
-                                setPickerState(() {
-                                  adMonth = DateTime(adMonth.year, adMonth.month - 1, 1);
-                                });
-                              },
-                            ),
-                            Text(
-                              '${_getMonthName(adMonth.month)} ${adMonth.year}',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.chevron_right, size: 20, color: AppTheme.primaryTeal),
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () {
-                                setPickerState(() {
-                                  adMonth = DateTime(adMonth.year, adMonth.month + 1, 1);
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                        // Days Header
-                        Row(
-                          children: [
-                            _buildDayHeader('Sun', isHoliday: true),
-                            _buildDayHeader('Mon'),
-                            _buildDayHeader('Tue'),
-                            _buildDayHeader('Wed'),
-                            _buildDayHeader('Thu'),
-                            _buildDayHeader('Fri'),
-                            _buildDayHeader('Sat'),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        // AD Grid
-                        Builder(
-                          builder: (_) {
-                            final daysInMonth = DateUtils.getDaysInMonth(adMonth.year, adMonth.month);
-                            final firstDayWeekday = DateTime(adMonth.year, adMonth.month, 1).weekday % 7;
-
-                            return GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: 42,
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 7,
-                                mainAxisSpacing: 3,
-                                crossAxisSpacing: 3,
-                                childAspectRatio: 1.15,
-                              ),
-                              itemBuilder: (context, idx) {
-                                final dayOffset = idx - firstDayWeekday;
-                                if (dayOffset < 0 || dayOffset >= daysInMonth) {
-                                  return const SizedBox.shrink();
-                                }
-                                final dayNum = dayOffset + 1;
-                                final cellAd = DateTime(adMonth.year, adMonth.month, dayNum);
-                                final isSelected = tempDate.year == cellAd.year &&
-                                    tempDate.month == cellAd.month &&
-                                    tempDate.day == cellAd.day;
-                                final isSun = cellAd.weekday == 7;
-
-                                return InkWell(
-                                  onTap: () {
-                                    setPickerState(() {
-                                      tempDate = cellAd;
-                                    });
-                                  },
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: isSelected ? AppTheme.primaryTeal : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      '$dayNum',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                        color: isSelected
-                                            ? Colors.white
-                                            : (isSun ? const Color(0xFFDC2626) : Colors.black87),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ],
-
-                      const SizedBox(height: 10),
-                      // Quick Shortcuts
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          _buildQuickDateChip('Today (आज)', () {
-                            setPickerState(() {
-                              tempDate = DateTime.now();
-                              final bs = NepaliDateHelper.toNepali(tempDate);
-                              bsMonth = NepaliDateTime(bs.year, bs.month, 1);
-                              adMonth = DateTime(tempDate.year, tempDate.month, 1);
-                            });
-                          }),
-                          _buildQuickDateChip('Tomorrow (भोलि)', () {
-                            setPickerState(() {
-                              tempDate = DateTime.now().add(const Duration(days: 1));
-                              final bs = NepaliDateHelper.toNepali(tempDate);
-                              bsMonth = NepaliDateTime(bs.year, bs.month, 1);
-                              adMonth = DateTime(tempDate.year, tempDate.month, 1);
-                            });
-                          }),
-                          _buildQuickDateChip('+3 Days', () {
-                            setPickerState(() {
-                              tempDate = DateTime.now().add(const Duration(days: 3));
-                              final bs = NepaliDateHelper.toNepali(tempDate);
-                              bsMonth = NepaliDateTime(bs.year, bs.month, 1);
-                              adMonth = DateTime(tempDate.year, tempDate.month, 1);
-                            });
-                          }),
-                          _buildQuickDateChip('+7 Days', () {
-                            setPickerState(() {
-                              tempDate = DateTime.now().add(const Duration(days: 7));
-                              final bs = NepaliDateHelper.toNepali(tempDate);
-                              bsMonth = NepaliDateTime(bs.year, bs.month, 1);
-                              adMonth = DateTime(tempDate.year, tempDate.month, 1);
-                            });
-                          }),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Dialog Actions
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 6,
                         children: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, null),
                             child: const Text('Cancel'),
                           ),
-                          const SizedBox(width: 8),
                           ElevatedButton.icon(
                             icon: const Icon(Icons.check, size: 16),
                             label: const Text('Confirm Date'),
@@ -5963,8 +6221,8 @@ class _CampManagementViewState extends ConsumerState<CampManagementView> with Si
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             );
