@@ -90,17 +90,22 @@ class GeminiProxy {
   /// Hard cap for the base64 image payload (~6 MB of binary image data).
   static const int maxImageBase64Chars = 8 * 1024 * 1024;
 
+  /// Active non-deprecated Gemini multimodal vision chain (Nov 2026+):
+  /// 1. `gemini-4-hydrogen`: Gemini 4 multimodal reasoning for handwritten boxes & crossed-out checkboxes.
+  /// 2. `gemini-3.8-flash`: Official high-accuracy successor to `gemini-2.5-pro`.
+  /// 3. `gemini-3.5-flash-lite` / `gemini-flash-latest`: High-availability fast fallbacks.
   static const List<String> defaultModels = [
-    'gemini-2.5-flash',
+    'gemini-4-hydrogen',
+    'gemini-3.8-flash',
+    'gemini-3.5-flash-lite',
     'gemini-flash-latest',
-    'gemini-flash-lite-latest',
   ];
 
   GeminiProxy({
     http.Client? client,
     String? Function()? apiKeyProvider,
     List<String>? models,
-    this.requestTimeout = const Duration(seconds: 45),
+    this.requestTimeout = const Duration(seconds: 50),
     Duration Function(int attempt)? retryDelay,
   })  : _client = client ?? http.Client(),
         _apiKeyProvider = apiKeyProvider ?? _readApiKeyFromEnvironment,
@@ -153,29 +158,35 @@ class GeminiProxy {
       throw const GeminiProxyException(413, 'BAD_IMAGE', 'Image is missing or too large.');
     }
 
-    final payload = jsonEncode({
-      'contents': [
-        {
-          'parts': [
-            {'text': buildPrompt(pageNumber)},
+    String encodePayload({required bool highMediaResolution}) => jsonEncode({
+          'contents': [
             {
-              'inline_data': {'mime_type': mimeType, 'data': imageBase64},
+              'parts': [
+                {'text': buildPrompt(pageNumber)},
+                {
+                  'inline_data': {'mime_type': mimeType, 'data': imageBase64},
+                },
+              ],
             },
           ],
-        },
-      ],
-      'generationConfig': {
-        'temperature': 0.1,
-        'responseMimeType': 'application/json',
-      },
-    });
+          'generationConfig': {
+            'temperature': 0.1,
+            'maxOutputTokens': 16384,
+            'responseMimeType': 'application/json',
+            if (highMediaResolution) 'mediaResolution': 'MEDIA_RESOLUTION_HIGH',
+          },
+        });
 
     final headers = {
       'Content-Type': 'application/json',
       'x-goog-api-key': apiKey,
     };
 
-    final response = await _sendWithRetryAndFailover(headers, payload);
+    final response = await _sendWithRetryAndFailover(
+      headers,
+      primaryBody: encodePayload(highMediaResolution: true),
+      compatBody: encodePayload(highMediaResolution: false),
+    );
     if (response.statusCode != 200) {
       // Log status AND upstream body for debugging.
       print('! [ocr] Gemini upstream status ${response.statusCode}');
@@ -194,13 +205,32 @@ class GeminiProxy {
           ? (candidates[0] as Map<String, dynamic>)['content'] as Map<String, dynamic>?
           : null;
       final parts = content?['parts'] as List<dynamic>?;
-      final text = (parts != null && parts.isNotEmpty)
-          ? (parts[0] as Map<String, dynamic>)['text'] as String?
-          : null;
+      String? text;
+      if (parts != null && parts.isNotEmpty) {
+        // Gemini 3.8 / Gemini 4 reasoning models may emit `{"thought": true, "text": "..."}`
+        // before the final JSON answer part. Always pick the non-thought text part first.
+        for (final rawPart in parts) {
+          if (rawPart is! Map<String, dynamic>) continue;
+          if (rawPart['thought'] == true) continue;
+          final candidateText = rawPart['text'] as String?;
+          if (candidateText != null && candidateText.trim().isNotEmpty) {
+            text = candidateText;
+            break;
+          }
+        }
+      }
       if (text == null || text.trim().isEmpty) {
         throw const GeminiProxyException(502, 'OCR_EMPTY', 'OCR service returned no result.');
       }
-      return text;
+      final trimmed = text.trim();
+      if (trimmed.startsWith('```')) {
+        final stripped = trimmed
+            .replaceFirst(RegExp(r'^```(?:json)?\s*', caseSensitive: false), '')
+            .replaceFirst(RegExp(r'\s*```$'), '')
+            .trim();
+        if (stripped.isNotEmpty) return stripped;
+      }
+      return trimmed;
     } on GeminiProxyException {
       rethrow;
     } catch (_) {
@@ -209,9 +239,10 @@ class GeminiProxy {
   }
 
   Future<http.Response> _sendWithRetryAndFailover(
-    Map<String, String> headers,
-    String body,
-  ) async {
+    Map<String, String> headers, {
+    required String primaryBody,
+    required String compatBody,
+  }) async {
     http.Response? lastResponse;
     Object? lastError;
 
@@ -220,14 +251,39 @@ class GeminiProxy {
         'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
       );
       var attempts = 0;
+      var activeBody = primaryBody;
       while (attempts < 2) {
         attempts++;
         try {
-          final res = await _client.post(uri, headers: headers, body: body).timeout(requestTimeout);
+          final res = await _client.post(uri, headers: headers, body: activeBody).timeout(requestTimeout);
           if (res.statusCode == 200) return res;
           lastResponse = res;
           if (res.statusCode == 404) {
             break; // model alias not available — immediately fail over to next model
+          }
+          if (res.statusCode == 400 || res.statusCode == 403) {
+            final lowerBody = res.body.toLowerCase();
+            // If an endpoint rejects mediaResolution in generationConfig, retry once without it.
+            if (res.statusCode == 400 &&
+                activeBody == primaryBody &&
+                lowerBody.contains('mediaresolution')) {
+              activeBody = compatBody;
+              attempts--; // retry same model cleanly without burning failover budget
+              continue;
+            }
+            // Invalid API key errors apply to every model — fail fast without extra upstream calls.
+            if (lowerBody.contains('api key not valid') ||
+                lowerBody.contains('api_key_invalid')) {
+              return res;
+            }
+            // Model-specific deprecation / tier restriction: fail over to next model in chain.
+            if (lowerBody.contains('deprecated') ||
+                lowerBody.contains('no longer available') ||
+                lowerBody.contains('not supported') ||
+                lowerBody.contains('permission') ||
+                lowerBody.contains('access')) {
+              break;
+            }
           }
           if (res.statusCode == 503 || res.statusCode == 429) {
             if (attempts < 2) {

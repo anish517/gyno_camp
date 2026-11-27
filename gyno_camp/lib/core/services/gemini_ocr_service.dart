@@ -43,8 +43,8 @@ class GeminiOcrService {
   final String? _explicitFingerprint;
   final String? _explicitDeviceSecret;
 
-  /// The server may fail over across several models (45s each), so allow time.
-  static const Duration requestTimeout = Duration(seconds: 95);
+  /// The server may fail over across Gemini 4 / 3.8 Flash models (50s each), so allow time.
+  static const Duration requestTimeout = Duration(seconds: 110);
 
   GeminiOcrService({
     http.Client? httpClient,

@@ -110,7 +110,51 @@ void main() {
       expect(parts[0]['text'], contains('Target Page: Page 2'));
       expect(parts[1]['inline_data']['mime_type'], 'image/png');
       expect(parts[1]['inline_data']['data'], 'AAAA');
-      expect(body['generationConfig']['response_mime_type'], 'application/json');
+      expect(body['generationConfig']['responseMimeType'], 'application/json');
+      expect(body['generationConfig']['mediaResolution'], 'MEDIA_RESOLUTION_HIGH');
+      expect(body['generationConfig']['maxOutputTokens'], 16384);
+    });
+
+    test('uses active Gemini 4 Hydrogen -> Gemini 3.8 Flash chain with zero deprecated 2.5 models', () {
+      expect(
+        GeminiProxy.defaultModels,
+        equals([
+          'gemini-4-hydrogen',
+          'gemini-3.8-flash',
+          'gemini-3.5-flash-lite',
+          'gemini-flash-latest',
+        ]),
+      );
+      expect(
+        GeminiProxy.defaultModels.any((m) => m.startsWith('gemini-2.5')),
+        isFalse,
+      );
+    });
+
+    test('skips internal thought parts from Gemini 4 / 3.8 reasoning responses and returns clean JSON', () async {
+      final proxy = _proxy(MockClient((_) async => http.Response(
+            jsonEncode({
+              'candidates': [
+                {
+                  'content': {
+                    'parts': [
+                      {
+                        'thought': true,
+                        'text': 'Inspecting segmented boxes and crossed-out marital status checkbox...',
+                      },
+                      {
+                        'text': '```json\n{"detectedPage":1,"pageNumber":1}\n```',
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+            200,
+          )));
+
+      final text = await proxy.extractText(imageBase64: 'AAAA', mimeType: 'image/jpeg', pageNumber: 1);
+      expect(text, '{"detectedPage":1,"pageNumber":1}');
     });
 
     test('retries transient 503 then fails over to the next model', () async {
