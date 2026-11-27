@@ -393,9 +393,14 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                 count: volCount,
                 doctor: docToUse,
                 blankDoctorLines: blankDoctor,
+                allDoctorsChecklist: _doctorMode == DoctorSelectionMode.allDoctorsChecklist,
                 nurse: nurseToUse,
                 blankNurseLines: blankNurse,
+                allNursesChecklist: _nurseMode == NurseSelectionMode.allNursesChecklist,
                 organizationName: orgName,
+                diagnoses: diagnoses,
+                medications: medications,
+                referralHospitals: referralHospitals,
                 isCancelled: () => _cancelRequested || !mounted,
                 onProgress: (current, total, status) {
                   if (mounted && !_cancelRequested) {
@@ -492,9 +497,14 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             count: count,
             doctor: docToUse,
             blankDoctorLines: blankDoctor,
+            allDoctorsChecklist: _doctorMode == DoctorSelectionMode.allDoctorsChecklist,
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
+            allNursesChecklist: _nurseMode == NurseSelectionMode.allNursesChecklist,
             organizationName: orgName,
+            diagnoses: diagnoses,
+            medications: medications,
+            referralHospitals: referralHospitals,
             isCancelled: () => _cancelRequested || !mounted,
             onProgress: (current, total, status) {
               if (mounted && !_cancelRequested) {
@@ -617,9 +627,14 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             camp: null,
             doctor: null,
             blankDoctorLines: true,
+            allDoctorsChecklist: false,
             nurse: null,
             blankNurseLines: true,
+            allNursesChecklist: false,
             organizationName: orgName,
+            diagnoses: diagnoses,
+            medications: medications,
+            referralHospitals: referralHospitals,
           );
           filename = 'Blank_Universal_FollowUpSlip.pdf';
         } else if (_doctorMode == DoctorSelectionMode.allDoctorsBatch && doctors.isNotEmpty) {
@@ -635,7 +650,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             camp: _selectedCamp,
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
+            allNursesChecklist: _nurseMode == NurseSelectionMode.allNursesChecklist,
             organizationName: orgName,
+            diagnoses: diagnoses,
+            medications: medications,
+            referralHospitals: referralHospitals,
           );
           filename = 'Blank_FollowUpSlips_${campCode}_AllDoctorsBatch.pdf';
         } else if (_nurseMode == NurseSelectionMode.allNursesBatch && nurses.isNotEmpty) {
@@ -651,7 +670,11 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             camp: _selectedCamp,
             doctor: docToUse,
             blankDoctorLines: blankDoctor,
+            allDoctorsChecklist: _doctorMode == DoctorSelectionMode.allDoctorsChecklist,
             organizationName: orgName,
+            diagnoses: diagnoses,
+            medications: medications,
+            referralHospitals: referralHospitals,
           );
           filename = 'Blank_FollowUpSlips_${campCode}_AllNursesBatch.pdf';
         } else {
@@ -659,9 +682,14 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
             camp: _selectedCamp,
             doctor: docToUse,
             blankDoctorLines: blankDoctor,
+            allDoctorsChecklist: _doctorMode == DoctorSelectionMode.allDoctorsChecklist,
             nurse: nurseToUse,
             blankNurseLines: blankNurse,
+            allNursesChecklist: _nurseMode == NurseSelectionMode.allNursesChecklist,
             organizationName: orgName,
+            diagnoses: diagnoses,
+            medications: medications,
+            referralHospitals: referralHospitals,
           );
           final String docSlug;
           if (_doctorMode == DoctorSelectionMode.allDoctorsChecklist) {
@@ -886,7 +914,7 @@ class _BlankFormDownloadDialogState extends ConsumerState<BlankFormDownloadDialo
                         _buildFormTypeCard(
                           type: PrintableFormType.followUpEncounterSlip,
                           title: 'Follow-Up Clinical Encounter Sheet (1 Page A4)',
-                          subtitle: 'Specialized re-check sheet for returning patients, pessary reviews & medication refills.',
+                          subtitle: 'Matches Follow-Up Visit Assessment (Sections 1–5: Complaints, Vitals/Labs, POP Re-Staging, Diagnoses/Surgery & Prescription).',
                           badge: 'Follow-Up / Re-check',
                           icon: Icons.replay_rounded,
                           color: const Color(0xFF0891B2),

@@ -1,9 +1,39 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gyno_camp/core/constants/app_constants.dart';
 import 'package:gyno_camp/core/services/pdf_report_service.dart';
 import 'package:gyno_camp/models/camp_model.dart';
 import 'package:gyno_camp/models/clinical_visit_model.dart';
+import 'package:gyno_camp/models/lookup_item_model.dart';
 import 'package:gyno_camp/models/patient_model.dart';
+
+int _countPdfPages(Uint8List bytes) {
+  final raw = String.fromCharCodes(bytes);
+  return RegExp(r'/Type\s*/Page\b(?!s)').allMatches(raw).length;
+}
+
+Future<String?> _extractPdfTextIfAvailable(Uint8List bytes) async {
+  const pdftotextPath = r'C:\Program Files\Git\mingw64\bin\pdftotext.exe';
+  if (!File(pdftotextPath).existsSync()) return null;
+  final tempDir = await Directory.systemTemp.createTemp('gyno_followup_pdf_');
+  try {
+    final pdfFile = File('${tempDir.path}/out.pdf');
+    final txtFile = File('${tempDir.path}/out.txt');
+    await pdfFile.writeAsBytes(bytes, flush: true);
+    final result = await Process.run(
+      pdftotextPath,
+      ['-enc', 'UTF-8', pdfFile.path, txtFile.path],
+    );
+    if (result.exitCode != 0 || !txtFile.existsSync()) return null;
+    return await txtFile.readAsString();
+  } finally {
+    try {
+      await tempDir.delete(recursive: true);
+    } catch (_) {}
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -303,22 +333,114 @@ void main() {
   group(
     'Blank Follow-Up Slip PDF Generation (generateBlankFollowUpSlipPdf)',
     () {
-      test('Generates exactly 1-page blank Follow-Up Slip PDF', () async {
-        final bytes = await pdfService.generateBlankFollowUpSlipPdf(
-          camp: testCamp,
-          doctor: const DoctorProfile(
-            name: 'Dr. Anish Tiwari',
-            nmcNumber: '12',
-          ),
-          organizationName: AppConstants.defaultOrganizationName,
-        );
+      test(
+        'Generates strictly 1-page blank Follow-Up Slip PDF matching Sections 1-5 even with full lookup & clinician rosters',
+        () async {
+          final fullRosterCamp = CampModel(
+            id: 'camp-full-fu',
+            campCode: '1111',
+            name: 'Bhaktapur Reproductive Follow-Up Camp',
+            venue: 'Bhaktapur Hospital',
+            district: 'Bhaktapur',
+            municipality: 'BHAKTAPUR',
+            ward: '07',
+            doctorNames: const [
+              'Dr. Anish Tiwari (NMC: 12)',
+              'Dr. Sagar P (NMC: 3223)',
+              'Dr. Mina Shrestha (NMC: 7788)',
+            ],
+            nurseNames: const [
+              'Rita Sharma (NNC: 4455)',
+              'Sita Gurung (NNC: 8899)',
+              'Gita Thapa (NNC: 9911)',
+            ],
+            showDoctorOnForms: true,
+            showNurseOnForms: true,
+            startDate: DateTime(2026, 11, 25),
+            endDate: DateTime(2026, 11, 28),
+            createdAt: now,
+          );
 
-        expect(bytes, isNotNull);
-        expect(bytes.isNotEmpty, isTrue);
-        expect(String.fromCharCodes(bytes.take(5)), equals('%PDF-'));
-      });
+          final customDiagnoses = List.generate(
+            24,
+            (i) => LookupItemModel(
+              id: 'diag-$i',
+              category: 'diagnosis',
+              code: 'diag_$i',
+              labelEn: i == 0
+                  ? 'Custom Follow-Up Diagnosis Alpha'
+                  : 'Clinical Diagnosis Item ${i + 1}',
+              labelNe: '',
+              sortOrder: i,
+              isActive: true,
+            ),
+          );
 
-      test('Generates batch pre-numbered blank follow-up slips', () async {
+          final customMedications = List.generate(
+            16,
+            (i) => LookupItemModel(
+              id: 'med-$i',
+              category: 'medication',
+              code: 'med_$i',
+              labelEn: i == 0
+                  ? 'Custom Estradiol Cream Rx'
+                  : 'Camp Medication Option ${i + 1}',
+              labelNe: '',
+              sortOrder: i,
+              isActive: true,
+            ),
+          );
+
+          final customHospitals = [
+            const LookupItemModel(
+              id: 'hosp-1',
+              category: 'referral_hospital',
+              code: 'dhulikhel',
+              labelEn: 'Dhulikhel Partner Hospital',
+              labelNe: '',
+              sortOrder: 1,
+              isActive: true,
+            ),
+          ];
+
+          final bytes = await pdfService.generateBlankFollowUpSlipPdf(
+            camp: fullRosterCamp,
+            preprintedTokenId: '00100',
+            allDoctorsChecklist: true,
+            allNursesChecklist: true,
+            organizationName: AppConstants.defaultOrganizationName,
+            diagnoses: customDiagnoses,
+            medications: customMedications,
+            referralHospitals: customHospitals,
+          );
+
+          expect(bytes, isNotNull);
+          expect(bytes.isNotEmpty, isTrue);
+          expect(String.fromCharCodes(bytes.take(5)), equals('%PDF-'));
+          expect(_countPdfPages(bytes), equals(1));
+
+          final extracted = await _extractPdfTextIfAvailable(bytes);
+          if (extracted != null) {
+            expect(extracted, contains('FOLLOW-UP VISIT ASSESSMENT SHEET'));
+            expect(extracted, contains('1. FOLLOW-UP COMPLAINTS & NEW ISSUES'));
+            expect(extracted, contains('2. PHYSICAL VITALS CHECK & SCREENING LABS'));
+            expect(extracted, contains('3. PELVIC FLOOR & POP RE-STAGING'));
+            expect(extracted, contains('4. DIAGNOSES & SURGICAL EVALUATION'));
+            expect(extracted, contains('5. PRESCRIPTION & FOLLOW-UP DESTINATION'));
+            expect(extracted, contains('Uterus Inside'));
+            expect(extracted, contains('Pelvic Floor Muscle'));
+            expect(extracted, contains('Custom Follow-Up Diagnosis Alpha'));
+            expect(extracted, contains('Custom Estradiol Cream Rx'));
+            expect(extracted, contains('Dhulikhel Partner Hospital'));
+            // Non-existent legacy fields must be absent
+            expect(extracted, isNot(contains('Temp (°F)')));
+            expect(extracted, isNot(contains('Significantly Improved')));
+            expect(extracted, isNot(contains('Pessary Clean & In-Situ')));
+          }
+        },
+      );
+
+      test('Generates batch pre-numbered blank follow-up slips (1 page per token)', () async {
         final bytes = await pdfService.generatePreNumberedBlankFollowUpSlipsPdf(
           camp: testCamp,
           startSequence: 1,
@@ -328,7 +450,90 @@ void main() {
         expect(bytes, isNotNull);
         expect(bytes.isNotEmpty, isTrue);
         expect(String.fromCharCodes(bytes.take(5)), equals('%PDF-'));
+        expect(_countPdfPages(bytes), equals(3));
       });
+
+      test(
+        'Filled Follow-Up Encounter Slip PDF renders exact Sections 1-5 matching Follow-Up Visit Assessment',
+        () async {
+          final filledFollowUp = ClinicalVisitModel(
+            id: 'vis-fu-complete',
+            patientId: '00100',
+            campId: testCamp.id,
+            visitDate: DateTime(2026, 11, 27),
+            isFollowUp: true,
+            anamnesisComplaints: const {
+              'reasons': ['something hanging out', 'pain'],
+              'new_issues': 'MILD PELVIC HEAVINESS AFTER HEAVY LIFTING',
+            },
+            systolicBp: 118,
+            diastolicBp: 76,
+            pulse: 74,
+            spo2: 98,
+            glucose: 96,
+            urineTest: 'normal',
+            pregnancyTest: 'neg',
+            ecgNotes: 'NORMAL SINUS RHYTHM',
+            uterusInside: false,
+            pelvicFloorTone: 'weak',
+            popAnteriorStage: 2,
+            popMiddleStage: 3,
+            popPosteriorStage: 1,
+            highestPopStage: 3,
+            diagnoses: const ['POP', 'weak pelvic floor muscle'],
+            surgeryDone: true,
+            surgeryType: 'Vaginal route',
+            surgicalReferral: 'Dhulikhel Hospital',
+            medications: const ['estradiol crème'],
+            counseling: const ['pelvic floor exercises', 'pessary care & hygiene'],
+            pessaryType: 'ring with support',
+            pessarySize: '65',
+            followUpNeeded: false,
+            followUpDestination: null,
+            outtakeNotes: 'CONTINUE PELVIC FLOOR EXERCISES DAILY',
+            createdAt: now,
+            createdByUserId: 'usr-1',
+          );
+
+          final bytes = await pdfService.generateFollowUpEncounterSlipPdf(
+            patient: testPatientStage4,
+            visit: filledFollowUp,
+            camp: testCamp,
+            organizationName: AppConstants.defaultOrganizationName,
+          );
+
+          expect(bytes, isNotEmpty);
+          expect(String.fromCharCodes(bytes.take(5)), equals('%PDF-'));
+
+          final extracted = await _extractPdfTextIfAvailable(bytes);
+          if (extracted != null) {
+            expect(extracted, contains('FOLLOW-UP VISIT ASSESSMENT'));
+            expect(extracted, contains('PATIENT IDENTITY'));
+            expect(extracted, contains('1. FOLLOW-UP COMPLAINTS & NEW ISSUES'));
+            expect(extracted, contains('Selected Follow-Up Complaints'));
+            expect(extracted, contains('MILD PELVIC HEAVINESS AFTER HEAVY LIFTING'));
+            expect(extracted, contains('2. PHYSICAL VITALS CHECK & SCREENING LABS'));
+            expect(extracted, contains('118 mmHg'));
+            expect(extracted, contains('NORMAL SINUS RHYTHM'));
+            expect(extracted, contains('3. PELVIC FLOOR & POP RE-STAGING'));
+            expect(extracted, contains('Uterus Inside'));
+            expect(extracted, contains('Pelvic Floor Muscle'));
+            expect(extracted, contains('APICAL (Uterine/Apex)'));
+            expect(extracted, contains('4. DIAGNOSES & SURGICAL EVALUATION'));
+            expect(extracted, contains('Vaginal route'));
+            expect(extracted, contains('Dhulikhel Hospital'));
+            expect(extracted, contains('5. PRESCRIPTION & FOLLOW-UP DESTINATION'));
+            expect(extracted, contains('estradiol crème'));
+            expect(extracted, contains('ring with support'));
+            expect(extracted, contains('65mm'));
+            expect(extracted, contains('None / Not Specified'));
+            expect(extracted, contains('CONTINUE PELVIC FLOOR EXERCISES DAILY'));
+            // Must NOT render Primary Examination numbering or default fake 'Local Health Post'
+            expect(extracted, isNot(contains('Local Health Post')));
+            expect(extracted, isNot(contains('STATION 3')));
+          }
+        },
+      );
     },
   );
 

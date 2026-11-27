@@ -4398,10 +4398,14 @@ class _PatientListViewState extends ConsumerState<PatientListView> {
           organizationName: orgName,
         );
       } else {
+        final lookupState = ref.read(masterLookupProvider);
         bytes = await PdfReportService().generateBlankFollowUpSlipPdf(
           camp: camp,
           preprintedTokenId: patient.patientId,
           organizationName: orgName,
+          diagnoses: lookupState.activeDiagnoses,
+          medications: lookupState.activeMedicines,
+          referralHospitals: lookupState.activeReferralHospitals,
         );
       }
 
