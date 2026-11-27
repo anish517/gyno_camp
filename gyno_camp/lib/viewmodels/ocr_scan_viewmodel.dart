@@ -575,6 +575,10 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
       final latestItem = refreshed ?? item;
       final latestP1Bytes = latestItem.page1Bytes ?? p1Bytes;
       final latestP2Bytes = latestItem.page2Bytes ?? p2Bytes;
+      final resolvedExtracted = OcrRepository.applyOfflineScanDateFallback(
+        extracted,
+        latestItem.createdAt,
+      );
       state = state.copyWith(
         isProcessing: false,
         isOfflineModeDetected: false,
@@ -585,11 +589,11 @@ class OcrScanViewModel extends StateNotifier<OcrScanState> {
         page2ImagePath: latestItem.page2ImagePath,
         clearPage1Image: latestP1Bytes == null || latestP1Bytes.isEmpty,
         clearPage2Image: latestP2Bytes == null || latestP2Bytes.isEmpty,
-        page1Scan: latestItem.hasPage1 ? extracted : null,
-        page2Scan: latestItem.hasPage2 ? extracted : null,
+        page1Scan: latestItem.hasPage1 ? resolvedExtracted : null,
+        page2Scan: latestItem.hasPage2 ? resolvedExtracted : null,
         clearPage1: !latestItem.hasPage1,
         clearPage2: !latestItem.hasPage2,
-        scanResult: extracted,
+        scanResult: resolvedExtracted,
         activeInspectionPage: latestItem.hasPage1 ? 1 : 2,
         activeArchiveItemId: item.id,
         reviewingPatientUuid: item.committedPatientUuid,

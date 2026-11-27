@@ -953,7 +953,106 @@ void main() {
       expect(resolvedPatient!.patientId, '00106');
       expect((await patientRepo.getPatientsByCamp('camp-ktm-01')).length, 2);
     });
+
+    test('offline scan with blank form dates and no hint captures original scan createdAt date when synced days later', () async {
+      final blankDateGemini = _BlankDateFakeGeminiOcrService();
+      final offlineOcrRepo = OcrRepository(
+        databaseService: dbService,
+        ocrService: const OcrFormService(),
+        patientRepository: patientRepo,
+        auditRepository: auditRepo,
+        geminiService: blankDateGemini,
+      );
+
+      final dummyP1 = Uint8List.fromList([10, 1, 2, 3]);
+      final dummyP2 = Uint8List.fromList([20, 4, 5, 6]);
+
+      // Simulate scanning offline on 2026-11-20 (7 days before sync) with NO app date hint and blank paper dates
+      final scannedDay = DateTime(2026, 11, 20, 11, 30);
+      final queued = await offlineOcrRepo.enqueueOfflineScan(
+        campId: 'camp-ktm-01',
+        campCode: 'KTM01',
+        page1Bytes: dummyP1,
+        page2Bytes: dummyP2,
+        userId: 'usr-1',
+        userName: 'Staff',
+        userRole: 'DATA_TAKER',
+        deviceId: 'dev-1',
+      );
+      await testDb.update(
+        'offline_scan_queue',
+        {'created_at': scannedDay.toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [queued.id],
+      );
+
+      // Sync "tomorrow / days later"
+      final syncedCount = await offlineOcrRepo.syncAndProcessAllOfflineScans(campId: 'camp-ktm-01');
+      expect(syncedCount, 1);
+
+      final savedPatient = await patientRepo.getPatientByPatientId('00222');
+      expect(savedPatient, isNotNull);
+      expect(savedPatient!.intakeDate.year, 2026);
+      expect(savedPatient.intakeDate.month, 11);
+      expect(savedPatient.intakeDate.day, 20);
+
+      final visits = await patientRepo.getClinicalVisits(savedPatient.id);
+      expect(visits.length, 1);
+      expect(visits.first.visitDate.year, 2026);
+      expect(visits.first.visitDate.month, 11);
+      expect(visits.first.visitDate.day, 20);
+    });
   });
+}
+
+class _BlankDateFakeGeminiOcrService extends GeminiOcrService {
+  @override
+  Future<OcrScanResultModel> extractFromBytes(
+    Uint8List rawBytes, {
+    String imagePath = '',
+    int pageNumber = 0,
+  }) async {
+    if (pageNumber == 1) {
+      return OcrScanResultModel(
+        pageNumber: 1,
+        detectedPage: 1,
+        rawText: 'PATIENT REGISTRATION & ANAMNESIS — PAGE 1',
+        demographics: const {
+          'patientId': '00222',
+          'patientTokenId': '00222',
+          'firstName': 'Kamala',
+          'surname': 'Rai',
+          'age': 41,
+          'ward': '02',
+        },
+        obstetrics: const {'deliveries': 2},
+        popStaging: const {},
+        vitals: const {},
+        diagnoses: const [],
+        medications: const [],
+        fieldConfidences: const {'firstName': 0.95},
+        overallConfidence: 0.95,
+        scannedAt: DateTime.now(),
+      );
+    }
+    return OcrScanResultModel(
+      pageNumber: 2,
+      detectedPage: 2,
+      rawText: 'CLINICAL ASSESSMENT & EXAMINATION — PAGE 2',
+      demographics: const {
+        'patientId': '00222',
+        'patientTokenId': '00222',
+      },
+      obstetrics: const {},
+      popStaging: const {'anteriorStage': 2, 'highestPopStage': 2},
+      vitals: const {'systolicBp': 122, 'diastolicBp': 80},
+      diagnoses: const ['POP'],
+      medications: const [],
+      fieldConfidences: const {'vitals': 0.95},
+      overallConfidence: 0.95,
+      scannedAt: DateTime.now(),
+    );
+  }
 }
 
 class _FakeGeminiOcrService extends GeminiOcrService {

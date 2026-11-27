@@ -116,6 +116,7 @@ abstract class IOcrRepository {
     String? existingPatientUuid,
     String? existingVisitId,
     String? archiveItemId,
+    DateTime? fallbackScanDate,
     Uint8List? page1ImageBytes,
     String? page1ImagePath,
     Uint8List? page2ImageBytes,
@@ -499,6 +500,7 @@ class OcrRepository implements IOcrRepository {
     String? existingPatientUuid,
     String? existingVisitId,
     String? archiveItemId,
+    DateTime? fallbackScanDate,
     Uint8List? page1ImageBytes,
     String? page1ImagePath,
     Uint8List? page2ImageBytes,
@@ -515,10 +517,34 @@ class OcrRepository implements IOcrRepository {
     // 1. Construct Patient Model
     final rawToken = (demo['patientId'] as String? ?? demo['patientTokenId'] as String? ?? '').trim();
 
+    DateTime? resolvedQueueScanDate = fallbackScanDate;
+    if (resolvedQueueScanDate == null &&
+        archiveItemId != null &&
+        archiveItemId.trim().isNotEmpty) {
+      try {
+        final db = await _databaseService.database;
+        final qRows = await db.query(
+          DatabaseTables.tableOfflineScanQueue,
+          columns: ['created_at'],
+          where: 'id = ?',
+          whereArgs: [archiveItemId.trim()],
+          limit: 1,
+        );
+        if (qRows.isNotEmpty) {
+          resolvedQueueScanDate = NepaliDateHelper.parseStoredCalendarDate(
+            qRows.first['created_at'],
+          );
+        }
+      } catch (_) {}
+    }
+    final DateTime effectiveFallbackDate = resolvedQueueScanDate != null
+        ? NepaliDateHelper.normalizeNepalCalendarDate(resolvedQueueScanDate)
+        : DateTime.now();
+
     DateTime? parseDateOrNull(String? raw) => parseFormDateOrNull(raw);
 
     DateTime parseDateSafe(String? raw) {
-      return parseDateOrNull(raw) ?? DateTime.now();
+      return parseDateOrNull(raw) ?? effectiveFallbackDate;
     }
 
     final parsedIntake = parseDateSafe(
@@ -1990,6 +2016,49 @@ class OcrRepository implements IOcrRepository {
       attendingDoctors: (item.examiningDoctorHint != null && item.examiningDoctorHint!.trim().isNotEmpty)
           ? <String>{...result.attendingDoctors, item.examiningDoctorHint!.trim()}.toList()
           : result.attendingDoctors,
+      scannedAt: item.createdAt,
+    );
+  }
+
+  /// When an offline-queued scan has NO app date hint AND all paper form date boxes
+  /// (Header Date + Stations 1-6) are blank, defaults `intakeDate` to the BS calendar
+  /// date of [queuedCreatedAt] (the exact day the form was scanned offline) rather than
+  /// the later sync day.
+  static OcrScanResultModel applyOfflineScanDateFallback(
+    OcrScanResultModel scan,
+    DateTime queuedCreatedAt,
+  ) {
+    final demo = scan.demographics;
+    final candidates = <String?>[
+      scan.intakeDate,
+      demo['intakeDate']?.toString(),
+      demo['date']?.toString(),
+      scan.effectiveAnamnesisDate,
+      scan.anamnesisDate,
+      scan.examDate,
+      scan.labTestDate,
+      scan.conclusionDate,
+      scan.treatmentDate,
+      scan.outtakeDate,
+    ];
+    final hasAnyFormOrHintDate =
+        candidates.any((raw) => parseFormDateOrNull(raw) != null);
+    if (hasAnyFormOrHintDate) {
+      return scan.copyWith(scannedAt: queuedCreatedAt);
+    }
+
+    final normalizedWall =
+        NepaliDateHelper.normalizeNepalCalendarDate(queuedCreatedAt);
+    final bs = NepaliDateHelper.toNepali(normalizedWall);
+    final bsStr =
+        '${bs.year}-${bs.month.toString().padLeft(2, '0')}-${bs.day.toString().padLeft(2, '0')}';
+    final updatedDemo = Map<String, dynamic>.from(demo)
+      ..['intakeDate'] = bsStr
+      ..['date'] = bsStr;
+    return scan.copyWith(
+      demographics: updatedDemo,
+      intakeDate: bsStr,
+      scannedAt: queuedCreatedAt,
     );
   }
 
@@ -2109,7 +2178,11 @@ class OcrRepository implements IOcrRepository {
         final p2B64 = backRow.page2ImageBase64 ?? backRow.page1ImageBase64;
         final p2Path = backRow.page2ImagePath ?? backRow.page1ImagePath;
 
-        final mergedScan = OcrScanResultModel.merge(frontScan, backScan);
+        final earliestCreatedAt =
+            pRow.createdAt.isBefore(cRow.createdAt) ? pRow.createdAt : cRow.createdAt;
+        final mergedScan = OcrScanResultModel.merge(frontScan, backScan).copyWith(
+          scannedAt: earliestCreatedAt,
+        );
         await db.update(
           DatabaseTables.tableOfflineScanQueue,
           {
@@ -2119,6 +2192,7 @@ class OcrRepository implements IOcrRepository {
             'page2_image_path': p2Path,
             'patient_token_hint': primaryFormNo,
             'extracted_json': jsonEncode(mergedScan.toMap()),
+            'created_at': earliestCreatedAt.toIso8601String(),
             'updated_at': DateTime.now().toIso8601String(),
           },
           where: 'id = ?',
@@ -2152,6 +2226,7 @@ class OcrRepository implements IOcrRepository {
       );
 
       extracted = await extractQueuedOfflineItem(item);
+      DateTime effectiveScanDate = item.createdAt;
       if (!(item.hasPage1 && item.hasPage2)) {
         final paired = await _tryPairSinglePageItemDuringSync(
           db: db,
@@ -2159,7 +2234,11 @@ class OcrRepository implements IOcrRepository {
           primaryScan: extracted,
         );
         extracted = paired.scan;
+        if (paired.pairedItemId != null) {
+          effectiveScanDate = extracted.scannedAt;
+        }
       }
+      extracted = applyOfflineScanDateFallback(extracted, effectiveScanDate);
       await commitVerifiedScan(
         verifiedScan: extracted,
         campId: item.campId,
@@ -2173,6 +2252,7 @@ class OcrRepository implements IOcrRepository {
         primaryNurseName: extracted.examiningNurse,
         attendingNurseNames: extracted.attendingNurses,
         archiveItemId: item.id,
+        fallbackScanDate: effectiveScanDate,
         reviewStatus: 'needs_review',
       );
       return true;
@@ -2272,6 +2352,7 @@ class OcrRepository implements IOcrRepository {
         );
 
         extracted = await extractQueuedOfflineItem(item);
+        DateTime effectiveScanDate = item.createdAt;
         if (!(item.hasPage1 && item.hasPage2)) {
           final paired = await _tryPairSinglePageItemDuringSync(
             db: db,
@@ -2280,7 +2361,11 @@ class OcrRepository implements IOcrRepository {
             consumedIds: consumedIds,
           );
           extracted = paired.scan;
+          if (paired.pairedItemId != null) {
+            effectiveScanDate = extracted.scannedAt;
+          }
         }
+        extracted = applyOfflineScanDateFallback(extracted, effectiveScanDate);
         await commitVerifiedScan(
           verifiedScan: extracted,
           campId: item.campId,
@@ -2294,6 +2379,7 @@ class OcrRepository implements IOcrRepository {
           primaryNurseName: extracted.examiningNurse,
           attendingNurseNames: extracted.attendingNurses,
           archiveItemId: item.id,
+          fallbackScanDate: effectiveScanDate,
           reviewStatus: 'needs_review',
         );
 
